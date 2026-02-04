@@ -70,6 +70,32 @@ type (
 	SaveSemanticInfoResp {
 		Code int32 `json:"code"`
 	}
+	// ====== 接口5: 查询业务对象识别结果 ======
+	// 业务对象属性
+	BusinessObjectAttribute {
+		Id                string  `json:"id"`
+		AttrName          string  `json:"attr_name"`
+		FormViewFieldId   string  `json:"form_view_field_id"`
+		FieldTechName     string  `json:"field_tech_name"`
+		FieldBusinessName *string `json:"field_business_name"`
+		FieldRole         *int8   `json:"field_role"`
+		FieldType         string  `json:"field_type"`
+	}
+	// 业务对象
+	BusinessObject {
+		Id         string                    `json:"id"`
+		ObjectName string                    `json:"object_name"`
+		Attributes []BusinessObjectAttribute `json:"attributes"`
+	}
+	GetBusinessObjectsReq {
+		Id       string  `path:"id" validate:"required"`
+		ObjectId *string `form:"object_id"`
+		Keyword  *string `form:"keyword"`
+	}
+	GetBusinessObjectsResp {
+		CurrentVersion int              `json:"current_version"`
+		List           []BusinessObject `json:"list"`
+	}
 )
 
 // ============================================
@@ -114,5 +140,9 @@ service api {
 	@doc "保存库表信息补全数据"
 	@handler SaveSemanticInfo
 	put /:id/semantic-info (SaveSemanticInfoReq) returns (SaveSemanticInfoResp)
+
+	@doc "查询业务对象识别结果"
+	@handler GetBusinessObjects
+	get /:id/business-objects (GetBusinessObjectsReq) returns (GetBusinessObjectsResp)
 }
 

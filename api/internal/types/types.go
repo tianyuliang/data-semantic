@@ -3,6 +3,22 @@
 
 package types
 
+type BusinessObject struct {
+	Id         string                    `json:"id"`
+	ObjectName string                    `json:"object_name"`
+	Attributes []BusinessObjectAttribute `json:"attributes"`
+}
+
+type BusinessObjectAttribute struct {
+	Id                string  `json:"id"`
+	AttrName          string  `json:"attr_name"`
+	FormViewFieldId   string  `json:"form_view_field_id"`
+	FieldTechName     string  `json:"field_tech_name"`
+	FieldBusinessName *string `json:"field_business_name"`
+	FieldRole         *int8   `json:"field_role"`
+	FieldType         string  `json:"field_type"`
+}
+
 type EmptyResp struct {
 }
 

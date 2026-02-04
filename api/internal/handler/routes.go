@@ -28,6 +28,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 查询业务对象识别结果
+				Method:  http.MethodGet,
+				Path:    "/:id/business-objects",
+				Handler: data_semantic.GetBusinessObjectsHandler(serverCtx),
+			},
+			{
 				// 查询字段语义补全数据
 				Method:  http.MethodGet,
 				Path:    "/:id/fields",

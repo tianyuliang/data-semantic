@@ -5,7 +5,9 @@
       "Bash(go clean:*)",
       "Bash(go test:*)",
       "Bash(goctl api go:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }

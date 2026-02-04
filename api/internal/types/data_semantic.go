@@ -11,6 +11,17 @@ type GenerateUnderstandingResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
 }
 
+type GetBusinessObjectsReq struct {
+	Id       string  `path:"id" validate:"required"`
+	ObjectId *string `form:"object_id"`
+	Keyword  *string `form:"keyword"`
+}
+
+type GetBusinessObjectsResp struct {
+	CurrentVersion int              `json:"current_version"`
+	List           []BusinessObject `json:"list"`
+}
+
 type GetFieldsReq struct {
 	Id             string  `path:"id" validate:"required"`
 	Keyword        *string `form:"keyword"`
