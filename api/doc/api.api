@@ -130,6 +130,13 @@ type (
 	SubmitUnderstandingResp {
 		Success bool `json:"success"`
 	}
+	// ====== 接口10: 删除识别结果 ======
+	DeleteBusinessObjectsReq {
+		Id string `path:"id" validate:"required"`
+	}
+	DeleteBusinessObjectsResp {
+		Success bool `json:"success"`
+	}
 )
 
 // ============================================
@@ -194,5 +201,9 @@ service api {
 	@doc "提交确认理解数据"
 	@handler SubmitUnderstanding
 	post /:id/submit (SubmitUnderstandingReq) returns (SubmitUnderstandingResp)
+
+	@doc "删除识别结果"
+	@handler DeleteBusinessObjects
+	delete /:id/business-objects (DeleteBusinessObjectsReq) returns (DeleteBusinessObjectsResp)
 }
 

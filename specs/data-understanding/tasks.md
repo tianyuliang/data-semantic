@@ -354,16 +354,16 @@
 
 ### Step 1: API 定义
 
-- [ ] T077 [IF10] 定义 DeleteBusinessObjects 接口
-- [ ] T078 [IF10] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T077 [IF10] 定义 DeleteBusinessObjects 接口
+- [X] T078 [IF10] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Logic 层实现
 
-- [ ] T079 [IF10] 实现 `delete_business_objects_logic.go`
+- [X] T079 [IF10] 实现 `delete_business_objects_logic.go`
   - 状态校验 (仅允许状态 2)
   - 逻辑删除临时表数据
   - 根据正式表是否有数据决定保持状态 3 或回退到 0
-- [ ] T080 [IF10] **[TEST]** 创建 `delete_business_objects_logic_test.go`
+- [X] T080 [IF10] **[TEST]** 创建 `delete_business_objects_logic_test.go`
 
 **Checkpoint**: ✅ 接口10 完成 - 可验证删除逻辑
 

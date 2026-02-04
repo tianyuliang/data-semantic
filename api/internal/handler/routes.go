@@ -40,6 +40,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: data_semantic.SaveBusinessObjectsHandler(serverCtx),
 			},
 			{
+				// 删除识别结果
+				Method:  http.MethodDelete,
+				Path:    "/:id/business-objects",
+				Handler: data_semantic.DeleteBusinessObjectsHandler(serverCtx),
+			},
+			{
 				// 调整属性归属业务对象
 				Method:  http.MethodPut,
 				Path:    "/:id/business-objects/attributes/move",

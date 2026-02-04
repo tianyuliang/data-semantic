@@ -3,6 +3,14 @@
 
 package types
 
+type DeleteBusinessObjectsReq struct {
+	Id string `path:"id" validate:"required"`
+}
+
+type DeleteBusinessObjectsResp struct {
+	Success bool `json:"success"`
+}
+
 type GenerateUnderstandingReq struct {
 	Id string `path:"id" validate:"required"`
 }
