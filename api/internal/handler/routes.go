@@ -46,6 +46,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: data_semantic.MoveAttributeHandler(serverCtx),
 			},
 			{
+				// 重新识别业务对象
+				Method:  http.MethodPost,
+				Path:    "/:id/business-objects/regenerate",
+				Handler: data_semantic.RegenerateBusinessObjectsHandler(serverCtx),
+			},
+			{
 				// 查询字段语义补全数据
 				Method:  http.MethodGet,
 				Path:    "/:id/fields",

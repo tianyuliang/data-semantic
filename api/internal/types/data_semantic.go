@@ -56,6 +56,15 @@ type MoveAttributeResp struct {
 	BusinessObjectId string `json:"business_object_id"`
 }
 
+type RegenerateBusinessObjectsReq struct {
+	Id string `path:"id" validate:"required"`
+}
+
+type RegenerateBusinessObjectsResp struct {
+	ObjectCount    int `json:"object_count"`
+	AttributeCount int `json:"attribute_count"`
+}
+
 type SaveBusinessObjectsReq struct {
 	Type string `json:"type" validate:"required,oneof=object attribute"`
 	Id   string `json:"id" validate:"required"`

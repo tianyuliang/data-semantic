@@ -298,16 +298,16 @@
 
 ### Step 1: API 定义
 
-- [ ] T066 [IF8] 定义 RegenerateBusinessObjects 接口
-- [ ] T067 [IF8] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T066 [IF8] 定义 RegenerateBusinessObjects 接口
+- [X] T067 [IF8] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Logic 层实现
 
-- [ ] T068 [IF8] 实现 `regenerate_business_objects_logic.go`
+- [X] T068 [IF8] 实现 `regenerate_business_objects_logic.go`
   - 状态校验 (2 或 3)
   - 版本号递增逻辑
   - Kafka 消息发送
-- [ ] T069 [IF8] **[TEST]** 创建 `regenerate_business_objects_logic_test.go`
+- [X] T069 [IF8] **[TEST]** 创建 `regenerate_business_objects_logic_test.go`
 
 **Checkpoint**: ✅ 接口8 完成 - 可验证版本号递增
 
