@@ -5,9 +5,15 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_info_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view_field"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,49 +37,152 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 	logx.Infof("GetFields called with id: %s, keyword: %v, only_incomplete: %v",
 		req.Id, req.Keyword, req.OnlyIncomplete)
 
-	// 1. 查询 form_view 的 understand_status 和 current_version
-	// TODO: 查询 form_view 表
-	// SELECT understand_status, current_version FROM form_view WHERE id = ?
-	// understandStatus, currentVersion := ...
-
-	// 临时返回值 (用于测试)
-	understandStatus := int8(0)
-	currentVersion := 0
-	tableTechName := "test_table"
-
-	// 2. 根据状态返回不同数据源
-	if understandStatus == 0 {
-		// 状态 0: 未理解，返回空数据
-		resp = &types.GetFieldsResp{
-			CurrentVersion:    0,
-			TableBusinessName: nil,
-			TableTechName:     tableTechName,
-			TableDescription:  nil,
-			Fields:            []types.FieldSemanticInfo{},
-		}
-		return resp, nil
+	// 1. 查询 form_view 表获取 understand_status 和 table_tech_name
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	tableInfo, err := formViewModel.GetTableInfo(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表视图信息失败: %w", err)
 	}
 
-	// 3. 状态 2 (待确认) 或 3 (已完成) - 查询临时表或正式表
-	// TODO: 根据状态查询 t_form_view_info_temp 或正式表
-	// tableInfo, err := queryTableInfo(l.ctx, req.Id, currentVersion)
+	// 2. 根据状态返回不同数据源
+	understandStatus := tableInfo.UnderstandStatus
+	tableTechName := tableInfo.TableTechName
 
-	// TODO: 查询字段列表 t_form_view_field_info_temp 或正式表
-	// fields, err := queryFields(l.ctx, req.Id, currentVersion, req.Keyword, req.OnlyIncomplete)
+	// 状态 2 (待确认) - 查询临时表
+	if understandStatus == 2 {
+		return l.getFieldsFromTemp(req, tableTechName)
+	}
 
-	// 4. 过滤 only_incomplete (只返回未补全的字段)
-	// if req.OnlyIncomplete != nil && *req.OnlyIncomplete {
-	//     fields = filterIncompleteFields(fields)
-	// }
+	// 其他状态 (0-未理解, 3-已完成, 4-已发布) - 查询正式表
+	return l.getFieldsFromFormal(req, tableTechName)
+}
 
-	// 临时返回值 (用于测试)
-	resp = &types.GetFieldsResp{
-		CurrentVersion:    currentVersion,
+// getFieldsFromTemp 从临时表查询数据
+func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechName string) (*types.GetFieldsResp, error) {
+	// 查询临时表信息
+	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlConn(l.svcCtx.DB)
+	tableInfoTemp, err := formViewInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表信息临时表失败: %w", err)
+	}
+
+	// 查询字段信息临时表
+	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlConn(l.svcCtx.DB)
+	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询字段信息临时表失败: %w", err)
+	}
+
+	// 查询基础字段信息 (field_tech_name, field_type)
+	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
+	baseFields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询基础字段信息失败: %w", err)
+	}
+
+	// 构建字段ID到基础信息的映射
+	baseFieldMap := make(map[string]*form_view_field.FormViewFieldBase)
+	for _, f := range baseFields {
+		baseFieldMap[f.Id] = f
+	}
+
+	// 构建字段信息
+	fields := l.buildFieldInfo(fieldsTemp, baseFieldMap)
+
+	// 应用过滤条件
+	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
+
+	return &types.GetFieldsResp{
+		CurrentVersion:    tableInfoTemp.Version,
+		TableBusinessName: tableInfoTemp.TableBusinessName,
+		TableTechName:     tableTechName,
+		TableDescription:  tableInfoTemp.TableDescription,
+		Fields:            fields,
+	}, nil
+}
+
+// getFieldsFromFormal 从正式表查询数据
+func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechName string) (*types.GetFieldsResp, error) {
+	// 查询正式表的字段完整信息 (从 form_view_field 获取包含语义信息的完整数据)
+	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
+	fullFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询字段完整信息失败: %w", err)
+	}
+
+	// 构建字段信息
+	fields := make([]types.FieldSemanticInfo, 0, len(fullFields))
+	for _, f := range fullFields {
+		fields = append(fields, types.FieldSemanticInfo{
+			FormViewFieldId:   f.Id,
+			FieldBusinessName: f.FieldBusinessName,
+			FieldTechName:     f.FieldTechName,
+			FieldType:         f.FieldType,
+			FieldRole:         f.FieldRole,
+			FieldDescription:  f.FieldDescription,
+		})
+	}
+
+	// 应用过滤条件
+	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
+
+	return &types.GetFieldsResp{
+		CurrentVersion:    0, // 正式表无版本号概念
 		TableBusinessName: nil,
 		TableTechName:     tableTechName,
 		TableDescription:  nil,
-		Fields:            []types.FieldSemanticInfo{},
+		Fields:            fields,
+	}, nil
+}
+
+// buildFieldInfo 构建字段信息
+func (l *GetFieldsLogic) buildFieldInfo(fieldsTemp []*form_view_field_info_temp.FormViewFieldInfoTemp, baseFieldMap map[string]*form_view_field.FormViewFieldBase) []types.FieldSemanticInfo {
+	fields := make([]types.FieldSemanticInfo, 0, len(fieldsTemp))
+	for _, ft := range fieldsTemp {
+		baseInfo, exists := baseFieldMap[ft.FormViewFieldId]
+		if !exists {
+			logx.WithContext(l.ctx).Infof("字段 %s 在基础表 中不存在", ft.FormViewFieldId)
+			continue
+		}
+		fields = append(fields, types.FieldSemanticInfo{
+			FormViewFieldId:   ft.FormViewFieldId,
+			FieldBusinessName: ft.FieldBusinessName,
+			FieldTechName:     baseInfo.FieldTechName,
+			FieldType:         baseInfo.FieldType,
+			FieldRole:         ft.FieldRole,
+			FieldDescription:  ft.FieldDescription,
+		})
+	}
+	return fields
+}
+
+// applyFilters 应用过滤条件
+func (l *GetFieldsLogic) applyFilters(fields []types.FieldSemanticInfo, keyword *string, onlyIncomplete *bool) []types.FieldSemanticInfo {
+	result := fields
+
+	// 关键字过滤
+	if keyword != nil && *keyword != "" {
+		filtered := make([]types.FieldSemanticInfo, 0)
+		for _, f := range result {
+			if strings.Contains(strings.ToLower(f.FieldTechName), strings.ToLower(*keyword)) ||
+				(f.FieldBusinessName != nil && strings.Contains(strings.ToLower(*f.FieldBusinessName), strings.ToLower(*keyword))) {
+				filtered = append(filtered, f)
+			}
+		}
+		result = filtered
 	}
 
-	return resp, nil
+	// only_incomplete 过滤 (只返回未补全的字段)
+	if onlyIncomplete != nil && *onlyIncomplete {
+		filtered := make([]types.FieldSemanticInfo, 0)
+		for _, f := range result {
+			// 判断是否未补全：field_business_name 为空 或 field_role 为空
+			if f.FieldBusinessName == nil || f.FieldRole == nil {
+				filtered = append(filtered, f)
+			}
+		}
+		result = filtered
+	}
+
+	return result
 }

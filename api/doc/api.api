@@ -19,7 +19,6 @@ type (
 	}
 	GetStatusResp {
 		UnderstandStatus int8 `json:"understand_status"`
-		CurrentVersion   int  `json:"current_version"`
 	}
 	// ====== 接口2: 一键生成理解数据 ======
 	GenerateUnderstandingReq {

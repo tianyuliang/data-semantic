@@ -4,6 +4,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/jinguoxing/idrm-go-base/telemetry"
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -19,6 +21,40 @@ type Config struct {
 
 	// Swagger 配置
 	Swagger SwaggerConfig
+
+	// 数据库配置
+	DB DBConfig
+}
+
+// DBConfig 数据库配置
+type DBConfig struct {
+	Default DatabaseConfig `json:",default"`
+}
+
+// DatabaseConfig 数据库连接配置
+type DatabaseConfig struct {
+	Host            string `json:",default=localhost"`
+	Port            int    `json:",default=3306"`
+	Database        string `json:",optional"`
+	Username        string `json:",optional"`
+	Password        string `json:",optional"`
+	Charset         string `json:",default=utf8mb4"`
+	MaxIdleConns    int    `json:",default=10"`
+	MaxOpenConns    int    `json:",default=100"`
+	ConnMaxLifetime int    `json:",default=3600"`
+	ConnMaxIdleTime int    `json:",default=600"`
+}
+
+// DataSource 生成数据源连接字符串
+func (d DatabaseConfig) DataSource() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local",
+		d.Username,
+		d.Password,
+		d.Host,
+		d.Port,
+		d.Database,
+		d.Charset,
+	)
 }
 
 // AuthConfig JWT 认证配置

@@ -5,9 +5,11 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,19 +30,22 @@ func NewGetStatusLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetStat
 }
 
 func (l *GetStatusLogic) GetStatus(req *types.GetStatusReq) (resp *types.GetStatusResp, err error) {
-	// TODO: 实现 GetStatus 逻辑
-	// 1. 从 form_view 表查询 understand_status
-	// 2. 根据 understand_status 决定版本号来源:
-	//    - 状态 0/3/4: 正式表无版本概念，返回 0
-	//    - 状态 2: 从 t_form_view_info_temp 查询当前版本
-	//
-	// 数据库 Model 层创建后将完善此逻辑
+	logx.Infof("GetStatus called with id: %s", req.Id)
 
-	// 临时返回模拟数据
-	resp = &types.GetStatusResp{
-		UnderstandStatus: 0, // 未理解
-		CurrentVersion:   0,
+	// 调用 Model 层查询 form_view 状态
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		logx.Errorf("Failed to query form_view: %v", err)
+		return nil, fmt.Errorf("查询库表视图失败: %w", err)
 	}
+
+	resp = &types.GetStatusResp{
+		UnderstandStatus: formViewData.UnderstandStatus,
+	}
+
+	logx.Infof("GetStatus success: form_view_id=%s, status=%d",
+		req.Id, formViewData.UnderstandStatus)
 
 	return resp, nil
 }
