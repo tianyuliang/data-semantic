@@ -24,6 +24,12 @@ type Config struct {
 
 	// 数据库配置
 	DB DBConfig
+
+	// Redis 配置
+	Redis RedisConfig
+
+	// Kafka 配置
+	Kafka KafkaConfig
 }
 
 // DBConfig 数据库配置
@@ -68,3 +74,24 @@ type SwaggerConfig struct {
 	Enabled bool   `json:",default=true"`
 	Path    string `json:",default=api/doc/swagger"`
 }
+
+// RedisConfig Redis 配置
+type RedisConfig struct {
+	Host     string `json:",default=localhost"`
+	Port     int    `json:",default=6379"`
+	Password string `json:",optional"`
+	DB       int    `json:",default=0"`
+}
+
+// Addr 返回 Redis 地址
+func (r RedisConfig) Addr() string {
+	return fmt.Sprintf("%s:%d", r.Host, r.Port)
+}
+
+// KafkaConfig Kafka 配置
+type KafkaConfig struct {
+	Brokers []string `json:",optional"` // Kafka broker 地址列表
+}
+
+// RequestsTopic 请求消息 Topic
+const RequestsTopic = "data-understanding-requests"
