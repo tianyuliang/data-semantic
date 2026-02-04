@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(goctl api swagger:*)",
+      "Bash(go clean:*)"
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+Name: data-semantic-consumer
+Mode: ${LOG_MODE:-console}
+
+# 日志配置
+Log:
+  ServiceName: data-semantic-consumer
+  Mode: ${LOG_MODE:-console}
+  Level: ${LOG_LEVEL:-info}
+
+# 链路追踪
+Telemetry:
+  Name: data-semantic-consumer
+  Endpoint: ${TRACE_ENDPOINT}
+  Sampler: 1.0
+  Batcher: jaeger
+
+# 消息队列配置
+MQ:
+  # 类型：kafka, redis
+  Type: ${MQ_TYPE:-kafka}
+  
+  # Kafka 配置
+  Kafka:
+    Brokers:
+      - ${KAFKA_BROKERS:-localhost:9092}
+    Topic: ${KAFKA_TOPIC:-orders}
+    Group: ${KAFKA_GROUP:-consumer-group}
+  
+  # Redis 配置 (当 Type=redis 时使用)
+  Redis:
+    Host: ${REDIS_HOST:-localhost}
+    Port: ${REDIS_PORT:-6379}
+    Password: ${REDIS_PASSWORD}
+    Channel: ${REDIS_CHANNEL:-messages}
+
+# 数据库配置
+DB:
+  Default:
+    Host: ${DB_HOST:-localhost}
+    Port: ${DB_PORT:-3306}
+    Database: ${DB_NAME:-idrm}
+    Username: ${DB_USER:-root}
+    Password: ${DB_PASSWORD}
+    Charset: utf8mb4
+    MaxIdleConns: ${DB_MAX_IDLE_CONNS:-10}
+    MaxOpenConns: ${DB_MAX_OPEN_CONNS:-100}
+    ConnMaxLifetime: 3600
+    LogLevel: ${DB_LOG_LEVEL:-warn}
+    SlowThreshold: 200

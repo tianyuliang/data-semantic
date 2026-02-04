@@ -1,0 +1,14 @@
+syntax = "v1"
+
+import "../base.api"
+
+type (
+    // ====== 接口1: 查询库表理解状态 ======
+    GetStatusReq {
+        Id string `path:"id" validate:"required"`
+    }
+    GetStatusResp {
+        UnderstandStatus int8 `json:"understand_status"`
+        CurrentVersion   int  `json:"current_version"`
+    }
+)

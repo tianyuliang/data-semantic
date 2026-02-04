@@ -1,115 +1,133 @@
-# Feature Specification: [FEATURE NAME]
+# {{feature_name}} Specification
 
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
-**Status**: Draft  
-**Input**: User description: "$ARGUMENTS"
+> **Branch**: `feature/{{feature_name}}`  
+> **Spec Path**: `specs/{{feature_name}}/`  
+> **Created**: {{date}}  
 
-## User Scenarios & Testing *(mandatory)*
+> **Status**: Draft
+
+---
+
+## Overview
+
+<!-- 功能概述（1-2句话），让任何人快速理解功能目的 -->
+
+$ARGUMENTS
+
+---
+
+## User Stories
 
 <!--
-  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
-  you should still have a viable MVP (Minimum Viable Product) that delivers value.
+  用户故事按优先级排序，每个 Story 应可独立测试和交付。
   
-  Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
-  Think of each story as a standalone slice of functionality that can be:
-  - Developed independently
-  - Tested independently
-  - Deployed independently
-  - Demonstrated to users independently
+  简单功能（单一 CRUD）：只需一个 P1 Story，省略优先级说明
+  复杂功能（多场景）：按 P1/P2/P3 拆分，说明优先级原因
 -->
 
-### User Story 1 - [Brief Title] (Priority: P1)
+### Story 1: [标题] (P1)
 
-[Describe this user journey in plain language]
+AS a [角色]
+I WANT [功能]
+SO THAT [价值/目标]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**独立测试**: [如何验证此 Story 已完成]
 
-**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
+<!-- 复杂功能添加更多 Story，简单功能省略以下内容 -->
 
-**Acceptance Scenarios**:
+### Story 2: [标题] (P2)
 
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-2. **Given** [initial state], **When** [action], **Then** [expected outcome]
+AS a [角色]
+I WANT [功能]
+SO THAT [价值/目标]
+
+**独立测试**: [如何验证此 Story 已完成]
 
 ---
 
-### User Story 2 - [Brief Title] (Priority: P2)
+## Acceptance Criteria (EARS)
 
-[Describe this user journey in plain language]
+<!-- 使用 WHEN / THE SYSTEM SHALL 格式，按正常/异常分类 -->
 
-**Why this priority**: [Explain the value and why it has this priority level]
+### 正常流程
 
-**Independent Test**: [Describe how this can be tested independently]
+| ID | Scenario | Trigger | Expected Behavior |
+|----|----------|---------|-------------------|
+| AC-01 | 创建成功 | WHEN 用户提交有效数据 | THE SYSTEM SHALL 保存并返回 201 |
+| AC-02 | 查询成功 | WHEN 用户查询存在的资源 | THE SYSTEM SHALL 返回资源详情 |
+| AC-03 | 更新成功 | WHEN 用户更新有效数据 | THE SYSTEM SHALL 保存并返回 200 |
+| AC-04 | 删除成功 | WHEN 用户删除存在的资源 | THE SYSTEM SHALL 删除并返回 204 |
 
-**Acceptance Scenarios**:
+### 异常处理
 
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-### User Story 3 - [Brief Title] (Priority: P3)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
+| ID | Scenario | Trigger | Expected Behavior |
+|----|----------|---------|-------------------|
+| AC-10 | 参数为空 | WHEN 必填参数为空 | THE SYSTEM SHALL 返回 400 |
+| AC-11 | 资源不存在 | WHEN 查询不存在的 ID | THE SYSTEM SHALL 返回 404 |
+| AC-12 | 名称重复 | WHEN 名称与已有资源重复 | THE SYSTEM SHALL 返回 409 |
+| AC-13 | 权限不足 | WHEN 用户无操作权限 | THE SYSTEM SHALL 返回 403 |
 
 ---
 
-[Add more user stories as needed, each with an assigned priority]
+## Edge Cases
 
-### Edge Cases
+<!-- 边界情况和特殊场景，补充主流程外的边界情况 -->
 
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
--->
+| ID | Case | Expected Behavior |
+|----|------|-------------------|
+| EC-01 | 并发创建同名资源 | 仅一个成功，其他返回 409 |
+| EC-02 | 删除被引用的资源 | 返回 400，提示存在关联 |
+| EC-03 | 批量操作部分失败 | 返回失败项列表 |
 
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
+---
 
-## Requirements *(mandatory)*
+## Business Rules
 
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
+<!-- 业务规则（非技术实现） -->
 
-### Functional Requirements
+| ID | Rule | Description |
+|----|------|-------------|
+| BR-01 | 名称唯一 | 同一模块下名称不能重复 |
+| BR-02 | 层级限制 | 最大支持 N 层嵌套 |
+| BR-03 | 状态流转 | 只能按指定顺序流转 |
 
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+---
 
-*Example of marking unclear requirements:*
+## Data Considerations
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+<!-- 需要持久化的数据（不是表结构），为 Phase 2 设计提供输入 -->
 
-### Key Entities *(include if feature involves data)*
+| Field | Description | Constraints |
+|-------|-------------|-------------|
+| 名称 | 资源名称 | 必填，1-50 字符，唯一 |
+| 编码 | 资源编码 | 可选，小写字母+数字+下划线 |
+| 状态 | 资源状态 | 启用/禁用 |
+| 排序 | 显示顺序 | 整数，默认 0 |
 
-- **[Entity 1]**: [What it represents, key attributes without implementation]
-- **[Entity 2]**: [What it represents, relationships to other entities]
+---
 
-## Success Criteria *(mandatory)*
+## Success Metrics
 
-<!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
--->
+<!-- 可选：可测量的成功标准 -->
 
-### Measurable Outcomes
+| ID | Metric | Target |
+|----|--------|--------|
+| SC-01 | 接口响应时间 | < 200ms (P99) |
+| SC-02 | 测试覆盖率 | > 80% |
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+---
+
+## Open Questions
+
+<!-- 待澄清问题，避免假设 -->
+
+- [ ] 问题 1
+- [ ] 问题 2
+
+---
+
+## Revision History
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | {{date}} | - | 初始版本 |

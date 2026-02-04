@@ -1,0 +1,69 @@
+syntax = "v1"
+
+info (
+	title:   "data-semantic API"
+	desc:    "data-semantic API 服务"
+	version: "v1"
+)
+
+// 引入通用类型
+import "base.api"
+
+// ============================================
+// data_semantic 模块类型定义
+// ============================================
+type (
+	// ====== 接口1: 查询库表理解状态 ======
+	GetStatusReq {
+		Id string `path:"id" validate:"required"`
+	}
+	GetStatusResp {
+		UnderstandStatus int8 `json:"understand_status"`
+		CurrentVersion   int  `json:"current_version"`
+	}
+
+	// ====== 接口2: 一键生成理解数据 ======
+	GenerateUnderstandingReq {
+		Id string `path:"id" validate:"required"`
+	}
+	GenerateUnderstandingResp {
+		UnderstandStatus int8 `json:"understand_status"`
+	}
+)
+
+// ============================================
+// 主 service 定义
+// ============================================
+@server (
+	prefix: /api/v1
+	jwt:    Auth
+)
+service api {
+	// 健康检查 (示例)
+	@handler HealthCheck
+	get /health returns (HealthResp)
+}
+
+// 健康检查响应
+type HealthResp {
+	Status string `json:"status"`
+}
+
+// ============================================
+// data_semantic service 定义
+// ============================================
+@server (
+	prefix: /api/v1/data-semantic
+	group:  data_semantic
+	jwt:    Auth
+)
+service api {
+	@doc "查询库表理解状态"
+	@handler GetStatus
+	get /:id/status (GetStatusReq) returns (GetStatusResp)
+
+	@doc "一键生成理解数据"
+	@handler GenerateUnderstanding
+	post /:id/generate (GenerateUnderstandingReq) returns (GenerateUnderstandingResp)
+}
+

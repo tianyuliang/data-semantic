@@ -1,0 +1,69 @@
+Name: data-semantic-api
+Host: 0.0.0.0
+Port: ${API_PORT:-8888}
+
+# Telemetry 配置
+Telemetry:
+  ServiceName: data-semantic-api
+  ServiceVersion: ${SERVICE_VERSION:-1.0.0}
+  Environment: ${ENVIRONMENT:-dev}
+  
+  Log:
+    Level: ${LOG_LEVEL:-info}
+    Mode: ${LOG_MODE:-file}
+    Path: logs
+    KeepDays: 7
+    RemoteEnabled: false
+    RemoteUrl: ${LOG_REMOTE_URL:-http://log-collector:8080/api/logs}
+    RemoteBatch: 100
+    RemoteTimeout: 5
+    
+  Trace:
+    Enabled: ${TRACE_ENABLED:-false}
+    Endpoint: ${TRACE_ENDPOINT:-localhost:4317}
+    Sampler: 1.0
+    Batcher: otlp
+    
+  Audit:
+    Enabled: ${AUDIT_ENABLED:-false}
+    Url: ${AUDIT_URL:-http://audit-service:8080/api/audit}
+    Buffer: 100
+
+# 数据库配置
+DB:
+  Default:
+    Host: ${DB_HOST:-localhost}
+    Port: ${DB_PORT:-3306}
+    Database: ${DB_NAME:-idrm}
+    Username: ${DB_USER:-root}
+    Password: ${DB_PASSWORD}
+    Charset: utf8mb4
+    # 连接池配置
+    MaxIdleConns: ${DB_MAX_IDLE_CONNS:-10}
+    MaxOpenConns: ${DB_MAX_OPEN_CONNS:-100}
+    ConnMaxLifetime: 3600
+    ConnMaxIdleTime: 600
+    # 日志配置
+    LogLevel: ${DB_LOG_LEVEL:-warn}
+    SlowThreshold: 200
+    SkipDefaultTxn: true
+    PrepareStmt: true
+    SingularTable: true
+    DisableForeignKey: true
+
+# Redis 配置 (可选)
+Redis:
+  Host: ${REDIS_HOST:-localhost}
+  Port: ${REDIS_PORT:-6379}
+  DB: ${REDIS_DB:-0}
+  Password: ${REDIS_PASSWORD}
+
+# 认证配置
+Auth:
+  AccessSecret: ${ACCESS_SECRET}
+  AccessExpire: ${ACCESS_EXPIRE:-7200}
+
+# Swagger 配置
+Swagger:
+  Enabled: ${SWAGGER_ENABLED:-true}
+  Path: api/doc/swagger

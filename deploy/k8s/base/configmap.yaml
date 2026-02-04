@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-semantic-config
+  labels:
+    app: data-semantic
+data:
+  # 非敏感环境变量配置
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  LOG_MODE: "console"
+  
+  # 数据库配置 (非敏感)
+  DB_HOST: "localhost"
+  DB_PORT: "3306"
+  DB_NAME: "data-semantic"
+  DB_USER: "root"
+  DB_MAX_IDLE_CONNS: "10"
+  DB_MAX_OPEN_CONNS: "100"
+  DB_LOG_LEVEL: "warn"
+  
+  # 服务端口
+  API_PORT: "8888"
+  RPC_PORT: "9999"
+  
+  # 认证配置 (非敏感)
+  ACCESS_EXPIRE: "7200"
