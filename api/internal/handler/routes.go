@@ -75,6 +75,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/:id/status",
 				Handler: data_semantic.GetStatusHandler(serverCtx),
 			},
+			{
+				// 提交确认理解数据
+				Method:  http.MethodPost,
+				Path:    "/:id/submit",
+				Handler: data_semantic.SubmitUnderstandingHandler(serverCtx),
+			},
 		},
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 		rest.WithPrefix("/api/v1/data-semantic"),

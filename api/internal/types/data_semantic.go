@@ -84,3 +84,11 @@ type SaveSemanticInfoReq struct {
 type SaveSemanticInfoResp struct {
 	Code int32 `json:"code"`
 }
+
+type SubmitUnderstandingReq struct {
+	Id string `path:"id" validate:"required"`
+}
+
+type SubmitUnderstandingResp struct {
+	Success bool `json:"success"`
+}

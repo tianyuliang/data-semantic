@@ -123,6 +123,13 @@ type (
 		ObjectCount    int `json:"object_count"`
 		AttributeCount int `json:"attribute_count"`
 	}
+	// ====== 接口9: 提交确认理解数据 ======
+	SubmitUnderstandingReq {
+		Id string `path:"id" validate:"required"`
+	}
+	SubmitUnderstandingResp {
+		Success bool `json:"success"`
+	}
 )
 
 // ============================================
@@ -183,5 +190,9 @@ service api {
 	@doc "重新识别业务对象"
 	@handler RegenerateBusinessObjects
 	post /:id/business-objects/regenerate (RegenerateBusinessObjectsReq) returns (RegenerateBusinessObjectsResp)
+
+	@doc "提交确认理解数据"
+	@handler SubmitUnderstanding
+	post /:id/submit (SubmitUnderstandingReq) returns (SubmitUnderstandingResp)
 }
 
