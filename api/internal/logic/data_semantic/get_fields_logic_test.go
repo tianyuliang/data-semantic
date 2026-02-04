@@ -7,7 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 
@@ -199,6 +198,3 @@ func toLower(c byte) byte {
 	}
 	return c
 }
-
-// 测试配置
-var testConfig = config.Config{}

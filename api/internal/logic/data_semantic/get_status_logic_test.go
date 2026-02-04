@@ -7,7 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
@@ -83,6 +82,3 @@ func TestGetStatusLogic_GetStatus(t *testing.T) {
 		assert.Equal(t, form_view.StatusCompleted, resp.UnderstandStatus)
 	})
 }
-
-// 测试配置
-var testConfig = config.Config{}

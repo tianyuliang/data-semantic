@@ -7,7 +7,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
@@ -113,6 +112,3 @@ func TestGenerateUnderstandingLogic_GenerateUnderstanding(t *testing.T) {
 		assert.Nil(t, resp)
 	})
 }
-
-// 测试配置
-var testConfig = config.Config{}
