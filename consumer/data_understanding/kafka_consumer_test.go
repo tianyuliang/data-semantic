@@ -39,9 +39,9 @@ func TestProcessSuccessResponse(t *testing.T) {
 	messageId := "test-message-id"
 	formViewId := "test-form-view-id"
 	msg := map[string]interface{}{
-		"message_id":    messageId,
-		"form_view_id":  formViewId,
-		"request_time":   "2026-02-04T10:00:00Z",
+		"message_id":       messageId,
+		"form_view_id":     formViewId,
+		"request_time":     "2026-02-04T10:00:00Z",
 		"business_objects": []interface{}{},
 	}
 

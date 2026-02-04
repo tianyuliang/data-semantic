@@ -5,14 +5,14 @@ import "time"
 
 // BusinessObject 业务对象正式表结构
 type BusinessObject struct {
-	Id          string     `db:"id"`
-	ObjectName  string     `db:"object_name"`
-	ObjectType  int8       `db:"object_type"`
-	FormViewId  string     `db:"form_view_id"`
-	Status      int8       `db:"status"`
-	CreatedAt   time.Time  `db:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at"`
-	DeletedAt   *time.Time `db:"deleted_at"`
+	Id         string     `db:"id"`
+	ObjectName string     `db:"object_name"`
+	ObjectType int8       `db:"object_type"`
+	FormViewId string     `db:"form_view_id"`
+	Status     int8       `db:"status"`
+	CreatedAt  time.Time  `db:"created_at"`
+	UpdatedAt  time.Time  `db:"updated_at"`
+	DeletedAt  *time.Time `db:"deleted_at"`
 }
 
 // TableName 表名

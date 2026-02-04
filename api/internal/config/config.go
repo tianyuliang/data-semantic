@@ -4,8 +4,8 @@
 package config
 
 import (
-	"github.com/zeromicro/go-zero/rest"
 	"github.com/jinguoxing/idrm-go-base/telemetry"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 type Config struct {
@@ -23,7 +23,7 @@ type Config struct {
 
 // AuthConfig JWT 认证配置
 type AuthConfig struct {
-	AccessSecret string `json:",optional"` // JWT 签名密钥
+	AccessSecret string `json:",optional"`     // JWT 签名密钥
 	AccessExpire int64  `json:",default=7200"` // Token 过期时间(秒)
 }
 

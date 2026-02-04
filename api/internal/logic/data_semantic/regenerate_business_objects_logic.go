@@ -6,7 +6,6 @@ package data_semantic
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 
@@ -62,10 +61,4 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 	}
 
 	return resp, nil
-}
-
-// 辅助函数：生成消息ID
-func generateRegenerateMessageId() string {
-	id, _ := uuid.NewV7()
-	return id.String()
 }

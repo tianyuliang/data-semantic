@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,7 @@ func TestKafkaMessageLogModel_Insert(t *testing.T) {
 
 	tx, err := db.Beginx()
 	assert.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	model := NewKafkaMessageLogModel(tx)
 
@@ -50,7 +50,7 @@ func TestKafkaMessageLogModel_FindOneByMessageId(t *testing.T) {
 
 	tx, err := db.Beginx()
 	assert.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	model := NewKafkaMessageLogModel(tx)
 

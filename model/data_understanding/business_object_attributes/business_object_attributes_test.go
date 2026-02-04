@@ -2,29 +2,13 @@
 package business_object_attributes
 
 import (
-	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBusinessObjectAttributesModel_Insert(t *testing.T) {
 	// TODO: 实现插入测试
-	// tx := testDB.Beginx()
-	// defer tx.Rollback()
-	// model := NewBusinessObjectAttributesModel(tx)
-	// data := &BusinessObjectAttributes{
-	//     Id:               "test-id",
-	//     FormViewId:       "test-form-view-id",
-	//     BusinessObjectId: "test-business-object-id",
-	//     FormViewFieldId:  "test-field-id",
-	//     AttrName:         "测试属性",
-	// }
-	// result, err := model.Insert(context.Background(), data)
-	// assert.NoError(t, err)
-	// assert.NotNil(t, result)
 }
 
 func TestBusinessObjectAttributesModel_FindByBusinessObjectId(t *testing.T) {

@@ -52,7 +52,7 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 		fieldDescription := "测试字段描述"
 
 		req := &types.SaveSemanticInfoReq{
-			Id: "test-form-view-id",
+			Id:        "test-form-view-id",
 			TableData: nil,
 			FieldData: &types.SaveSemanticInfoFieldData{
 				Id:                &fieldId,

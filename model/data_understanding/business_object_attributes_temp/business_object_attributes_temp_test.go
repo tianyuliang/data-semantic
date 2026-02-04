@@ -5,8 +5,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +24,7 @@ func TestBusinessObjectAttributesTempModel_Insert(t *testing.T) {
 
 	tx, err := db.Beginx()
 	assert.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	model := NewBusinessObjectAttributesTempModel(tx)
 
@@ -52,7 +52,7 @@ func TestBusinessObjectAttributesTempModel_FindByBusinessObjectId(t *testing.T) 
 
 	tx, err := db.Beginx()
 	assert.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	model := NewBusinessObjectAttributesTempModel(tx)
 
@@ -71,7 +71,7 @@ func TestBusinessObjectAttributesTempModel_FindByFormViewAndVersion(t *testing.T
 
 	tx, err := db.Beginx()
 	assert.NoError(t, err)
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	model := NewBusinessObjectAttributesTempModel(tx)
 

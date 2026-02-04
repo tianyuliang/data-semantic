@@ -2,26 +2,10 @@
 package business_object
 
 import (
-	"context"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/assert"
 )
-
-var testDB *sqlx.DB
-
-func TestMain(m *testing.M) {
-	// TODO: 初始化测试数据库连接
-	// dsn := "user:password@tcp(localhost:3306)/test_db?parseTime=true"
-	// var err error
-	// testDB, err = sqlx.Connect("mysql", dsn)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	m.Run()
-}
 
 func TestBusinessObjectModel_Insert(t *testing.T) {
 	// TODO: 实现插入测试
@@ -42,12 +26,6 @@ func TestBusinessObjectModel_Insert(t *testing.T) {
 
 func TestBusinessObjectModel_FindByFormViewId(t *testing.T) {
 	// TODO: 实现查询测试
-	// tx := testDB.Beginx()
-	// defer tx.Rollback()
-	// model := NewBusinessObjectModel(tx)
-	// results, err := model.FindByFormViewId(context.Background(), "test-form-view-id")
-	// assert.NoError(t, err)
-	// assert.NotNil(t, results)
 }
 
 func TestBusinessObjectModel_FindOneById(t *testing.T) {

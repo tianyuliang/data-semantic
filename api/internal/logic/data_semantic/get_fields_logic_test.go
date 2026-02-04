@@ -82,4 +82,3 @@ func TestGetFieldsLogic_GetFields(t *testing.T) {
 		assert.NotNil(t, resp)
 	})
 }
-

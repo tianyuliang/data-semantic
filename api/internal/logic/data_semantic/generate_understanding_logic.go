@@ -6,7 +6,6 @@ package data_semantic
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -66,10 +65,4 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	}
 
 	return resp, nil
-}
-
-// 辅助函数：生成消息ID
-func generateMessageId() string {
-	id, _ := uuid.NewV7()
-	return id.String()
 }

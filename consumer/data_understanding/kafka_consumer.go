@@ -25,7 +25,7 @@ func NewKafkaConsumer(brokers []string, groupID string, topics []string) (*Kafka
 	// Kafka 配置
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
-	config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
+	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 	// 创建消费者组

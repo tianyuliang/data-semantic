@@ -85,9 +85,9 @@ func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, m
 func (h *DataUnderstandingHandler) recordFailure(ctx context.Context, msg map[string]interface{}, err error) error {
 	// 记录结构化日志
 	logData := map[string]interface{}{
-		"timestamp":    msg["request_time"],
-		"level":        "error",
-		"message":      "Kafka message processing failed",
+		"timestamp": msg["request_time"],
+		"level":     "error",
+		"message":   "Kafka message processing failed",
 		"context": map[string]interface{}{
 			"message_id":   msg["message_id"],
 			"form_view_id": msg["form_view_id"],
