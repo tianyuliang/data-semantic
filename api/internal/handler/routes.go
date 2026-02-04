@@ -28,10 +28,22 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 查询字段语义补全数据
+				Method:  http.MethodGet,
+				Path:    "/:id/fields",
+				Handler: data_semantic.GetFieldsHandler(serverCtx),
+			},
+			{
 				// 一键生成理解数据
 				Method:  http.MethodPost,
 				Path:    "/:id/generate",
 				Handler: data_semantic.GenerateUnderstandingHandler(serverCtx),
+			},
+			{
+				// 保存库表信息补全数据
+				Method:  http.MethodPut,
+				Path:    "/:id/semantic-info",
+				Handler: data_semantic.SaveSemanticInfoHandler(serverCtx),
 			},
 			{
 				// 查询库表理解状态

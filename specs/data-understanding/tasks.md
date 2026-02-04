@@ -176,19 +176,19 @@
 
 ### Step 1: API 定义
 
-- [ ] T040 [IF3] 定义 GetFields 接口
-- [ ] T041 [IF3] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T040 [IF3] 定义 GetFields 接口
+- [X] T041 [IF3] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Model 层实现
 
-- [ ] T042 [P] [IF3] 创建 `model/data_understanding/form_view_info_temp/` 目录文件
-- [ ] T043 [P] [IF3] 创建 `model/data_understanding/form_view_field_info_temp/` 目录文件
-- [ ] T044 [IF3] **[TEST]** 创建临时表 Model 测试
+- [X] T042 [P] [IF3] 创建 `model/data_understanding/form_view_info_temp/` 目录文件
+- [X] T043 [P] [IF3] 创建 `model/data_understanding/form_view_field_info_temp/` 目录文件
+- [X] T044 [IF3] **[TEST]** 创建临时表 Model 测试
 
 ### Step 3: Logic 层实现
 
-- [ ] T045 [IF3] 实现 `get_fields_logic.go` (根据状态 0/2/3 返回不同数据源)
-- [ ] T046 [IF3] **[TEST]** 创建 `get_fields_logic_test.go`
+- [X] T045 [IF3] 实现 `get_fields_logic.go` (根据状态 0/2/3 返回不同数据源)
+- [X] T046 [IF3] **[TEST]** 创建 `get_fields_logic_test.go`
 
 **Checkpoint**: ✅ 接口3 完成 - 可验证不同状态的数据返回
 
@@ -204,13 +204,13 @@
 
 ### Step 1: API 定义
 
-- [ ] T047 [IF4] 定义 SaveSemanticInfo 接口
-- [ ] T048 [IF4] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T047 [IF4] 定义 SaveSemanticInfo 接口
+- [X] T048 [IF4] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Logic 层实现
 
-- [ ] T049 [IF4] 实现 `save_semantic_info_logic.go` (更新临时表，不递增版本)
-- [ ] T050 [IF4] **[TEST]** 创建 `save_semantic_info_logic_test.go`
+- [X] T049 [IF4] 实现 `save_semantic_info_logic.go` (更新临时表，不递增版本)
+- [X] T050 [IF4] **[TEST]** 创建 `save_semantic_info_logic_test.go`
 
 **Checkpoint**: ✅ 接口4 完成 - 配合接口3 验证编辑保存功能
 

@@ -6,6 +6,15 @@ package types
 type EmptyResp struct {
 }
 
+type FieldSemanticInfo struct {
+	FormViewFieldId   string  `json:"form_view_field_id"`
+	FieldBusinessName *string `json:"field_business_name"`
+	FieldTechName     string  `json:"field_tech_name"`
+	FieldType         string  `json:"field_type"`
+	FieldRole         *int8   `json:"field_role"`
+	FieldDescription  *string `json:"field_description"`
+}
+
 type HealthResp struct {
 	Status string `json:"status"`
 }
@@ -41,4 +50,17 @@ type PageInfoWithKeyword struct {
 type PageResp struct {
 	Entries    interface{} `json:"entries"`     // 数据列表
 	TotalCount int64       `json:"total_count"` // 总记录数
+}
+
+type SaveSemanticInfoFieldData struct {
+	Id                *string `json:"id" validate:"required"` // t_form_view_field_info_temp.id，用于 upsert 操作
+	FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
+	FieldRole         *int8   `json:"field_role" validate:"omitempty,min=1,max=8"`
+	FieldDescription  *string `json:"field_description" validate:"omitempty,max=300"`
+}
+
+type SaveSemanticInfoTableData struct {
+	Id                *string `json:"id" validate:"required"` // t_form_view_info_temp.id，用于 upsert 操作
+	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
+	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
 }

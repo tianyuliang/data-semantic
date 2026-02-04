@@ -11,6 +11,20 @@ type GenerateUnderstandingResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
 }
 
+type GetFieldsReq struct {
+	Id             string  `path:"id" validate:"required"`
+	Keyword        *string `form:"keyword"`
+	OnlyIncomplete *bool   `form:"only_incomplete"`
+}
+
+type GetFieldsResp struct {
+	CurrentVersion    int                 `json:"current_version"`
+	TableBusinessName *string             `json:"table_business_name"`
+	TableTechName     string              `json:"table_tech_name"`
+	TableDescription  *string             `json:"table_description"`
+	Fields            []FieldSemanticInfo `json:"fields"`
+}
+
 type GetStatusReq struct {
 	Id string `path:"id" validate:"required"`
 }
@@ -18,4 +32,14 @@ type GetStatusReq struct {
 type GetStatusResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
 	CurrentVersion   int  `json:"current_version"`
+}
+
+type SaveSemanticInfoReq struct {
+	Id        string                     `path:"id" validate:"required"`
+	TableData *SaveSemanticInfoTableData `json:"tableData"`
+	FieldData *SaveSemanticInfoFieldData `json:"fieldData"`
+}
+
+type SaveSemanticInfoResp struct {
+	Code int32 `json:"code"`
 }

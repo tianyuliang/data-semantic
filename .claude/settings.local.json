@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(goctl api swagger:*)",
-      "Bash(go clean:*)"
+      "Bash(go clean:*)",
+      "Bash(go test:*)",
+      "Bash(goctl api go:*)",
+      "Bash(git add:*)"
     ]
   }
 }
