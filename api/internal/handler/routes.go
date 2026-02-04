@@ -34,6 +34,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: data_semantic.GetBusinessObjectsHandler(serverCtx),
 			},
 			{
+				// 保存业务对象及属性
+				Method:  http.MethodPut,
+				Path:    "/:id/business-objects",
+				Handler: data_semantic.SaveBusinessObjectsHandler(serverCtx),
+			},
+			{
+				// 调整属性归属业务对象
+				Method:  http.MethodPut,
+				Path:    "/:id/business-objects/attributes/move",
+				Handler: data_semantic.MoveAttributeHandler(serverCtx),
+			},
+			{
 				// 查询字段语义补全数据
 				Method:  http.MethodGet,
 				Path:    "/:id/fields",

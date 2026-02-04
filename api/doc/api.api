@@ -96,6 +96,25 @@ type (
 		CurrentVersion int              `json:"current_version"`
 		List           []BusinessObject `json:"list"`
 	}
+	// ====== 接口6: 保存业务对象及属性 ======
+	SaveBusinessObjectsReq {
+		Type string `json:"type" validate:"required,oneof=object attribute"`
+		Id   string `json:"id" validate:"required"`
+		Name string `json:"name" validate:"required,max=100"`
+	}
+	SaveBusinessObjectsResp {
+		Code int32 `json:"code"`
+	}
+	// ====== 接口7: 调整属性归属业务对象 ======
+	MoveAttributeReq {
+		Id               string `path:"id" validate:"required"`
+		AttributeId      string `json:"attribute_id" validate:"required"`
+		TargetObjectUuid string `json:"target_object_uuid" validate:"required"`
+	}
+	MoveAttributeResp {
+		AttributeId      string `json:"attribute_id"`
+		BusinessObjectId string `json:"business_object_id"`
+	}
 )
 
 // ============================================
@@ -144,5 +163,13 @@ service api {
 	@doc "查询业务对象识别结果"
 	@handler GetBusinessObjects
 	get /:id/business-objects (GetBusinessObjectsReq) returns (GetBusinessObjectsResp)
+
+	@doc "保存业务对象及属性"
+	@handler SaveBusinessObjects
+	put /:id/business-objects (SaveBusinessObjectsReq) returns (SaveBusinessObjectsResp)
+
+	@doc "调整属性归属业务对象"
+	@handler MoveAttribute
+	put /:id/business-objects/attributes/move (MoveAttributeReq) returns (MoveAttributeResp)
 }
 

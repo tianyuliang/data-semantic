@@ -254,13 +254,13 @@
 
 ### Step 1: API 定义
 
-- [ ] T058 [IF6] 定义 SaveBusinessObjects 接口
-- [ ] T059 [IF6] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T058 [IF6] 定义 SaveBusinessObjects 接口
+- [X] T059 [IF6] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Logic 层实现
 
-- [ ] T060 [IF6] 实现 `save_business_objects_logic.go` (名称重复校验)
-- [ ] T061 [IF6] **[TEST]** 创建 `save_business_objects_logic_test.go`
+- [X] T060 [IF6] 实现 `save_business_objects_logic.go` (名称重复校验)
+- [X] T061 [IF6] **[TEST]** 创建 `save_business_objects_logic_test.go`
 
 **Checkpoint**: ✅ 接口6 完成 - 配合接口5 验证编辑保存功能
 
@@ -276,13 +276,13 @@
 
 ### Step 1: API 定义
 
-- [ ] T062 [IF7] 定义 MoveAttribute 接口
-- [ ] T063 [IF7] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
+- [X] T062 [IF7] 定义 MoveAttribute 接口
+- [X] T063 [IF7] 运行 `goctl api go -api api/doc/api.api -dir api/ --style=go_zero --type-group` 更新代码
 
 ### Step 2: Logic 层实现
 
-- [ ] T064 [IF7] 实现 `move_attribute_logic.go` (目标存在校验)
-- [ ] T065 [IF7] **[TEST]** 创建 `move_attribute_logic_test.go`
+- [X] T064 [IF7] 实现 `move_attribute_logic.go` (目标存在校验)
+- [X] T065 [IF7] **[TEST]** 创建 `move_attribute_logic_test.go`
 
 **Checkpoint**: ✅ 接口7 完成 - 配合接口5 验证属性移动功能
 

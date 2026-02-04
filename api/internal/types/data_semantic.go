@@ -45,6 +45,27 @@ type GetStatusResp struct {
 	CurrentVersion   int  `json:"current_version"`
 }
 
+type MoveAttributeReq struct {
+	Id               string `path:"id" validate:"required"`
+	AttributeId      string `json:"attribute_id" validate:"required"`
+	TargetObjectUuid string `json:"target_object_uuid" validate:"required"`
+}
+
+type MoveAttributeResp struct {
+	AttributeId      string `json:"attribute_id"`
+	BusinessObjectId string `json:"business_object_id"`
+}
+
+type SaveBusinessObjectsReq struct {
+	Type string `json:"type" validate:"required,oneof=object attribute"`
+	Id   string `json:"id" validate:"required"`
+	Name string `json:"name" validate:"required,max=100"`
+}
+
+type SaveBusinessObjectsResp struct {
+	Code int32 `json:"code"`
+}
+
 type SaveSemanticInfoReq struct {
 	Id        string                     `path:"id" validate:"required"`
 	TableData *SaveSemanticInfoTableData `json:"tableData"`
