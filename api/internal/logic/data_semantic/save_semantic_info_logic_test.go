@@ -9,7 +9,6 @@ import (
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/stretchr/testify/assert"
 )
