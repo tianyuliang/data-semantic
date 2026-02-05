@@ -17,6 +17,12 @@ type FormViewFieldInfoTempModel interface {
 	// Update 更新字段信息
 	Update(ctx context.Context, data *FormViewFieldInfoTemp) error
 
+	// DeleteByFormViewId 逻辑删除指定form_view_id的所有记录
+	DeleteByFormViewId(ctx context.Context, formViewId string) error
+
+	// DeleteByFormFieldId 逻辑删除指定form_view_field_id的所有记录
+	DeleteByFormFieldId(ctx context.Context, formViewFieldId string) error
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) FormViewFieldInfoTempModel
 }

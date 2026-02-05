@@ -81,3 +81,13 @@ func (m *BusinessObjectTempModelImpl) DeleteByFormViewId(ctx context.Context, fo
 	}
 	return nil
 }
+
+// DeleteById 根据id删除业务对象
+func (m *BusinessObjectTempModelImpl) DeleteById(ctx context.Context, id string) error {
+	query := `UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE id = ?`
+	_, err := m.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete business_object_temp by id failed: %w", err)
+	}
+	return nil
+}

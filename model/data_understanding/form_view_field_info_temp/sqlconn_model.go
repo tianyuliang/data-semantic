@@ -96,3 +96,23 @@ func (m *FormViewFieldInfoTempModelSqlConn) Update(ctx context.Context, data *Fo
 	}
 	return nil
 }
+
+// DeleteByFormViewId 逻辑删除指定form_view_id的所有记录
+func (m *FormViewFieldInfoTempModelSqlConn) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_form_view_field_info_temp SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete form_view_field_info_temp by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// DeleteByFormFieldId 逻辑删除指定form_view_field_id的所有记录
+func (m *FormViewFieldInfoTempModelSqlConn) DeleteByFormFieldId(ctx context.Context, formViewFieldId string) error {
+	query := `UPDATE t_form_view_field_info_temp SET deleted_at = NOW(3) WHERE form_view_field_id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewFieldId)
+	if err != nil {
+		return fmt.Errorf("delete form_view_field_info_temp by form_view_field_id failed: %w", err)
+	}
+	return nil
+}

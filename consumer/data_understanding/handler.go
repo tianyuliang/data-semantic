@@ -172,108 +172,88 @@ func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, m
 	return nil
 }
 
-// saveTableInfo 保存表信息到临时表
+// saveTableInfo 保存表信息到临时表（逻辑删除旧版本，插入新版本）
 func (h *DataUnderstandingHandler) saveTableInfo(ctx context.Context, session sqlx.Session, formViewId string, version int, tableInfo *TableInfo) error {
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
 
-	// 查询是否已有记录
-	existing, err := formViewInfoTempModel.FindLatestByFormViewId(ctx, formViewId)
-	if err != nil {
-		// 记录不存在，创建新记录
-		data := &form_view_info_temp.FormViewInfoTemp{
-			Id:                uuid.New().String(),
-			FormViewId:        formViewId,
-			Version:           version,
-			TableBusinessName: tableInfo.TableBusinessName,
-			TableDescription:  tableInfo.TableDescription,
-		}
-		if _, err := formViewInfoTempModel.Insert(ctx, data); err != nil {
-			return fmt.Errorf("插入表信息失败: %w", err)
-		}
-		return nil
+	// 1. 逻辑删除旧版本数据
+	if err := formViewInfoTempModel.DeleteByFormViewId(ctx, formViewId); err != nil {
+		return fmt.Errorf("逻辑删除旧版本表信息失败: %w", err)
 	}
 
-	// 更新现有记录
-	existing.TableBusinessName = tableInfo.TableBusinessName
-	existing.TableDescription = tableInfo.TableDescription
-	if err := formViewInfoTempModel.Update(ctx, existing); err != nil {
-		return fmt.Errorf("更新表信息失败: %w", err)
+	// 2. 插入新版本数据
+	data := &form_view_info_temp.FormViewInfoTemp{
+		Id:                uuid.New().String(),
+		FormViewId:        formViewId,
+		Version:           version,
+		TableBusinessName: tableInfo.TableBusinessName,
+		TableDescription:  tableInfo.TableDescription,
+	}
+	if _, err := formViewInfoTempModel.Insert(ctx, data); err != nil {
+		return fmt.Errorf("插入表信息失败: %w", err)
 	}
 
 	return nil
 }
 
-// saveFieldInfo 保存字段信息到临时表
+// saveFieldInfo 保存字段信息到临时表（逻辑删除旧版本，插入新版本）
 func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sqlx.Session, formViewId string, version int, fields []FieldInfo) error {
 	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSession(session)
 
 	for _, field := range fields {
-		// 查询是否已有记录
-		existing, err := formViewFieldInfoTempModel.FindOneByFormFieldId(ctx, field.FormViewFieldId)
-		if err != nil {
-			// 记录不存在，创建新记录
-			data := &form_view_field_info_temp.FormViewFieldInfoTemp{
-				Id:                uuid.New().String(),
-				FormViewId:        formViewId,
-				FormViewFieldId:   field.FormViewFieldId,
-				Version:           version,
-				FieldBusinessName: field.FieldBusinessName,
-				FieldRole:         field.FieldRole,
-				FieldDescription:  field.FieldDescription,
-			}
-			if _, err := formViewFieldInfoTempModel.Insert(ctx, data); err != nil {
-				return fmt.Errorf("插入字段信息失败: %w", err)
-			}
-			continue
+		// 1. 逻辑删除该字段的旧版本数据
+		if err := formViewFieldInfoTempModel.DeleteByFormFieldId(ctx, field.FormViewFieldId); err != nil {
+			return fmt.Errorf("逻辑删除旧版本字段信息失败: %w", err)
 		}
 
-		// 更新现有记录
-		existing.FormViewId = formViewId
-		existing.Version = version
-		existing.FieldBusinessName = field.FieldBusinessName
-		existing.FieldRole = field.FieldRole
-		existing.FieldDescription = field.FieldDescription
-		if err := formViewFieldInfoTempModel.Update(ctx, existing); err != nil {
-			return fmt.Errorf("更新字段信息失败: %w", err)
+		// 2. 插入新版本数据
+		data := &form_view_field_info_temp.FormViewFieldInfoTemp{
+			Id:                uuid.New().String(),
+			FormViewId:        formViewId,
+			FormViewFieldId:   field.FormViewFieldId,
+			Version:           version,
+			FieldBusinessName: field.FieldBusinessName,
+			FieldRole:         field.FieldRole,
+			FieldDescription:  field.FieldDescription,
+		}
+		if _, err := formViewFieldInfoTempModel.Insert(ctx, data); err != nil {
+			return fmt.Errorf("插入字段信息失败: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// saveBusinessObjects 保存业务对象到临时表
+// saveBusinessObjects 保存业务对象到临时表（逻辑删除旧版本，插入新版本）
 func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, version int, objects []BusinessObjectInfo) error {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 
 	for _, obj := range objects {
-		// 插入或更新业务对象
+		// 1. 逻辑删除该业务对象的旧版本数据
+		if err := businessObjectTempModel.DeleteById(ctx, obj.Id); err != nil {
+			return fmt.Errorf("逻辑删除旧版本业务对象失败: %w", err)
+		}
+
+		// 2. 插入新版本业务对象
 		objectData := &business_object_temp.BusinessObjectTemp{
 			Id:         obj.Id,
 			FormViewId: formViewId,
 			Version:    version,
 			ObjectName: obj.ObjectName,
 		}
-
-		// 尝试查询现有记录
-		existing, err := businessObjectTempModel.FindOneById(ctx, obj.Id)
-		if err != nil {
-			// 记录不存在，插入新记录
-			if _, err := businessObjectTempModel.Insert(ctx, objectData); err != nil {
-				return fmt.Errorf("插入业务对象失败: %w", err)
-			}
-		} else {
-			// 更新现有记录
-			existing.FormViewId = formViewId
-			existing.Version = version
-			existing.ObjectName = obj.ObjectName
-			if err := businessObjectTempModel.Update(ctx, existing); err != nil {
-				return fmt.Errorf("更新业务对象失败: %w", err)
-			}
+		if _, err := businessObjectTempModel.Insert(ctx, objectData); err != nil {
+			return fmt.Errorf("插入业务对象失败: %w", err)
 		}
 
-		// 保存属性
+		// 3. 处理属性
 		for _, attr := range obj.Attributes {
+			// 逻辑删除该属性的旧版本数据
+			if err := businessObjectAttrTempModel.DeleteById(ctx, attr.Id); err != nil {
+				return fmt.Errorf("逻辑删除旧版本属性失败: %w", err)
+			}
+
+			// 插入新版本属性
 			attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
 				Id:               attr.Id,
 				FormViewId:       formViewId,
@@ -282,24 +262,8 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 				FormViewFieldId:  attr.FormViewFieldId,
 				AttrName:         attr.AttrName,
 			}
-
-			// 尝试查询现有记录
-			existingAttr, err := businessObjectAttrTempModel.FindOneById(ctx, attr.Id)
-			if err != nil {
-				// 记录不存在，插入新记录
-				if _, err := businessObjectAttrTempModel.Insert(ctx, attrData); err != nil {
-					return fmt.Errorf("插入属性失败: %w", err)
-				}
-			} else {
-				// 更新现有记录
-				existingAttr.FormViewId = formViewId
-				existingAttr.BusinessObjectId = obj.Id
-				existingAttr.Version = version
-				existingAttr.FormViewFieldId = attr.FormViewFieldId
-				existingAttr.AttrName = attr.AttrName
-				if err := businessObjectAttrTempModel.Update(ctx, existingAttr); err != nil {
-					return fmt.Errorf("更新属性失败: %w", err)
-				}
+			if _, err := businessObjectAttrTempModel.Insert(ctx, attrData); err != nil {
+				return fmt.Errorf("插入属性失败: %w", err)
 			}
 		}
 	}

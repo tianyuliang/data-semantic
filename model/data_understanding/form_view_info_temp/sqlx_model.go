@@ -71,3 +71,13 @@ func (m *FormViewInfoTempModelImpl) Update(ctx context.Context, data *FormViewIn
 func (m *FormViewInfoTempModelImpl) WithTx(tx interface{}) FormViewInfoTempModel {
 	return &FormViewInfoTempModelImpl{db: tx.(*sqlx.Tx)}
 }
+
+// DeleteByFormViewId 逻辑删除指定form_view_id的所有记录
+func (m *FormViewInfoTempModelImpl) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_form_view_info_temp SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.db.ExecContext(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete form_view_info_temp by form_view_id failed: %w", err)
+	}
+	return nil
+}

@@ -17,6 +17,9 @@ type FormViewInfoTempModel interface {
 	// Update 更新库表信息
 	Update(ctx context.Context, data *FormViewInfoTemp) error
 
+	// DeleteByFormViewId 逻辑删除指定form_view_id的所有记录
+	DeleteByFormViewId(ctx context.Context, formViewId string) error
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) FormViewInfoTempModel
 }
