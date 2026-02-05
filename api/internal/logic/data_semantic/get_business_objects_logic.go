@@ -46,7 +46,7 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	}
 	understandStatus := formViewData.UnderstandStatus
 
-	// 2. 状态 2 (待确认) - 查询临时表
+	// 2. 状态 2 (待确认) - 查询临时表最新版本数据
 	// 其他状态 (0-未理解, 3-已完成, 4-已发布) - 查询正式表，有什么显示什么
 	if understandStatus == form_view.StatusPendingConfirm {
 		return l.getBusinessObjectsFromTemp(req)
@@ -54,12 +54,8 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	return l.getBusinessObjectsFromFormal(req)
 }
 
-// getBusinessObjectsFromTemp 从临时表查询业务对象
+// getBusinessObjectsFromTemp 从临时表查询业务对象（最新版本）
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	// 获取当前版本号 (从临时表查询最新版本)
-	// 这里简化处理，假设 version 为 1 (实际应从 form_view 或其他地方获取)
-	currentVersion := 1
-
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
 
@@ -84,14 +80,14 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			Attributes: l.convertAttrTempToAPI(attributes),
 		}}
 	} else {
-		// 查询所有业务对象
-		objList, err := businessObjectTempModel.FindByFormViewAndVersion(l.ctx, req.Id, currentVersion)
+		// 查询最新版本的所有业务对象
+		objList, err := businessObjectTempModel.FindByFormViewIdLatest(l.ctx, req.Id)
 		if err != nil {
 			return nil, fmt.Errorf("查询业务对象列表失败: %w", err)
 		}
 
-		// 查询所有属性并按 business_object_id 分组
-		allAttrs, err := businessObjectAttrTempModel.FindByFormViewAndVersionWithFieldInfo(l.ctx, req.Id, currentVersion)
+		// 查询最新版本的所有属性并按 business_object_id 分组
+		allAttrs, err := businessObjectAttrTempModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, req.Id)
 		if err != nil {
 			return nil, fmt.Errorf("查询业务对象属性列表失败: %w", err)
 		}
@@ -118,15 +114,12 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 	}
 
 	return &types.GetBusinessObjectsResp{
-		CurrentVersion: currentVersion,
-		List:           objects,
+		List: objects,
 	}, nil
 }
 
 // getBusinessObjectsFromFormal 从正式表查询业务对象
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	currentVersion := 0
-
 	businessObjectModel := business_object.NewBusinessObjectModelSqlConn(l.svcCtx.DB)
 	businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlConn(l.svcCtx.DB)
 
@@ -181,8 +174,7 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 	}
 
 	return &types.GetBusinessObjectsResp{
-		CurrentVersion: currentVersion,
-		List:           objects,
+		List: objects,
 	}, nil
 }
 

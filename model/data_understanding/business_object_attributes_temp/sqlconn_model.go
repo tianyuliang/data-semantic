@@ -99,3 +99,22 @@ func (m *BusinessObjectAttributesTempModelSqlConn) FindByFormViewAndVersionWithF
 	}
 	return resp, nil
 }
+
+// FindByFormViewIdLatestWithFieldInfo 查询指定form_view_id的最新版本属性列表（包含字段信息）
+func (m *BusinessObjectAttributesTempModelSqlConn) FindByFormViewIdLatestWithFieldInfo(ctx context.Context, formViewId string) ([]*FieldWithAttrInfoTemp, error) {
+	var resp []*FieldWithAttrInfoTemp
+	query := `SELECT boat.id, boat.business_object_id, boat.form_view_field_id, boat.attr_name,
+	           fvf.field_tech_name, fvf.business_name AS field_business_name, fvf.field_role, fvf.field_type
+	           FROM t_business_object_attributes_temp boat
+	           INNER JOIN t_form_view_field fvf ON boat.form_view_field_id = fvf.id
+	           WHERE boat.form_view_id = ? AND boat.version = (
+	               SELECT MAX(version) FROM t_business_object_attributes_temp
+	               WHERE form_view_id = ? AND deleted_at IS NULL
+	           ) AND boat.deleted_at IS NULL AND fvf.deleted_at IS NULL
+	           ORDER BY boat.id ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, formViewId)
+	if err != nil {
+		return nil, fmt.Errorf("find business_object_attributes_temp with field info by form_view_id latest failed: %w", err)
+	}
+	return resp, nil
+}
