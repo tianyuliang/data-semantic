@@ -77,32 +77,35 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 	logx.Infof("收到Kafka消息: topic=%s partition=%d offset=%d",
 		message.Topic, message.Partition, message.Offset)
 
-	// 解析消息
-	var msg map[string]interface{}
-	if err := json.Unmarshal(message.Value, &msg); err != nil {
+	// 解析消息为固定结构
+	var aiResp AIResponse
+	if err := json.Unmarshal(message.Value, &aiResp); err != nil {
 		logx.Errorf("解析消息失败: %v", err)
-		messageId, _ := msg["message_id"].(string)
-		formViewId, _ := msg["form_view_id"].(string)
-		return h.recordFailure(ctx, messageId, formViewId, fmt.Sprintf("解析消息失败: %v", err))
+		// 无法解析时记录失败（message_id 为空）
+		_ = h.recordFailure(ctx, "", "", fmt.Sprintf("解析消息失败: %v", err))
+		return fmt.Errorf("解析消息失败: %w", err)
 	}
 
-	// 提取字段
-	messageId, _ := msg["message_id"].(string)
-	formViewId, _ := msg["form_view_id"].(string)
+	// 验证必填字段
+	if aiResp.MessageId == "" {
+		err := fmt.Errorf("消息缺少 message_id 字段")
+		_ = h.recordFailure(ctx, "", aiResp.FormViewId, err.Error())
+		return err
+	}
 
 	// 去重检查
-	if exists, err := h.checkMessageId(ctx, messageId); err != nil {
+	if exists, err := h.checkMessageId(ctx, aiResp.MessageId); err != nil {
 		logx.Errorf("检查消息去重失败: %v", err)
 		return err
 	} else if exists {
-		logx.Infof("消息已处理，跳过: message_id=%s", messageId)
+		logx.Infof("消息已处理，跳过: message_id=%s", aiResp.MessageId)
 		return nil
 	}
 
 	// 处理成功响应
-	if err := h.processSuccessResponse(ctx, messageId, formViewId, msg); err != nil {
+	if err := h.processSuccessResponse(ctx, &aiResp); err != nil {
 		// 记录失败日志
-		_ = h.recordFailure(ctx, messageId, formViewId, err.Error())
+		_ = h.recordFailure(ctx, aiResp.MessageId, aiResp.FormViewId, err.Error())
 		return err
 	}
 
@@ -116,39 +119,32 @@ func (h *DataUnderstandingHandler) checkMessageId(ctx context.Context, messageId
 }
 
 // processSuccessResponse 处理成功响应
-func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, messageId, formViewId string, msg map[string]interface{}) error {
-	// 1. 解析AI响应
-	var aiResp AIResponse
-	respBytes, _ := json.Marshal(msg)
-	if err := json.Unmarshal(respBytes, &aiResp); err != nil {
-		return fmt.Errorf("解析AI响应失败: %w", err)
-	}
-
-	// 2. 开启事务处理
+func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, aiResp *AIResponse) error {
+	// 1. 开启事务处理
 	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
-		// 2.1 记录消息处理日志
+		// 1.1 记录消息处理日志
 		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
-		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, messageId, formViewId); err != nil {
+		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, aiResp.MessageId, aiResp.FormViewId); err != nil {
 			return fmt.Errorf("记录Kafka消息日志失败: %w", err)
 		}
 
-		// 2.2 保存表信息到临时表
+		// 1.2 保存表信息到临时表
 		if aiResp.TableInfo != nil {
-			if err := h.saveTableInfo(ctx, session, formViewId, aiResp.Version, aiResp.TableInfo); err != nil {
+			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, aiResp.Version, aiResp.TableInfo); err != nil {
 				return fmt.Errorf("保存表信息失败: %w", err)
 			}
 		}
 
-		// 2.3 保存字段信息到临时表
+		// 1.3 保存字段信息到临时表
 		if len(aiResp.Fields) > 0 {
-			if err := h.saveFieldInfo(ctx, session, formViewId, aiResp.Version, aiResp.Fields); err != nil {
+			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, aiResp.Version, aiResp.Fields); err != nil {
 				return fmt.Errorf("保存字段信息失败: %w", err)
 			}
 		}
 
-		// 2.4 保存业务对象到临时表
+		// 1.4 保存业务对象到临时表
 		if len(aiResp.BusinessObjects) > 0 {
-			if err := h.saveBusinessObjects(ctx, session, formViewId, aiResp.Version, aiResp.BusinessObjects); err != nil {
+			if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, aiResp.Version, aiResp.BusinessObjects); err != nil {
 				return fmt.Errorf("保存业务对象失败: %w", err)
 			}
 		}
@@ -160,14 +156,14 @@ func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, m
 		return fmt.Errorf("事务执行失败: %w", err)
 	}
 
-	// 3. 更新 form_view 状态为 2（待确认）
+	// 2. 更新 form_view 状态为 2（待确认）
 	formViewModel := form_view.NewFormViewModel(h.svcCtx.DB)
-	if err := formViewModel.UpdateUnderstandStatus(ctx, formViewId, form_view.StatusPendingConfirm); err != nil {
+	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
 		return fmt.Errorf("更新form_view状态失败: %w", err)
 	}
 
 	logx.WithContext(ctx).Infof("处理成功响应: message_id=%s, form_view_id=%s, version=%d",
-		messageId, formViewId, aiResp.Version)
+		aiResp.MessageId, aiResp.FormViewId, aiResp.Version)
 
 	return nil
 }
