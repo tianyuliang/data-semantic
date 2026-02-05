@@ -5,9 +5,16 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,18 +38,16 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	logx.Infof("GetBusinessObjects called with id: %s, objectId: %v, keyword: %v",
 		req.Id, req.ObjectId, req.Keyword)
 
-	// 1. 查询 form_view 的 understand_status 和 current_version
-	// TODO: 查询 form_view 表
-	// SELECT understand_status, current_version FROM form_view WHERE id = ?
-	// understandStatus, currentVersion := ...
+	// 1. 查询 form_view 的 understand_status
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+	}
+	understandStatus := formViewData.UnderstandStatus
 
-	// 临时返回值 (用于测试)
-	understandStatus := int8(0)
-	currentVersion := 0
-
-	// 2. 根据状态返回不同数据源
-	if understandStatus == 0 {
-		// 状态 0: 未理解，返回空数据
+	// 2. 状态 0 (未理解) - 返回空数据
+	if understandStatus == form_view.StatusNotUnderstanding {
 		resp = &types.GetBusinessObjectsResp{
 			CurrentVersion: 0,
 			List:           []types.BusinessObject{},
@@ -50,31 +55,194 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 		return resp, nil
 	}
 
-	// 3. 状态 2 (待确认) 或 3 (已完成) - 查询临时表或正式表
-	// TODO: 根据状态查询 t_business_object_temp 或正式表
-	// businessObjects, err := queryBusinessObjects(l.ctx, req.Id, currentVersion, req.ObjectId, req.Keyword)
-
-	// TODO: 对每个业务对象查询属性列表
-	// for _, obj := range businessObjects {
-	//     attributes, err := queryAttributes(l.ctx, obj.Id)
-	//     obj.Attributes = convertToAPIAttributes(attributes)
-	// }
-
-	// 4. 如果提供了 object_id，过滤单个业务对象
-	// if req.ObjectId != nil {
-	//     businessObjects = filterByObjectId(businessObjects, *req.ObjectId)
-	// }
-
-	// 5. 如果提供了 keyword，按名称过滤
-	// if req.Keyword != nil {
-	//     businessObjects = filterByKeyword(businessObjects, *req.Keyword)
-	// }
-
-	// 临时返回值 (用于测试)
-	resp = &types.GetBusinessObjectsResp{
-		CurrentVersion: currentVersion,
-		List:           []types.BusinessObject{},
+	// 3. 状态 2 (待确认) - 查询临时表
+	if understandStatus == form_view.StatusPendingConfirm {
+		return l.getBusinessObjectsFromTemp(req)
 	}
 
-	return resp, nil
+	// 4. 状态 3 (已完成) 或 4 (已发布) - 查询正式表
+	return l.getBusinessObjectsFromFormal(req)
+}
+
+// getBusinessObjectsFromTemp 从临时表查询业务对象
+func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
+	// 获取当前版本号 (从临时表查询最新版本)
+	// 这里简化处理，假设 version 为 1 (实际应从 form_view 或其他地方获取)
+	currentVersion := 1
+
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+
+	var objects []types.BusinessObject
+
+	// 如果提供了 object_id，查询单个业务对象
+	if req.ObjectId != nil {
+		objData, err := businessObjectTempModel.FindOneById(l.ctx, *req.ObjectId)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象失败: %w", err)
+		}
+
+		// 查询属性
+		attributes, err := businessObjectAttrTempModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象属性失败: %w", err)
+		}
+
+		objects = []types.BusinessObject{{
+			Id:         objData.Id,
+			ObjectName: objData.ObjectName,
+			Attributes: l.convertAttrTempToAPI(attributes),
+		}}
+	} else {
+		// 查询所有业务对象
+		objList, err := businessObjectTempModel.FindByFormViewAndVersion(l.ctx, req.Id, currentVersion)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象列表失败: %w", err)
+		}
+
+		// 查询所有属性并按 business_object_id 分组
+		allAttrs, err := businessObjectAttrTempModel.FindByFormViewAndVersionWithFieldInfo(l.ctx, req.Id, currentVersion)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象属性列表失败: %w", err)
+		}
+
+		attrMap := make(map[string][]types.BusinessObjectAttribute)
+		for _, attr := range allAttrs {
+			attrMap[attr.BusinessObjectId] = append(attrMap[attr.BusinessObjectId], l.convertAttrTempItemToAPI(attr))
+		}
+
+		// 构建响应
+		objects = make([]types.BusinessObject, 0, len(objList))
+		for _, obj := range objList {
+			objects = append(objects, types.BusinessObject{
+				Id:         obj.Id,
+				ObjectName: obj.ObjectName,
+				Attributes: attrMap[obj.Id],
+			})
+		}
+
+		// 如果提供了 keyword，按名称过滤
+		if req.Keyword != nil && *req.Keyword != "" {
+			objects = l.filterByKeyword(objects, *req.Keyword)
+		}
+	}
+
+	return &types.GetBusinessObjectsResp{
+		CurrentVersion: currentVersion,
+		List:           objects,
+	}, nil
+}
+
+// getBusinessObjectsFromFormal 从正式表查询业务对象
+func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
+	currentVersion := 0
+
+	businessObjectModel := business_object.NewBusinessObjectModelSqlConn(l.svcCtx.DB)
+	businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlConn(l.svcCtx.DB)
+
+	var objects []types.BusinessObject
+
+	// 如果提供了 object_id，查询单个业务对象
+	if req.ObjectId != nil {
+		objData, err := businessObjectModel.FindOneById(l.ctx, *req.ObjectId)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象失败: %w", err)
+		}
+
+		// 查询属性
+		attributes, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象属性失败: %w", err)
+		}
+
+		objects = []types.BusinessObject{{
+			Id:         objData.Id,
+			ObjectName: objData.ObjectName,
+			Attributes: l.convertAttrFormalToAPI(attributes),
+		}}
+	} else {
+		// 查询所有业务对象
+		objList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
+		if err != nil {
+			return nil, fmt.Errorf("查询业务对象列表失败: %w", err)
+		}
+
+		// 构建响应
+		objects = make([]types.BusinessObject, 0, len(objList))
+		for _, obj := range objList {
+			// 查询每个业务对象的属性
+			attributes, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
+			if err != nil {
+				logx.WithContext(l.ctx).Errorf("查询业务对象属性失败: %v", err)
+				continue
+			}
+
+			objects = append(objects, types.BusinessObject{
+				Id:         obj.Id,
+				ObjectName: obj.ObjectName,
+				Attributes: l.convertAttrFormalToAPI(attributes),
+			})
+		}
+
+		// 如果提供了 keyword，按名称过滤
+		if req.Keyword != nil && *req.Keyword != "" {
+			objects = l.filterByKeyword(objects, *req.Keyword)
+		}
+	}
+
+	return &types.GetBusinessObjectsResp{
+		CurrentVersion: currentVersion,
+		List:           objects,
+	}, nil
+}
+
+// convertAttrTempToAPI 转换临时表属性到API格式
+func (l *GetBusinessObjectsLogic) convertAttrTempToAPI(attrs []*business_object_attributes_temp.FieldWithAttrInfoTemp) []types.BusinessObjectAttribute {
+	result := make([]types.BusinessObjectAttribute, 0, len(attrs))
+	for _, attr := range attrs {
+		result = append(result, l.convertAttrTempItemToAPI(attr))
+	}
+	return result
+}
+
+// convertAttrTempItemToAPI 转换单个临时表属性项
+func (l *GetBusinessObjectsLogic) convertAttrTempItemToAPI(attr *business_object_attributes_temp.FieldWithAttrInfoTemp) types.BusinessObjectAttribute {
+	return types.BusinessObjectAttribute{
+		Id:               attr.Id,
+		AttrName:         attr.AttrName,
+		FormViewFieldId:  attr.FormViewFieldId,
+		FieldTechName:    attr.FieldTechName,
+		FieldBusinessName: attr.FieldBusinessName,
+		FieldRole:        attr.FieldRole,
+		FieldType:        attr.FieldType,
+	}
+}
+
+// convertAttrFormalToAPI 转换正式表属性到API格式
+func (l *GetBusinessObjectsLogic) convertAttrFormalToAPI(attrs []*business_object_attributes.FieldWithAttrInfo) []types.BusinessObjectAttribute {
+	result := make([]types.BusinessObjectAttribute, 0, len(attrs))
+	for _, attr := range attrs {
+		result = append(result, types.BusinessObjectAttribute{
+			Id:               attr.Id,
+			AttrName:         attr.AttrName,
+			FormViewFieldId:  attr.FormViewFieldId,
+			FieldTechName:    attr.FieldTechName,
+			FieldBusinessName: attr.FieldBusinessName,
+			FieldRole:        attr.FieldRole,
+			FieldType:        attr.FieldType,
+		})
+	}
+	return result
+}
+
+// filterByKeyword 按名称过滤业务对象
+func (l *GetBusinessObjectsLogic) filterByKeyword(objects []types.BusinessObject, keyword string) []types.BusinessObject {
+	result := make([]types.BusinessObject, 0)
+	lowerKeyword := strings.ToLower(keyword)
+	for _, obj := range objects {
+		if strings.Contains(strings.ToLower(obj.ObjectName), lowerKeyword) {
+			result = append(result, obj)
+		}
+	}
+	return result
 }
