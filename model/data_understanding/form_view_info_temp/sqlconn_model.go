@@ -13,9 +13,25 @@ func NewFormViewInfoTempModelSqlConn(conn sqlx.SqlConn) *FormViewInfoTempModelSq
 	return &FormViewInfoTempModelSqlConn{conn: conn}
 }
 
+// NewFormViewInfoTempModelSession 创建FormViewInfoTempModelSqlConn实例 (使用 Session)
+func NewFormViewInfoTempModelSession(session sqlx.Session) *FormViewInfoTempModelSqlConn {
+	return &FormViewInfoTempModelSqlConn{conn: session}
+}
+
 // FormViewInfoTempModelSqlConn FormViewInfoTempModel实现 (基于 go-zero SqlConn)
 type FormViewInfoTempModelSqlConn struct {
-	conn sqlx.SqlConn
+	conn sqlx.Session
+}
+
+// Insert 插入库表信息临时记录
+func (m *FormViewInfoTempModelSqlConn) Insert(ctx context.Context, data *FormViewInfoTemp) (*FormViewInfoTemp, error) {
+	query := `INSERT INTO t_form_view_info_temp (id, form_view_id, user_id, version, table_business_name, table_description)
+	           VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.TableBusinessName, data.TableDescription)
+	if err != nil {
+		return nil, fmt.Errorf("insert form_view_info_temp failed: %w", err)
+	}
+	return data, nil
 }
 
 // FindLatestByFormViewId 查询指定form_view_id的最新版本记录

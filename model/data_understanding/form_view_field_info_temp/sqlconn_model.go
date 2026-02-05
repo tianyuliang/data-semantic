@@ -13,9 +13,38 @@ func NewFormViewFieldInfoTempModelSqlConn(conn sqlx.SqlConn) *FormViewFieldInfoT
 	return &FormViewFieldInfoTempModelSqlConn{conn: conn}
 }
 
+// NewFormViewFieldInfoTempModelSession 创建FormViewFieldInfoTempModelSqlConn实例 (使用 Session)
+func NewFormViewFieldInfoTempModelSession(session sqlx.Session) *FormViewFieldInfoTempModelSqlConn {
+	return &FormViewFieldInfoTempModelSqlConn{conn: session}
+}
+
 // FormViewFieldInfoTempModelSqlConn FormViewFieldInfoTempModel实现 (基于 go-zero SqlConn)
 type FormViewFieldInfoTempModelSqlConn struct {
-	conn sqlx.SqlConn
+	conn sqlx.Session
+}
+
+// Insert 插入字段信息临时记录
+func (m *FormViewFieldInfoTempModelSqlConn) Insert(ctx context.Context, data *FormViewFieldInfoTemp) (*FormViewFieldInfoTemp, error) {
+	query := `INSERT INTO t_form_view_field_info_temp (id, form_view_id, form_view_field_id, user_id, version, field_business_name, field_role, field_description)
+	           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.FormViewFieldId, data.UserId, data.Version, data.FieldBusinessName, data.FieldRole, data.FieldDescription)
+	if err != nil {
+		return nil, fmt.Errorf("insert form_view_field_info_temp failed: %w", err)
+	}
+	return data, nil
+}
+
+// FindOneByFormFieldId 根据form_view_field_id查询字段信息
+func (m *FormViewFieldInfoTempModelSqlConn) FindOneByFormFieldId(ctx context.Context, formViewFieldId string) (*FormViewFieldInfoTemp, error) {
+	var resp FormViewFieldInfoTemp
+	query := `SELECT id, form_view_id, form_view_field_id, user_id, version, field_business_name, field_role, field_description, created_at, updated_at, deleted_at
+	           FROM t_form_view_field_info_temp
+	           WHERE form_view_field_id = ? AND deleted_at IS NULL ORDER BY version DESC LIMIT 1`
+	err := m.conn.QueryRowCtx(ctx, &resp, query, formViewFieldId)
+	if err != nil {
+		return nil, fmt.Errorf("find form_view_field_info_temp by form_view_field_id failed: %w", err)
+	}
+	return &resp, nil
 }
 
 // FindLatestByFormViewId 查询指定form_view_id的最新版本字段列表

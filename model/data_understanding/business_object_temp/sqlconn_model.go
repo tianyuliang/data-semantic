@@ -13,9 +13,25 @@ func NewBusinessObjectTempModelSqlConn(conn sqlx.SqlConn) *BusinessObjectTempMod
 	return &BusinessObjectTempModelSqlConn{conn: conn}
 }
 
+// NewBusinessObjectTempModelSession 创建BusinessObjectTempModelSqlConn实例 (使用 Session)
+func NewBusinessObjectTempModelSession(session sqlx.Session) *BusinessObjectTempModelSqlConn {
+	return &BusinessObjectTempModelSqlConn{conn: session}
+}
+
 // BusinessObjectTempModelSqlConn BusinessObjectTempModel实现 (基于 go-zero SqlConn)
 type BusinessObjectTempModelSqlConn struct {
-	conn sqlx.SqlConn
+	conn sqlx.Session
+}
+
+// Insert 插入业务对象记录
+func (m *BusinessObjectTempModelSqlConn) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
+	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
+	           VALUES (?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName)
+	if err != nil {
+		return nil, fmt.Errorf("insert business_object_temp failed: %w", err)
+	}
+	return data, nil
 }
 
 // FindByFormViewAndVersion 根据form_view_id和version查询业务对象列表

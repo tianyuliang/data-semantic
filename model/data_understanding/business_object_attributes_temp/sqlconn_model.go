@@ -13,9 +13,25 @@ func NewBusinessObjectAttributesTempModelSqlConn(conn sqlx.SqlConn) *BusinessObj
 	return &BusinessObjectAttributesTempModelSqlConn{conn: conn}
 }
 
+// NewBusinessObjectAttributesTempModelSession 创建BusinessObjectAttributesTempModelSqlConn实例 (使用 Session)
+func NewBusinessObjectAttributesTempModelSession(session sqlx.Session) *BusinessObjectAttributesTempModelSqlConn {
+	return &BusinessObjectAttributesTempModelSqlConn{conn: session}
+}
+
 // BusinessObjectAttributesTempModelSqlConn BusinessObjectAttributesTempModel实现 (基于 go-zero SqlConn)
 type BusinessObjectAttributesTempModelSqlConn struct {
-	conn sqlx.SqlConn
+	conn sqlx.Session
+}
+
+// Insert 插入业务对象属性记录
+func (m *BusinessObjectAttributesTempModelSqlConn) Insert(ctx context.Context, data *BusinessObjectAttributesTemp) (*BusinessObjectAttributesTemp, error) {
+	query := `INSERT INTO t_business_object_attributes_temp (id, form_view_id, business_object_id, user_id, version, form_view_field_id, attr_name)
+	           VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.BusinessObjectId, data.UserId, data.Version, data.FormViewFieldId, data.AttrName)
+	if err != nil {
+		return nil, fmt.Errorf("insert business_object_attributes_temp failed: %w", err)
+	}
+	return data, nil
 }
 
 // FindByBusinessObjectId 根据business_object_id查询属性列表
