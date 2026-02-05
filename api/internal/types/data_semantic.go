@@ -3,10 +3,6 @@
 
 package types
 
-type HealthResp struct {
-	Status string `json:"status"`
-}
-
 type DeleteBusinessObjectsReq struct {
 	Id string `path:"id" validate:"required"`
 }
@@ -21,15 +17,6 @@ type GenerateUnderstandingReq struct {
 
 type GenerateUnderstandingResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
-}
-
-type FieldSemanticInfo struct {
-	FormViewFieldId   string  `json:"form_view_field_id"`
-	FieldBusinessName *string `json:"field_business_name"`
-	FieldTechName     string  `json:"field_tech_name"`
-	FieldType         string  `json:"field_type"`
-	FieldRole         *int8   `json:"field_role"`
-	FieldDescription  *string `json:"field_description"`
 }
 
 type GetBusinessObjectsReq struct {
@@ -62,6 +49,7 @@ type GetStatusReq struct {
 
 type GetStatusResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
+	CurrentVersion   int  `json:"current_version"`
 }
 
 type MoveAttributeReq struct {
@@ -94,27 +82,14 @@ type SaveBusinessObjectsResp struct {
 	Code int32 `json:"code"`
 }
 
-type SaveSemanticInfoFieldData struct {
-	Id                *string `json:"id" validate:"required"`
-	FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
-	FieldRole         *int8   `json:"field_role" validate:"omitempty,min=1,max=8"`
-	FieldDescription  *string `json:"field_description" validate:"omitempty,max=300"`
-}
-
 type SaveSemanticInfoReq struct {
-	Id        string                        `path:"id" validate:"required"`
-	TableData *SaveSemanticInfoTableData    `json:"tableData"`
-	FieldData *SaveSemanticInfoFieldData    `json:"fieldData"`
+	Id        string                     `path:"id" validate:"required"`
+	TableData *SaveSemanticInfoTableData `json:"tableData"`
+	FieldData *SaveSemanticInfoFieldData `json:"fieldData"`
 }
 
 type SaveSemanticInfoResp struct {
 	Code int32 `json:"code"`
-}
-
-type SaveSemanticInfoTableData struct {
-	Id                *string `json:"id" validate:"required"`
-	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
-	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
 }
 
 type SubmitUnderstandingReq struct {
@@ -123,20 +98,4 @@ type SubmitUnderstandingReq struct {
 
 type SubmitUnderstandingResp struct {
 	Success bool `json:"success"`
-}
-
-type BusinessObject struct {
-	Id         string                    `json:"id"`
-	ObjectName string                    `json:"object_name"`
-	Attributes []BusinessObjectAttribute `json:"attributes"`
-}
-
-type BusinessObjectAttribute struct {
-	Id                string  `json:"id"`
-	AttrName          string  `json:"attr_name"`
-	FormViewFieldId   string  `json:"form_view_field_id"`
-	FieldTechName     string  `json:"field_tech_name"`
-	FieldBusinessName *string `json:"field_business_name"`
-	FieldRole         *int8   `json:"field_role"`
-	FieldType         string  `json:"field_type"`
 }

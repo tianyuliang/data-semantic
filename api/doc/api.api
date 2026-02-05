@@ -8,16 +8,14 @@ info (
 
 // 引入通用类型
 import "base.api"
-
 // 引入 data_semantic 模块
 import "data_semantic/data_semantic.api"
 
 // ============================================
-// 主 service 定义
+// 公开接口 (无需鉴权)
 // ============================================
 @server (
 	prefix: /api/v1
-	jwt:    Auth
 )
 service api {
 	// 健康检查
@@ -26,7 +24,17 @@ service api {
 	get /health returns (HealthResp)
 }
 
+// ============================================
+// 需要鉴权的接口
+// ============================================
+@server (
+	prefix: /api/v1
+	jwt:    Auth
+)
+service api { // 其他需要鉴权的接口在 data_semantic 模块中定义}
+
 // 健康检查响应
 type HealthResp {
 	Status string `json:"status"`
 }
+
