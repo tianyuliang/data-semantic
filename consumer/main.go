@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/data_understanding"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/data_understanding"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/svc"
 	"github.com/zeromicro/go-zero/core/conf"
