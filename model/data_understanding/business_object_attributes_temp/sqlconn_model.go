@@ -69,6 +69,18 @@ func (m *BusinessObjectAttributesTempModelSqlConn) Update(ctx context.Context, d
 	return nil
 }
 
+// UpdateBusinessObjectId 更新属性归属的业务对象
+func (m *BusinessObjectAttributesTempModelSqlConn) UpdateBusinessObjectId(ctx context.Context, attributeId, businessObjectId string) error {
+	query := `UPDATE t_business_object_attributes_temp
+	           SET business_object_id = ?
+	           WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, businessObjectId, attributeId)
+	if err != nil {
+		return fmt.Errorf("update business_object_id for attribute failed: %w", err)
+	}
+	return nil
+}
+
 // FieldWithAttrInfoTemp 属性关联字段信息（临时表）
 type FieldWithAttrInfoTemp struct {
 	Id                string  `db:"id"`

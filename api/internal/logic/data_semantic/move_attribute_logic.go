@@ -5,9 +5,13 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,20 +35,42 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 	logx.Infof("MoveAttribute called with id: %s, attributeId: %s, targetObjectUuid: %s",
 		req.Id, req.AttributeId, req.TargetObjectUuid)
 
-	// 1. 验证目标业务对象是否存在
-	// TODO: 查询 t_business_object_temp 表
-	// SELECT id FROM t_business_object_temp WHERE id = ? AND deleted_at IS NULL LIMIT 1
-	// targetObject, err := findBusinessObject(l.ctx, req.TargetObjectUuid)
-	// if err != nil || targetObject == nil {
-	//     return nil, errors.New("目标业务对象不存在")
-	// }
+	// 1. 状态校验：只有状态 2（待确认）才能编辑
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+	}
 
-	// 2. 更新属性的 business_object_id
-	// TODO: 更新 t_business_object_attributes_temp 表
-	// UPDATE t_business_object_attributes_temp
-	// SET business_object_id = ?
-	// WHERE id = ? AND deleted_at IS NULL
-	logx.Infof("Moving attribute %s to business object %s", req.AttributeId, req.TargetObjectUuid)
+	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
+		return nil, fmt.Errorf("当前状态不允许编辑，当前状态: %d，仅状态 2 (待确认) 可编辑", formViewData.UnderstandStatus)
+	}
+
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+
+	// 2. 验证目标业务对象是否存在
+	targetObject, err := businessObjectTempModel.FindOneById(l.ctx, req.TargetObjectUuid)
+	if err != nil {
+		return nil, fmt.Errorf("查询目标业务对象失败: %w", err)
+	}
+	logx.WithContext(l.ctx).Infof("Found target business object: id=%s, name=%s", targetObject.Id, targetObject.ObjectName)
+
+	// 3. 验证属性是否存在
+	attribute, err := businessObjectAttrTempModel.FindOneById(l.ctx, req.AttributeId)
+	if err != nil {
+		return nil, fmt.Errorf("查询属性失败: %w", err)
+	}
+	logx.WithContext(l.ctx).Infof("Found attribute: id=%s, currentObjectId=%s", attribute.Id, attribute.BusinessObjectId)
+
+	// 4. 更新属性的 business_object_id
+	err = businessObjectAttrTempModel.UpdateBusinessObjectId(l.ctx, req.AttributeId, req.TargetObjectUuid)
+	if err != nil {
+		return nil, fmt.Errorf("更新属性归属失败: %w", err)
+	}
+
+	logx.WithContext(l.ctx).Infof("Moved attribute %s from object %s to object %s",
+		req.AttributeId, attribute.BusinessObjectId, req.TargetObjectUuid)
 
 	resp = &types.MoveAttributeResp{
 		AttributeId:      req.AttributeId,
