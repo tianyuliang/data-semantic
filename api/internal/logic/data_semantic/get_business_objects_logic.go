@@ -46,21 +46,11 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	}
 	understandStatus := formViewData.UnderstandStatus
 
-	// 2. 状态 0 (未理解) - 返回空数据
-	if understandStatus == form_view.StatusNotUnderstanding {
-		resp = &types.GetBusinessObjectsResp{
-			CurrentVersion: 0,
-			List:           []types.BusinessObject{},
-		}
-		return resp, nil
-	}
-
-	// 3. 状态 2 (待确认) - 查询临时表
+	// 2. 状态 2 (待确认) - 查询临时表
+	// 其他状态 (0-未理解, 3-已完成, 4-已发布) - 查询正式表，有什么显示什么
 	if understandStatus == form_view.StatusPendingConfirm {
 		return l.getBusinessObjectsFromTemp(req)
 	}
-
-	// 4. 状态 3 (已完成) 或 4 (已发布) - 查询正式表
 	return l.getBusinessObjectsFromFormal(req)
 }
 
