@@ -9,133 +9,8 @@ info (
 // 引入通用类型
 import "base.api"
 
-// ============================================
-// data_semantic 模块类型定义
-// ============================================
-type (
-	// ====== 接口1: 查询库表理解状态 ======
-	GetStatusReq {
-		Id string `path:"id" validate:"required"`
-	}
-	GetStatusResp {
-		UnderstandStatus int8 `json:"understand_status"`
-	}
-	// ====== 接口2: 一键生成理解数据 ======
-	GenerateUnderstandingReq {
-		Id string `path:"id" validate:"required"`
-	}
-	GenerateUnderstandingResp {
-		UnderstandStatus int8 `json:"understand_status"`
-	}
-	// ====== 接口3: 查询字段语义补全数据 ======
-	// 字段语义信息
-	FieldSemanticInfo {
-		FormViewFieldId   string  `json:"form_view_field_id"`
-		FieldBusinessName *string `json:"field_business_name"`
-		FieldTechName     string  `json:"field_tech_name"`
-		FieldType         string  `json:"field_type"`
-		FieldRole         *int8   `json:"field_role"`
-		FieldDescription  *string `json:"field_description"`
-	}
-	GetFieldsReq {
-		Id             string  `path:"id" validate:"required"`
-		Keyword        *string `form:"keyword"`
-		OnlyIncomplete *bool   `form:"only_incomplete"`
-	}
-	GetFieldsResp {
-		CurrentVersion    int                 `json:"current_version"`
-		TableBusinessName *string             `json:"table_business_name"`
-		TableTechName     string              `json:"table_tech_name"`
-		TableDescription  *string             `json:"table_description"`
-		Fields            []FieldSemanticInfo `json:"fields"`
-	}
-	// ====== 接口4: 保存库表信息补全数据 ======
-	SaveSemanticInfoTableData {
-		Id                *string `json:"id" validate:"required"` // t_form_view_info_temp.id，用于 upsert 操作
-		TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
-		TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
-	}
-	SaveSemanticInfoFieldData {
-		Id                *string `json:"id" validate:"required"` // t_form_view_field_info_temp.id，用于 upsert 操作
-		FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
-		FieldRole         *int8   `json:"field_role" validate:"omitempty,min=1,max=8"`
-		FieldDescription  *string `json:"field_description" validate:"omitempty,max=300"`
-	}
-	SaveSemanticInfoReq {
-		Id        string                     `path:"id" validate:"required"`
-		TableData *SaveSemanticInfoTableData `json:"tableData"`
-		FieldData *SaveSemanticInfoFieldData `json:"fieldData"`
-	}
-	SaveSemanticInfoResp {
-		Code int32 `json:"code"`
-	}
-	// ====== 接口5: 查询业务对象识别结果 ======
-	// 业务对象属性
-	BusinessObjectAttribute {
-		Id                string  `json:"id"`
-		AttrName          string  `json:"attr_name"`
-		FormViewFieldId   string  `json:"form_view_field_id"`
-		FieldTechName     string  `json:"field_tech_name"`
-		FieldBusinessName *string `json:"field_business_name"`
-		FieldRole         *int8   `json:"field_role"`
-		FieldType         string  `json:"field_type"`
-	}
-	// 业务对象
-	BusinessObject {
-		Id         string                    `json:"id"`
-		ObjectName string                    `json:"object_name"`
-		Attributes []BusinessObjectAttribute `json:"attributes"`
-	}
-	GetBusinessObjectsReq {
-		Id       string  `path:"id" validate:"required"`
-		ObjectId *string `form:"object_id"`
-		Keyword  *string `form:"keyword"`
-	}
-	GetBusinessObjectsResp {
-		List []BusinessObject `json:"list"`
-	}
-	// ====== 接口6: 保存业务对象及属性 ======
-	SaveBusinessObjectsReq {
-		Type string `json:"type" validate:"required,oneof=object attribute"`
-		Id   string `json:"id" validate:"required"`
-		Name string `json:"name" validate:"required,max=100"`
-	}
-	SaveBusinessObjectsResp {
-		Code int32 `json:"code"`
-	}
-	// ====== 接口7: 调整属性归属业务对象 ======
-	MoveAttributeReq {
-		Id               string `path:"id" validate:"required"`
-		AttributeId      string `json:"attribute_id" validate:"required"`
-		TargetObjectUuid string `json:"target_object_uuid" validate:"required"`
-	}
-	MoveAttributeResp {
-		AttributeId      string `json:"attribute_id"`
-		BusinessObjectId string `json:"business_object_id"`
-	}
-	// ====== 接口8: 重新识别业务对象 ======
-	RegenerateBusinessObjectsReq {
-		Id string `path:"id" validate:"required"`
-	}
-	RegenerateBusinessObjectsResp {
-		ObjectCount    int `json:"object_count"`
-		AttributeCount int `json:"attribute_count"`
-	}
-	// ====== 接口9: 提交确认理解数据 ======
-	SubmitUnderstandingReq {
-		Id string `path:"id" validate:"required"`
-	}
-	SubmitUnderstandingResp {
-		Success bool `json:"success"`
-	}
-	// ====== 接口10: 删除识别结果 ======
-	DeleteBusinessObjectsReq {
-		Id string `path:"id" validate:"required"`
-	}
-	DeleteBusinessObjectsResp {
-		Success bool `json:"success"`
-	}
-)
+// 引入 data_semantic 模块
+import "data_semantic/data_semantic.api"
 
 // ============================================
 // 主 service 定义
@@ -145,7 +20,8 @@ type (
 	jwt:    Auth
 )
 service api {
-	// 健康检查 (示例)
+	// 健康检查
+	@doc "健康检查"
 	@handler HealthCheck
 	get /health returns (HealthResp)
 }
@@ -154,54 +30,3 @@ service api {
 type HealthResp {
 	Status string `json:"status"`
 }
-
-// ============================================
-// data_semantic service 定义
-// ============================================
-@server (
-	prefix: /api/v1/data-semantic
-	group:  data_semantic
-	jwt:    Auth
-)
-service api {
-	@doc "查询库表理解状态"
-	@handler GetStatus
-	get /:id/status (GetStatusReq) returns (GetStatusResp)
-
-	@doc "一键生成理解数据"
-	@handler GenerateUnderstanding
-	post /:id/generate (GenerateUnderstandingReq) returns (GenerateUnderstandingResp)
-
-	@doc "查询字段语义补全数据"
-	@handler GetFields
-	get /:id/fields (GetFieldsReq) returns (GetFieldsResp)
-
-	@doc "保存库表信息补全数据"
-	@handler SaveSemanticInfo
-	put /:id/semantic-info (SaveSemanticInfoReq) returns (SaveSemanticInfoResp)
-
-	@doc "查询业务对象识别结果"
-	@handler GetBusinessObjects
-	get /:id/business-objects (GetBusinessObjectsReq) returns (GetBusinessObjectsResp)
-
-	@doc "保存业务对象及属性"
-	@handler SaveBusinessObjects
-	put /:id/business-objects (SaveBusinessObjectsReq) returns (SaveBusinessObjectsResp)
-
-	@doc "调整属性归属业务对象"
-	@handler MoveAttribute
-	put /:id/business-objects/attributes/move (MoveAttributeReq) returns (MoveAttributeResp)
-
-	@doc "重新识别业务对象"
-	@handler RegenerateBusinessObjects
-	post /:id/business-objects/regenerate (RegenerateBusinessObjectsReq) returns (RegenerateBusinessObjectsResp)
-
-	@doc "提交确认理解数据"
-	@handler SubmitUnderstanding
-	post /:id/submit (SubmitUnderstandingReq) returns (SubmitUnderstandingResp)
-
-	@doc "删除识别结果"
-	@handler DeleteBusinessObjects
-	delete /:id/business-objects (DeleteBusinessObjectsReq) returns (DeleteBusinessObjectsResp)
-}
-
