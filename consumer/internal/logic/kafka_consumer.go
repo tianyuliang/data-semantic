@@ -1,5 +1,5 @@
-// Package data_understanding Kafka消费者
-package data_understanding
+// Package logic Kafka消费者逻辑
+package logic
 
 import (
 	"context"

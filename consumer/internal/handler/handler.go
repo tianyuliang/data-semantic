@@ -1,5 +1,5 @@
-// Package data_understanding Kafka消息处理逻辑
-package data_understanding
+// Package handler Kafka消息处理器
+package handler
 
 import (
 	"context"

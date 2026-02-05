@@ -8,8 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/data_understanding"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/config"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/handler"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/logic"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/svc"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -41,15 +42,15 @@ func main() {
 	groupID := c.MQ.Kafka.Group
 	topic := c.MQ.Kafka.Topic
 
-	consumer, err := data_understanding.NewKafkaConsumer(brokers, groupID, []string{topic})
+	consumer, err := logic.NewKafkaConsumer(brokers, groupID, []string{topic})
 	if err != nil {
 		logx.Errorf("创建Kafka消费者失败: %v", err)
 		os.Exit(1)
 	}
 
 	// 注册消息处理器
-	handler := data_understanding.NewDataUnderstandingHandler(svcCtx)
-	consumer.RegisterHandler(topic, handler)
+	dataUnderstandingHandler := handler.NewDataUnderstandingHandler(svcCtx)
+	consumer.RegisterHandler(topic, dataUnderstandingHandler)
 
 	// 创建context用于优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
