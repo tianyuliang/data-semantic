@@ -81,3 +81,27 @@ func (m *BusinessObjectModelImpl) Delete(ctx context.Context, id string) error {
 func (m *BusinessObjectModelImpl) WithTx(tx interface{}) BusinessObjectModel {
 	return &BusinessObjectModelImpl{db: tx.(*sqlx.Tx)}
 }
+
+// DeleteByFormViewId 根据form_view_id删除所有业务对象
+func (m *BusinessObjectModelImpl) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_business_object SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.db.ExecContext(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete business_object by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// BatchInsertFromTemp 从临时表批量插入业务对象
+func (m *BusinessObjectModelImpl) BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error) {
+	query := `INSERT INTO t_business_object (id, object_name, object_type, form_view_id, status)
+	           SELECT id, object_name, 0, form_view_id, 1
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL`
+	result, err := m.db.ExecContext(ctx, query, formViewId, version)
+	if err != nil {
+		return 0, fmt.Errorf("batch insert business_object from temp failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	return int(rowsAffected), nil
+}

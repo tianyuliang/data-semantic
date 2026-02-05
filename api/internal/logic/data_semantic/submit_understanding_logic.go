@@ -5,11 +5,17 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type SubmitUnderstandingLogic struct {
@@ -30,52 +36,72 @@ func NewSubmitUnderstandingLogic(ctx context.Context, svcCtx *svc.ServiceContext
 func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUnderstandingReq) (resp *types.SubmitUnderstandingResp, err error) {
 	logx.Infof("SubmitUnderstanding called with id: %s", req.Id)
 
-	// 1. 状态校验 (仅允许状态 2 或 3 提交)
-	// TODO: 查询 form_view 表
-	// SELECT understand_status FROM form_view WHERE id = ?
-	// if understandStatus != 2 && understandStatus != 3 {
-	//     return nil, errorx.NewWithCode(errorx.ErrCodeInvalidArgument)
-	// }
+	// 1. 状态校验 (仅允许状态 2 提交)
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+	}
 
-	// 2. 开启事务处理
-	// TODO: 获取数据库事务
-	// tx, err := l.svcCtx.DB.BeginTxx(l.ctx, nil)
-	// if err != nil {
-	//     return nil, err
-	// }
-	// defer tx.Rollback()
+	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
+		return nil, fmt.Errorf("当前状态不允许提交，当前状态: %d，仅状态 2 (待确认) 可提交", formViewData.UnderstandStatus)
+	}
 
-	// 3. 查询临时表当前版本数据
-	// TODO: 查询当前版本号
-	// SELECT MAX(version) FROM t_business_object_temp WHERE form_view_id = ?
-	// currentVersion := ...
+	// 2. 获取当前版本号
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
+	}
+	if latestVersion == 0 {
+		return nil, fmt.Errorf("没有可提交的数据，版本号为0")
+	}
 
-	// 4. 复制业务对象数据 (临时表 → 正式表)
-	// TODO: 删除正式表旧数据
-	// DELETE FROM t_business_object WHERE form_view_id = ?
-	// DELETE FROM t_business_object_attributes WHERE form_view_id = ?
+	// 3. 开启事务处理
+	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+		// 使用事务的 Session 创建正式表 model 实例
+		businessObjectModel := business_object.NewBusinessObjectModelSession(session)
+		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSession(session)
 
-	// TODO: 复制业务对象数据
-	// INSERT INTO t_business_object (id, object_name, object_type, form_view_id, status)
-	// SELECT id, object_name, 0, form_view_id, 1 FROM t_business_object_temp
-	// WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL
+		// 4. 删除正式表旧数据
+		err = businessObjectModel.DeleteByFormViewId(ctx, req.Id)
+		if err != nil {
+			return fmt.Errorf("删除旧业务对象数据失败: %w", err)
+		}
 
-	// TODO: 复制属性数据
-	// INSERT INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
-	// SELECT id, form_view_id, business_object_id, form_view_field_id, attr_name FROM t_business_object_attributes_temp
-	// WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL
+		err = businessObjectAttrModel.DeleteByFormViewId(ctx, req.Id)
+		if err != nil {
+			return fmt.Errorf("删除旧属性数据失败: %w", err)
+		}
 
-	// 5. 更新 form_view 状态为 3 (已完成)
-	// TODO: 更新状态
-	// UPDATE form_view SET understand_status = 3 WHERE id = ?
+		// 5. 复制业务对象数据 (临时表 → 正式表)
+		objectCount, err := businessObjectModel.BatchInsertFromTemp(ctx, req.Id, latestVersion)
+		if err != nil {
+			return fmt.Errorf("复制业务对象数据失败: %w", err)
+		}
 
-	// 6. 提交事务
-	// err = tx.Commit()
-	// if err != nil {
-	//     return nil, err
-	// }
+		// 6. 复制属性数据 (临时表 → 正式表)
+		attributeCount, err := businessObjectAttrModel.BatchInsertFromTemp(ctx, req.Id, latestVersion)
+		if err != nil {
+			return fmt.Errorf("复制属性数据失败: %w", err)
+		}
 
-	logx.Infof("Submit understanding: form_view_id=%s", req.Id)
+		logx.WithContext(ctx).Infof("Copied data from temp to formal: objects=%d, attributes=%d", objectCount, attributeCount)
+
+		// 注意：状态更新需要在事务外进行，因为 form_view 表不参与这个事务
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("事务执行失败: %w", err)
+	}
+
+	// 7. 更新 form_view 状态为 3 (已完成)
+	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, form_view.StatusCompleted)
+	if err != nil {
+		return nil, fmt.Errorf("更新理解状态失败: %w", err)
+	}
+
+	logx.WithContext(l.ctx).Infof("Submit understanding successful: form_view_id=%s, version=%d", req.Id, latestVersion)
 
 	resp = &types.SubmitUnderstandingResp{
 		Success: true,

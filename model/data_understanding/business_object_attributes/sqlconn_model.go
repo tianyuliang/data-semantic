@@ -13,9 +13,14 @@ func NewBusinessObjectAttributesModelSqlConn(conn sqlx.SqlConn) *BusinessObjectA
 	return &BusinessObjectAttributesModelSqlConn{conn: conn}
 }
 
+// NewBusinessObjectAttributesModelSession 创建BusinessObjectAttributesModelSqlConn实例 (使用 Session)
+func NewBusinessObjectAttributesModelSession(session sqlx.Session) *BusinessObjectAttributesModelSqlConn {
+	return &BusinessObjectAttributesModelSqlConn{conn: session}
+}
+
 // BusinessObjectAttributesModelSqlConn BusinessObjectAttributesModel实现 (基于 go-zero SqlConn)
 type BusinessObjectAttributesModelSqlConn struct {
-	conn sqlx.SqlConn
+	conn sqlx.Session
 }
 
 // FindByBusinessObjectId 根据business_object_id查询属性列表
@@ -70,4 +75,28 @@ func (m *BusinessObjectAttributesModelSqlConn) FindByBusinessObjectIdWithFieldIn
 		return nil, fmt.Errorf("find business_object_attributes with field info failed: %w", err)
 	}
 	return resp, nil
+}
+
+// DeleteByFormViewId 根据form_view_id删除所有属性
+func (m *BusinessObjectAttributesModelSqlConn) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_business_object_attributes SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete business_object_attributes by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// BatchInsertFromTemp 从临时表批量插入属性
+func (m *BusinessObjectAttributesModelSqlConn) BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error) {
+	query := `INSERT INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
+	           SELECT id, form_view_id, business_object_id, form_view_field_id, attr_name
+	           FROM t_business_object_attributes_temp
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL`
+	result, err := m.conn.ExecCtx(ctx, query, formViewId, version)
+	if err != nil {
+		return 0, fmt.Errorf("batch insert business_object_attributes from temp failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	return int(rowsAffected), nil
 }

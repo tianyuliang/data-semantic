@@ -81,3 +81,27 @@ func (m *BusinessObjectAttributesModelImpl) Delete(ctx context.Context, id strin
 func (m *BusinessObjectAttributesModelImpl) WithTx(tx interface{}) BusinessObjectAttributesModel {
 	return &BusinessObjectAttributesModelImpl{db: tx.(*sqlx.Tx)}
 }
+
+// DeleteByFormViewId 根据form_view_id删除所有属性
+func (m *BusinessObjectAttributesModelImpl) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_business_object_attributes SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.db.ExecContext(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete business_object_attributes by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// BatchInsertFromTemp 从临时表批量插入属性
+func (m *BusinessObjectAttributesModelImpl) BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error) {
+	query := `INSERT INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
+	           SELECT id, form_view_id, business_object_id, form_view_field_id, attr_name
+	           FROM t_business_object_attributes_temp
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL`
+	result, err := m.db.ExecContext(ctx, query, formViewId, version)
+	if err != nil {
+		return 0, fmt.Errorf("batch insert business_object_attributes from temp failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	return int(rowsAffected), nil
+}

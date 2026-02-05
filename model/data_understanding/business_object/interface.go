@@ -20,6 +20,12 @@ type BusinessObjectModel interface {
 	// Delete 逻辑删除业务对象
 	Delete(ctx context.Context, id string) error
 
+	// DeleteByFormViewId 根据form_view_id删除所有业务对象
+	DeleteByFormViewId(ctx context.Context, formViewId string) error
+
+	// BatchInsertFromTemp 从临时表批量插入业务对象
+	BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error)
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectModel
 }
