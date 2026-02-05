@@ -7,7 +7,6 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/consumer/internal/handler"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
