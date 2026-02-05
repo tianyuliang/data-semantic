@@ -55,3 +55,15 @@ func (m *FormViewFieldInfoTempModelSqlConn) deduplicateByFieldId(fields []*FormV
 	}
 	return result
 }
+
+// Update 更新字段信息
+func (m *FormViewFieldInfoTempModelSqlConn) Update(ctx context.Context, data *FormViewFieldInfoTemp) error {
+	query := `UPDATE t_form_view_field_info_temp
+	           SET field_business_name = ?, field_role = ?, field_description = ?
+	           WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, data.FieldBusinessName, data.FieldRole, data.FieldDescription, data.Id)
+	if err != nil {
+		return fmt.Errorf("update form_view_field_info_temp failed: %w", err)
+	}
+	return nil
+}

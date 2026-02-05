@@ -30,3 +30,15 @@ func (m *FormViewInfoTempModelSqlConn) FindLatestByFormViewId(ctx context.Contex
 	}
 	return &resp, nil
 }
+
+// Update 更新库表信息
+func (m *FormViewInfoTempModelSqlConn) Update(ctx context.Context, data *FormViewInfoTemp) error {
+	query := `UPDATE t_form_view_info_temp
+	           SET table_business_name = ?, table_description = ?
+	           WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, data.TableBusinessName, data.TableDescription, data.Id)
+	if err != nil {
+		return fmt.Errorf("update form_view_info_temp failed: %w", err)
+	}
+	return nil
+}
