@@ -71,3 +71,13 @@ func (m *BusinessObjectTempModelImpl) Update(ctx context.Context, data *Business
 func (m *BusinessObjectTempModelImpl) WithTx(tx interface{}) BusinessObjectTempModel {
 	return &BusinessObjectTempModelImpl{db: tx.(*sqlx.Tx)}
 }
+
+// DeleteByFormViewId 根据form_view_id删除所有业务对象
+func (m *BusinessObjectTempModelImpl) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+	query := `UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE form_view_id = ?`
+	_, err := m.db.ExecContext(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("delete business_object_temp by form_view_id failed: %w", err)
+	}
+	return nil
+}

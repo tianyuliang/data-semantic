@@ -72,3 +72,14 @@ func (m *BusinessObjectModelSqlConn) BatchInsertFromTemp(ctx context.Context, fo
 	rowsAffected, err := result.RowsAffected()
 	return int(rowsAffected), nil
 }
+
+// CountByFormViewId 根据form_view_id统计业务对象数量
+func (m *BusinessObjectModelSqlConn) CountByFormViewId(ctx context.Context, formViewId string) (int64, error) {
+	var count int64
+	query := `SELECT COUNT(*) FROM t_business_object WHERE form_view_id = ? AND deleted_at IS NULL`
+	err := m.conn.QueryRowCtx(ctx, &count, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("count business_object by form_view_id failed: %w", err)
+	}
+	return count, nil
+}

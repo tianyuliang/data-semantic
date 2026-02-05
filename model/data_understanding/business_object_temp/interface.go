@@ -17,6 +17,9 @@ type BusinessObjectTempModel interface {
 	// Update 更新业务对象名称
 	Update(ctx context.Context, data *BusinessObjectTemp) error
 
+	// DeleteByFormViewId 根据form_view_id删除所有业务对象
+	DeleteByFormViewId(ctx context.Context, formViewId string) error
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectTempModel
 }

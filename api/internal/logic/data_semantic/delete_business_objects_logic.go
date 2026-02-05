@@ -5,9 +5,14 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,33 +36,53 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 	logx.Infof("DeleteBusinessObjects called with id: %s", req.Id)
 
 	// 1. 状态校验 (仅允许状态 2 删除)
-	// TODO: 查询 form_view 表
-	// SELECT understand_status FROM form_view WHERE id = ?
-	// if understandStatus != 2 {
-	//     return nil, errorx.NewWithCode(errorx.ErrCodeInvalidArgument)
-	// }
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+	}
+
+	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
+		return nil, fmt.Errorf("当前状态不允许删除，当前状态: %d，仅状态 2 (待确认) 可删除", formViewData.UnderstandStatus)
+	}
 
 	// 2. 逻辑删除临时表数据
-	// TODO: 更新临时表 deleted_at
-	// UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE form_view_id = ?
-	// UPDATE t_business_object_attributes_temp SET deleted_at = NOW(3) WHERE form_view_id = ?
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+	err = businessObjectTempModel.DeleteByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("删除临时表业务对象数据失败: %w", err)
+	}
+
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+	err = businessObjectAttrTempModel.DeleteByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("删除临时表属性数据失败: %w", err)
+	}
 
 	// 3. 检查正式表是否有数据
-	// TODO: 查询正式表
-	// SELECT COUNT(*) FROM t_business_object WHERE form_view_id = ? AND deleted_at IS NULL
-	// formalDataCount := ...
+	businessObjectModel := business_object.NewBusinessObjectModelSqlConn(l.svcCtx.DB)
+	formalDataCount, err := businessObjectModel.CountByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询正式表数据失败: %w", err)
+	}
 
 	// 4. 根据正式表数据决定最终状态
-	// TODO: 更新 form_view 状态
-	// if formalDataCount > 0 {
-	//     // 正式表有数据，保持状态 3 (已完成)
-	//     UPDATE form_view SET understand_status = 3 WHERE id = ?
-	// } else {
-	//     // 正式表无数据，回退到状态 0 (未理解)
-	//     UPDATE form_view SET understand_status = 0 WHERE id = ?
-	// }
+	var newStatus int8
+	if formalDataCount > 0 {
+		// 正式表有数据，保持状态 3 (已完成)
+		newStatus = form_view.StatusCompleted
+	} else {
+		// 正式表无数据，回退到状态 0 (未理解)
+		newStatus = form_view.StatusNotUnderstanding
+	}
 
-	logx.Infof("Delete business objects: form_view_id=%s", req.Id)
+	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, newStatus)
+	if err != nil {
+		return nil, fmt.Errorf("更新理解状态失败: %w", err)
+	}
+
+	logx.WithContext(l.ctx).Infof("Delete business objects successful: form_view_id=%s, new_status=%d, formal_data_count=%d",
+		req.Id, newStatus, formalDataCount)
 
 	resp = &types.DeleteBusinessObjectsResp{
 		Success: true,

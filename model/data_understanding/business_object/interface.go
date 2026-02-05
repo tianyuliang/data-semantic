@@ -26,6 +26,9 @@ type BusinessObjectModel interface {
 	// BatchInsertFromTemp 从临时表批量插入业务对象
 	BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error)
 
+	// CountByFormViewId 根据form_view_id统计业务对象数量
+	CountByFormViewId(ctx context.Context, formViewId string) (int64, error)
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectModel
 }
