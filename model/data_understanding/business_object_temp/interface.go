@@ -14,6 +14,9 @@ type BusinessObjectTempModel interface {
 	// FindOneById 根据id查询业务对象
 	FindOneById(ctx context.Context, id string) (*BusinessObjectTemp, error)
 
+	// FindLatestVersion 查询指定form_view_id的最新版本号
+	FindLatestVersion(ctx context.Context, formViewId string) (int, error)
+
 	// Update 更新业务对象名称
 	Update(ctx context.Context, data *BusinessObjectTemp) error
 

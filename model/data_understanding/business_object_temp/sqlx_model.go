@@ -55,6 +55,19 @@ func (m *BusinessObjectTempModelImpl) FindOneById(ctx context.Context, id string
 	return &resp, nil
 }
 
+// FindLatestVersion 查询指定form_view_id的最新版本号
+func (m *BusinessObjectTempModelImpl) FindLatestVersion(ctx context.Context, formViewId string) (int, error) {
+	var latestVersion int
+	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND deleted_at IS NULL`
+	err := m.db.GetContext(ctx, &latestVersion, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("find latest version by form_view_id failed: %w", err)
+	}
+	return latestVersion, nil
+}
+
 // Update 更新业务对象名称
 func (m *BusinessObjectTempModelImpl) Update(ctx context.Context, data *BusinessObjectTemp) error {
 	query := `UPDATE t_business_object_temp

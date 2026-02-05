@@ -31,15 +31,18 @@ func NewDataUnderstandingHandler(svcCtx *svc.ServiceContext) *DataUnderstandingH
 
 // AIResponse AI识别结果响应结构
 type AIResponse struct {
-	MessageId   string `json:"message_id"`
-	FormViewId  string `json:"form_view_id"`
-	Version     int    `json:"version"`
-	RequestTime string `json:"request_time"`
-	// 表信息
-	TableInfo *TableInfo `json:"table_info,omitempty"`
-	// 字段列表
-	Fields []FieldInfo `json:"fields,omitempty"`
-	// 业务对象列表
+	MessageId    string `json:"message_id"`
+	FormViewId   string `json:"form_view_id"`
+	Version      int    `json:"version"`
+	RequestTime  string `json:"request_time"`
+	ResponseType string `json:"response_type,omitempty"` // 消息类型: full_understanding, regenerate_business_objects
+	// 表信息（全量生成时有值）
+	TableInfo       *TableInfo  `json:"table_info,omitempty"`
+	TableSemantic   *TableInfo  `json:"table_semantic,omitempty"` // 兼容字段
+	// 字段列表（全量生成时有值）
+	Fields          []FieldInfo `json:"fields,omitempty"`
+	FieldsSemantic  []FieldInfo `json:"fields_semantic,omitempty"` // 兼容字段
+	// 业务对象列表（全量生成和部分生成都有值）
 	BusinessObjects []BusinessObjectInfo `json:"business_objects,omitempty"`
 }
 
@@ -120,48 +123,67 @@ func (h *DataUnderstandingHandler) checkMessageId(ctx context.Context, messageId
 
 // processSuccessResponse 处理成功响应
 func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, aiResp *AIResponse) error {
+	// 判断消息类型：全量生成 vs 部分生成（重新识别业务对象）
+	isFullUnderstanding := aiResp.ResponseType == "full_understanding" ||
+		aiResp.ResponseType == "" ||
+		(aiResp.TableInfo != nil || len(aiResp.Fields) > 0)
+
 	// 1. 开启事务处理
 	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
-		// 1.1 获取当前最新版本号并递增
-		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
-		latestVersion := 0
-		latestRecord, err := formViewInfoTempModel.FindLatestByFormViewId(ctx, aiResp.FormViewId)
-		// 如果找到记录，使用其版本号；否则从 0 开始
-		if err == nil && latestRecord != nil {
-			latestVersion = latestRecord.Version
-		}
-		// 版本号递增
-		newVersion := latestVersion + 1
+		var newVersion int
 
-		// 1.2 记录消息处理日志
+		if isFullUnderstanding {
+			// 全量生成：查询表信息临时表的版本号
+			formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
+			latestVersion := 0
+			latestRecord, err := formViewInfoTempModel.FindLatestByFormViewId(ctx, aiResp.FormViewId)
+			if err == nil && latestRecord != nil {
+				latestVersion = latestRecord.Version
+			}
+			newVersion = latestVersion + 1
+
+			logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 旧版本=%d, 新版本=%d",
+				aiResp.FormViewId, latestVersion, newVersion)
+
+			// 1.1 保存表信息到临时表（如果有）
+			if aiResp.TableInfo != nil {
+				if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableInfo); err != nil {
+					return fmt.Errorf("保存表信息失败: %w", err)
+				}
+			}
+
+			// 1.2 保存字段信息到临时表（如果有）
+			if len(aiResp.Fields) > 0 {
+				if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.Fields); err != nil {
+					return fmt.Errorf("保存字段信息失败: %w", err)
+				}
+			}
+		} else {
+			// 部分生成（重新识别业务对象）：查询业务对象临时表的版本号
+			businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
+			latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(ctx, aiResp.FormViewId)
+			if err != nil {
+				// 查询失败，使用默认值 0
+				latestVersion = 0
+			}
+			newVersion = latestVersion + 1
+
+			logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 旧版本=%d, 新版本=%d",
+				aiResp.FormViewId, latestVersion, newVersion)
+		}
+
+		// 1.3 记录消息处理日志
 		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
 		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, aiResp.MessageId, aiResp.FormViewId); err != nil {
 			return fmt.Errorf("记录Kafka消息日志失败: %w", err)
 		}
 
-		// 1.3 保存表信息到临时表
-		if aiResp.TableInfo != nil {
-			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableInfo); err != nil {
-				return fmt.Errorf("保存表信息失败: %w", err)
-			}
-		}
-
-		// 1.4 保存字段信息到临时表
-		if len(aiResp.Fields) > 0 {
-			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.Fields); err != nil {
-				return fmt.Errorf("保存字段信息失败: %w", err)
-			}
-		}
-
-		// 1.5 保存业务对象到临时表
+		// 1.4 保存业务对象到临时表
 		if len(aiResp.BusinessObjects) > 0 {
 			if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects); err != nil {
 				return fmt.Errorf("保存业务对象失败: %w", err)
 			}
 		}
-
-		logx.WithContext(ctx).Infof("版本递增: form_view_id=%s, 旧版本=%d, 新版本=%d",
-			aiResp.FormViewId, latestVersion, newVersion)
 
 		return nil
 	})
@@ -176,8 +198,8 @@ func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, a
 		return fmt.Errorf("更新form_view状态失败: %w", err)
 	}
 
-	logx.WithContext(ctx).Infof("处理成功响应: message_id=%s, form_view_id=%s",
-		aiResp.MessageId, aiResp.FormViewId)
+	logx.WithContext(ctx).Infof("处理成功响应: message_id=%s, form_view_id=%s, type=%s",
+		aiResp.MessageId, aiResp.FormViewId, aiResp.ResponseType)
 
 	return nil
 }
