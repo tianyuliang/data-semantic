@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view_field"
 
-	"github.com/google/uuid"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -48,9 +49,9 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("当前状态不允许重新识别，当前状态: %d，仅状态 2 (待确认) 或 3 (已完成) 可重新识别", formViewData.UnderstandStatus)
 	}
 
-	// 3. 查询字段数量（用于返回统计信息）
+	// 3. 查询字段数据
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	fieldList, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
+	fields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("查询字段列表失败: %w", err)
 	}
@@ -63,28 +64,54 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
 	}
 
-	// 5. 生成 Kafka 消息并发送
-	messageId := uuid.New().String()
-	message := map[string]interface{}{
-		"message_id":    messageId,
-		"form_view_id":  req.Id,
-		"type":          "regenerate_business_objects",
-		"version":       latestVersion + 1,
-		"request_time":  time.Now().Format(time.RFC3339),
-	}
+	// 5. 构建完整的 Kafka 消息（包含字段信息）
+	kafkaMessage := l.buildKafkaMessage(req.Id, formViewData.TableTechName, fields, latestVersion+1)
 
-	err = l.svcCtx.SendKafkaMessage("data-understanding-requests", message)
-	if err != nil {
-		return nil, fmt.Errorf("发送 Kafka 消息失败: %w", err)
+	// 6. 发送 Kafka 消息
+	if l.svcCtx.Kafka != nil {
+		go func() {
+			// 异步发送，避免阻塞主流程
+			if err := l.svcCtx.SendKafkaMessage(config.RequestsTopic, kafkaMessage); err != nil {
+				logx.WithContext(l.ctx).Errorf("发送 Kafka 消息失败: %v", err)
+			} else {
+				logx.WithContext(l.ctx).Infof("Sent regenerate business objects message: messageId=%s, formViewId=%s, version=%d",
+					kafkaMessage["message_id"], req.Id, latestVersion+1)
+			}
+		}()
+	} else {
+		logx.WithContext(l.ctx).Infof("Kafka Producer 未初始化，消息未发送")
 	}
-
-	logx.WithContext(l.ctx).Infof("Sent regenerate business objects message: messageId=%s, formViewId=%s, version=%d",
-		messageId, req.Id, latestVersion+1)
 
 	resp = &types.RegenerateBusinessObjectsResp{
 		ObjectCount:    0, // 实际数量由 AI 识别完成后写入
-		AttributeCount: len(fieldList),
+		AttributeCount: len(fields),
 	}
 
 	return resp, nil
+}
+
+// buildKafkaMessage 构建 Kafka 消息
+func (l *RegenerateBusinessObjectsLogic) buildKafkaMessage(formViewId, tableTechName string, fields []*form_view_field.FormViewFieldBase, version int) map[string]interface{} {
+	// 构建字段列表
+	fieldList := make([]map[string]interface{}, 0, len(fields))
+	for i, f := range fields {
+		fieldList = append(fieldList, map[string]interface{}{
+			"form_view_field_id": f.Id,
+			"field_tech_name":    f.FieldTechName,
+			"field_type":         f.FieldType,
+			"field_index":        i + 1,
+		})
+	}
+
+	return map[string]interface{}{
+		"message_id":   uuid.New().String(),
+		"form_view_id": formViewId,
+		"request_type": "regenerate_business_objects",
+		"version":      version,
+		"request_time":  time.Now().Format(time.RFC3339),
+		"table_info": map[string]interface{}{
+			"table_tech_name": tableTechName,
+		},
+		"fields": fieldList,
+	}
 }
