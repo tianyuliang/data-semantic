@@ -44,6 +44,19 @@ func (m *BusinessObjectAttributesTempModelSqlConn) FindByFormViewAndVersion(ctx 
 	return resp, nil
 }
 
+// FindOneById 根据id查询属性
+func (m *BusinessObjectAttributesTempModelSqlConn) FindOneById(ctx context.Context, id string) (*BusinessObjectAttributesTemp, error) {
+	var resp BusinessObjectAttributesTemp
+	query := `SELECT id, form_view_id, business_object_id, user_id, version, form_view_field_id, attr_name, created_at, updated_at, deleted_at
+	           FROM t_business_object_attributes_temp
+	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
+	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("find business_object_attributes_temp by id failed: %w", err)
+	}
+	return &resp, nil
+}
+
 // Update 更新属性名称
 func (m *BusinessObjectAttributesTempModelSqlConn) Update(ctx context.Context, data *BusinessObjectAttributesTemp) error {
 	query := `UPDATE t_business_object_attributes_temp
