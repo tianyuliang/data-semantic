@@ -95,7 +95,7 @@ SO THAT 重新开始识别或放弃当前识别结果
 
 | ID | Scenario | Trigger | Expected Behavior |
 |----|----------|---------|-------------------|
-| AC-01 | 启动 AI 理解 | WHEN 用户点击"一键生成"且状态为"未理解"或"已完成" | THE SYSTEM SHALL 将状态设为"理解中"并发送 Kafka 消息 |
+| AC-01 | 启动 AI 理解 | WHEN 用户点击"一键生成"且状态为"未理解"或"已完成" | THE SYSTEM SHALL 将状态设为"理解中"并调用 AI 服务 HTTP API |
 | AC-02 | AI 处理完成 | WHEN Kafka 消费者收到 AI 成功响应 | THE SYSTEM SHALL 保存语义数据到临时表并将状态设为"待确认" |
 | AC-03 | 查询字段语义 | WHEN 状态为"待确认"且用户查询字段语义 | THE SYSTEM SHALL 从临时表返回最新版本数据 |
 | AC-04 | 查询业务对象 | WHEN 状态为"待确认"且用户查询业务对象 | THE SYSTEM SHALL 从临时表返回嵌套结构 |
@@ -118,7 +118,7 @@ SO THAT 重新开始识别或放弃当前识别结果
 | AC-23 | 业务对象名称重复 | WHEN 用户修改业务对象名称为同名 | THE SYSTEM SHALL 返回 400，提示名称重复 |
 | AC-24 | 属性名称重复 | WHEN 用户修改属性名称为同一业务对象下的同名 | THE SYSTEM SHALL 返回 400，提示属性名称重复 |
 | AC-25 | 目标业务对象不存在 | WHEN 用户调整属性归属到不存在的业务对象 | THE SYSTEM SHALL 返回 404，提示业务对象不存在 |
-| AC-26 | AI 服务不可用 | WHEN Kafka 发送失败或 AI 服务超时 | THE SYSTEM SHALL 回退状态到"未理解"并返回 503 |
+| AC-26 | AI 服务不可用 | WHEN AI 服务 HTTP API 调用失败或 AI 服务超时 | THE SYSTEM SHALL 回退状态到"未理解"并返回 503 |
 | AC-27 | AI 分析失败 | WHEN AI 返回失败响应 | THE SYSTEM SHALL 记录结构化日志（JSON，含 message_id/form_view_id/错误详情），保持状态为"理解中" |
 | AC-28 | 并发重复点击 | WHEN 同一用户1秒内重复点击同一操作 | THE SYSTEM SHALL 通过 Redis 限流拒绝请求 |
 | AC-29 | 查询时理解中 | WHEN 用户查询数据但状态为"理解中" | THE SYSTEM SHALL 返回 400，提示正在理解中请稍后 |

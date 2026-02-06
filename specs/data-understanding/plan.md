@@ -12,7 +12,7 @@
 本技术方案实现了库表数据的语义理解和业务对象自动识别功能。核心决策包括：
 - **版本控制机制**：通过临时表实现数据的版本管理，支持重新识别和历史追溯
 - **异步处理架构**：Kafka 消息队列实现 AI 服务的异步调用
-- **状态机设计**：5种理解状态（0-4）的单向流转管理
+- **状态机设计**：6种理解状态（0-5）的单向流转管理，包含理解失败状态
 - **数据源隔离**：正式表与临时表分离，根据状态动态切换数据源
 
 ---
@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS t_kafka_message_log (
 
 ```sql
 ALTER TABLE form_view
-ADD COLUMN IF NOT EXISTS understand_status TINYINT NOT NULL DEFAULT 0 COMMENT '理解状态：0-未理解,1-理解中,2-待确认,3-已完成,4-已发布';
+ADD COLUMN IF NOT EXISTS understand_status TINYINT NOT NULL DEFAULT 0 COMMENT '理解状态：0-未理解,1-理解中,2-待确认,3-已完成,4-已发布,5-理解失败';
 ```
 
 #### 9. form_view_field 表扩展
@@ -729,42 +729,45 @@ service data-semantic-api {
 
 ---
 
-## Kafka Integration
+## AI 服务集成
 
-### Topic 配置
+### HTTP API 调用
 
-| Topic | 用途 | 分区数 |
-|-------|------|--------|
-| `data-understanding-requests` | API 发送 AI 分析请求 | 3 |
-| `data-understanding-responses` | AI 返回分析结果 | 3 |
+**接口地址**：`/api/af-sailor-agent/v1/data_understand/view_semantic_and_business_analysis`
 
-### 请求消息格式
+**请求方式**：POST
 
-**Topic**: `data-understanding-requests`
+**请求格式**：
 
 **类型**: `full_understanding` (一键生成)
 ```json
 {
     "message_id": "uuid-request-xxx",
-    "form_view_id": "form-view-uuid",
     "request_type": "full_understanding",
-    "request_time": "2026-01-30T10:00:00.000Z",
-    "table_info": {
-        "table_tech_name": "cowenrr",
-        "table_business_name": "员工信息表",
-        "table_comment": "员工基础信息表"
-    },
-    "fields": [
-        {
-            "form_view_field_id": "field-uuid-1",
-            "field_tech_name": "id",
-            "field_business_name": "ID",
-            "field_type": "BIGINT",
-            "field_comment": "主键ID",
-            "is_primary_key": 1,
-            "field_index": 1
-        }
-    ]
+    "form_view": {
+        "form_view_id": "form-view-uuid",
+        "form_view_technical_name": "cowenrr",
+        "form_view_business_name": "员工信息表",
+        "form_view_desc": "员工基础信息表",
+        "form_view_fields": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "form_view_field_technical_name": "id",
+                "form_view_field_business_name": "ID",
+                "form_view_field_type": "BIGINT",
+                "form_view_field_role": "1",
+                "form_view_field_desc": "主键ID"
+            },
+            {
+                "form_view_field_id": "field-uuid-2",
+                "form_view_field_technical_name": "name",
+                "form_view_field_business_name": "姓名",
+                "form_view_field_type": "VARCHAR",
+                "form_view_field_role": "2",
+                "form_view_field_desc": "员工姓名"
+            }
+        ]
+    }
 }
 ```
 
@@ -772,57 +775,196 @@ service data-semantic-api {
 ```json
 {
     "message_id": "uuid-xxx",
-    "form_view_id": "form-view-uuid",
     "request_type": "regenerate_business_objects",
-    "field_semantic_data": [
-        {
-            "form_view_field_id": "xxx",
-            "field_tech_name": "name",
-            "field_type": "VARCHAR",
-            "field_business_name": "姓名",
-            "field_role": 2,
-            "field_description": "人员姓名"
-        }
-    ]
+    "form_view": {
+        "form_view_id": "form-view-uuid",
+        "form_view_technical_name": "cowenrr",
+        "form_view_business_name": "员工信息表",
+        "form_view_desc": "员工基础信息表",
+        "form_view_fields": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "form_view_field_technical_name": "name",
+                "form_view_field_business_name": "姓名",
+                "form_view_field_type": "VARCHAR",
+                "form_view_field_role": "2",
+                "form_view_field_desc": "人员姓名"
+            }
+        ]
+    }
 }
 ```
+
+**响应**：接口立即返回"任务处理中"（不等待AI处理完成）
+
+**响应体结构**：
+```json
+{
+  "task_id": "string",
+  "status": "pending|running|completed|failed|cancelled",
+  "message": "string",
+  "message_id": "string"
+}
+```
+
+**异常处理**：
+- HTTP 响应码 ≠ 200 → 提示"服务异常，请稍后再试"，状态保持 `1-理解中`
+- HTTP 响应码 = 200 且 status = "failed" → 提示"服务异常，请稍后再试"，状态保持 `1-理解中`
+- HTTP 响应码 = 200 且 status ≠ "failed" → 正常，AI 服务异步处理中，状态保持 `1-理解中`
+
+**说明**：无论 AI 服务调用成功与否，状态都保持 `1-理解中`，由 Kafka 消费者处理完成后更新为 `2-待确认`。
+
+---
+
+## Kafka Integration
+
+### Topic 配置
+
+| Topic | 用途 | 分区数 |
+|-------|------|--------|
+| `data-understanding-responses` | AI 返回分析结果 | 3 |
+
+**说明**：AI 服务处理完成后，将结果写入 Kafka 消息到 `data-understanding-responses` 主题，由我们的服务消费处理。
 
 ### 响应消息格式
 
 **Topic**: `data-understanding-responses`
 
+**成功时的响应**：
 ```json
 {
     "message_id": "uuid-request-xxx",
     "form_view_id": "form-view-uuid",
-    "response_type": "full_understanding",
-    "process_time": "2026-01-30T10:00:05.000Z",
+    "request_type": "full_understanding",
     "status": "success",
-    "table_semantic": {
-        "table_business_name": "员工信息表",
-        "table_description": "用于存储员工的基础信息，包括姓名、身份证、联系方式等"
-    },
-    "fields_semantic": [
-        {
-            "form_view_field_id": "field-uuid-1",
-            "field_business_name": "员工ID",
-            "field_role": 1,
-            "field_description": "员工唯一标识"
-        }
-    ],
-    "business_objects": [
-        {
-            "object_name": "基础信息",
-            "attributes": [
-                {
-                    "form_view_field_id": "field-uuid-2",
-                    "attr_name": "姓名"
-                }
-            ]
-        }
-    ]
+    "process_time": "2026-01-30T10:00:05.000Z",
+    "data": {
+        "table_semantic": {
+            "table_business_name": "员工信息表",
+            "table_description": "用于存储员工的基础信息，包括姓名、身份证、联系方式等"
+        },
+        "fields_semantic": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "field_business_name": "员工ID",
+                "field_role": 1,
+                "field_description": "员工唯一标识"
+            },
+            {
+                "form_view_field_id": "field-uuid-2",
+                "field_business_name": "员工姓名",
+                "field_role": 2,
+                "field_description": "员工真实姓名"
+            }
+        ],
+        "no_pattern_fields": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "field_business_name": "员工ID",
+                "field_role": 1,
+                "field_description": "员工唯一标识"
+            }
+        ],
+        "business_objects": [
+            {
+                "object_name": "基础信息",
+                "attributes": [
+                    {
+                        "form_view_field_id": "field-uuid-2",
+                        "attr_name": "姓名"
+                    },
+                    {
+                        "form_view_field_id": "field-uuid-3",
+                        "attr_name": "身份证"
+                    }
+                ]
+            },
+            {
+                "object_name": "联系方式",
+                "attributes": [
+                    {
+                        "form_view_field_id": "field-uuid-4",
+                        "attr_name": "手机号"
+                    }
+                ]
+            }
+        ]
+    }
 }
 ```
+
+**`regenerate_business_objects` 类型成功时的响应**：
+```json
+{
+    "message_id": "uuid-xxx",
+    "form_view_id": "form-view-uuid",
+    "request_type": "regenerate_business_objects",
+    "status": "success",
+    "process_time": "2026-01-30T10:00:05.000Z",
+    "data": {
+        "table_semantic": {
+            "table_business_name": "员工信息表",
+            "table_description": "用于存储员工的基础信息，包括姓名、身份证、联系方式等"
+        },
+        "fields_semantic": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "field_business_name": "员工ID",
+                "field_role": 1,
+                "field_description": "员工唯一标识"
+            },
+            {
+                "form_view_field_id": "field-uuid-2",
+                "field_business_name": "员工姓名",
+                "field_role": 2,
+                "field_description": "员工真实姓名"
+            }
+        ],
+        "no_pattern_fields": [
+            {
+                "form_view_field_id": "field-uuid-1",
+                "field_business_name": "员工ID",
+                "field_role": 1,
+                "field_description": "员工唯一标识"
+            }
+        ],
+        "business_objects": [
+            {
+                "object_name": "基础信息",
+                "attributes": [
+                    {
+                        "form_view_field_id": "xxx",
+                        "attr_name": "姓名"
+                    }
+                ]
+            }
+        ]
+    }
+}
+```
+
+**失败时的响应**：
+```json
+{
+    "message_id": "uuid-request-xxx",
+    "form_view_id": "form-view-uuid",
+    "request_type": "full_understanding",
+    "status": "failed",
+    "process_time": "2026-01-30T10:00:05.000Z",
+    "error": {
+        "code": "AI_SERVICE_ERROR",
+        "message": "AI 服务处理失败的具体原因"
+    }
+}
+```
+
+**消费者处理逻辑**：
+1. **解析消息**：获取 message_id、form_view_id、request_type、status、data/error
+2. **校验 message_id**：检查是否已处理，防止重复消费
+3. **校验库表理解状态**：检查当前 understand_status 是否为 `1-理解中`，否则跳过处理
+4. **根据 status 处理**：
+   - `status = "success"` → 保存数据到临时表，更新 `understand_status` 为 `2-待确认`
+   - `status = "failed"` → 记录错误日志到 `t_kafka_message_log`，更新 `understand_status` 为 `5-理解失败`
 
 ### 消费者配置
 
@@ -927,7 +1069,7 @@ WHERE id = ?;
 | 600114 | ErrNoDataToDelete | 没有可删除的数据 |
 | 600120 | ErrRateLimitExceeded | 操作过于频繁（限流） |
 | 600121 | ErrConcurrentOperation | 并发操作冲突 |
-| 600122 | ErrKafkaSendFailed | Kafka 发送失败 |
+| 600122 | ErrAIAPIFailed | AI 服务 API 调用失败 |
 | 600123 | ErrAIServiceUnavailable | AI 服务不可用 |
 
 ---
@@ -948,7 +1090,7 @@ WHERE id = ?;
 | SubmitUnderstanding | 状态2提交、状态3提交、状态校验失败 |
 | DeleteBusinessObjects | 状态2删除、状态3删除、有正式数据时保持状态3、无正式数据时回退0、状态校验失败 |
 | RegenerateBusinessObjects | 状态2/3重新识别、版本号递增 |
-| GenerateUnderstanding | 状态0/3生成、状态校验、Kafka发送 |
+| GenerateUnderstanding | 状态0/3生成、状态校验、HTTP API调用 |
 | SaveSemanticInfo | 库表信息保存、字段信息保存、状态校验 |
 | SaveBusinessObjects | 业务对象名称保存、属性名称保存、重复校验 |
 | MoveAttribute | 属性移动、目标不存在、重复名称 |
@@ -1012,3 +1154,4 @@ if !allowed {
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-03 | - | 初始版本，基于 807707-库表数据理解方案设计.md |
+| 1.1 | 2026-02-06 | - | Kafka 响应格式更新：regenerate_business_objects 也返回完整数据；消费者增加库表状态检查 |

@@ -150,7 +150,7 @@
   - 状态校验 (0 或 3 才允许生成)
   - 更新状态为 1（理解中）
   - Redis 限流检查
-  - Kafka 消息发送
+  - AI 服务 HTTP API 调用
 - [X] T033 [IF2] **[TEST]** 创建 `generate_understanding_logic_test.go`
 
 ### Step 4: Kafka Consumer 实现
@@ -158,8 +158,9 @@
 - [X] T034 [P] [IF2] 创建 `consumer/data_understanding/kafka_consumer.go` (消费者初始化)
 - [X] T035 [P] [IF2] 创建 `consumer/data_understanding/handler.go` (消息处理逻辑)
 - [X] T036 [IF2] 实现 message_id 去重检查
-- [X] T037 [IF2] 实现成功响应处理 (保存到临时表，更新状态为 2)
-- [X] T038 [IF2] 实现失败响应处理 (记录结构化日志)
+- [X] T036a [IF2] **[新增]** 实现库表理解状态检查（必须为 1-理解中才处理）
+- [X] T037 [IF2] 实现成功响应处理 (保存 table_semantic、fields_semantic、no_pattern_fields、business_objects 到临时表，更新状态为 2)
+- [X] T038 [IF2] 实现失败响应处理 (更新状态为 5-理解失败，记录结构化日志)
 - [X] T039 [IF2] **[TEST]** 创建 consumer 测试 (Mock Kafka)
 
 **Checkpoint**: ✅ 接口2 + Consumer 完成 - 可端到端验证（需要 Mock AI 服务）
@@ -306,7 +307,7 @@
 - [X] T068 [IF8] 实现 `regenerate_business_objects_logic.go`
   - 状态校验 (2 或 3)
   - 版本号递增逻辑
-  - Kafka 消息发送
+  - AI 服务 HTTP API 调用
 - [X] T069 [IF8] **[TEST]** 创建 `regenerate_business_objects_logic_test.go`
 
 **Checkpoint**: ✅ 接口8 完成 - 可验证版本号递增
@@ -435,7 +436,7 @@ Phase 13 (Polish)
 | 接口 | 验证方式 | 依赖 |
 |------|----------|------|
 | IF1: GetStatus | 直接调用查询状态表 | - |
-| IF2: GenerateUnderstanding | 需 Mock AI 服务或手动发送 Kafka 消息 | - |
+| IF2: GenerateUnderstanding | 需 Mock AI 服务 HTTP API | - |
 | IF3: GetFields | 先调用 IF2 生成数据，再调用 IF3 查询 | IF2 |
 | IF4: SaveSemanticInfo | 调用 IF4 保存，再调用 IF3 验证 | IF3 |
 | IF5: GetBusinessObjects | 先调用 IF2 生成数据，再调用 IF5 查询 | IF2 |
