@@ -964,7 +964,16 @@ service data-semantic-api {
 3. **校验库表理解状态**：检查当前 understand_status 是否为 `1-理解中`，否则跳过处理
 4. **根据 status 处理**：
    - `status = "success"` → 保存数据到临时表，更新 `understand_status` 为 `2-待确认`
+     - 保存 `table_semantic` → `t_form_view_info_temp`
+     - 保存 `fields_semantic` → `t_form_view_field_info_temp`
+     - 保存 `no_pattern_fields` → `t_business_object_attributes_temp`（business_object_id=NULL, attr_name=NULL）
+     - 保存 `business_objects` → `t_business_object_temp` + `t_business_object_attributes_temp`
    - `status = "failed"` → 记录错误日志到 `t_kafka_message_log`，更新 `understand_status` 为 `5-理解失败`
+
+**未识别字段说明**：
+- `no_pattern_fields` 保存到 `t_business_object_attributes_temp`，但 `business_object_id=NULL`、`attr_name=NULL`
+- 查询接口可通过 `business_object_id IS NULL` 筛选出这些未识别字段
+- 前端可展示给用户，允许手动分配到业务对象
 
 ### 消费者配置
 

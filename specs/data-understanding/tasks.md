@@ -160,6 +160,8 @@
 - [X] T036 [IF2] 实现 message_id 去重检查
 - [X] T036a [IF2] **[新增]** 实现库表理解状态检查（必须为 1-理解中才处理）
 - [X] T037 [IF2] 实现成功响应处理 (保存 table_semantic、fields_semantic、no_pattern_fields、business_objects 到临时表，更新状态为 2)
+  - **no_pattern_fields 保存到 t_business_object_attributes_temp，business_object_id=NULL, attr_name=NULL (未识别字段)**
+- [X] T037b [IF2] **[新增]** 实现未识别字段保存逻辑 (saveNoPatternFields 方法，保存未归属字段)
 - [X] T038 [IF2] 实现失败响应处理 (更新状态为 5-理解失败，记录结构化日志)
 - [X] T039 [IF2] **[TEST]** 创建 consumer 测试 (Mock Kafka)
 
