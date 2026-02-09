@@ -15,8 +15,8 @@ const (
 	// ErrDataUnderstandingAlreadyInProgress 理解正在进行中
 	ErrDataUnderstandingAlreadyInProgress = 600104
 
-	// ErrDataUnderstandingKafkaSendFailed Kafka消息发送失败
-	ErrDataUnderstandingKafkaSendFailed = 600105
+	// ErrDataUnderstandingAIAPIFailed AI服务API调用失败
+	ErrDataUnderstandingAIAPIFailed = 600105
 
 	// ErrDataUnderstandingRateLimitExceeded 超过限流阈值
 	ErrDataUnderstandingRateLimitExceeded = 600106

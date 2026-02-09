@@ -6,10 +6,8 @@ package data_semantic
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
@@ -64,23 +62,20 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
 	}
 
-	// 5. 构建完整的 Kafka 消息（包含字段信息）
-	kafkaMessage := l.buildKafkaMessage(req.Id, formViewData.TableTechName, fields, latestVersion+1)
-
-	// 6. 发送 Kafka 消息
-	if l.svcCtx.Kafka != nil {
-		go func() {
-			// 异步发送，避免阻塞主流程
-			if err := l.svcCtx.SendKafkaMessage(config.RequestsTopic, kafkaMessage); err != nil {
-				logx.WithContext(l.ctx).Errorf("发送 Kafka 消息失败: %v", err)
-			} else {
-				logx.WithContext(l.ctx).Infof("Sent regenerate business objects message: messageId=%s, formViewId=%s, version=%d",
-					kafkaMessage["message_id"], req.Id, latestVersion+1)
-			}
-		}()
-	} else {
-		logx.WithContext(l.ctx).Infof("Kafka Producer 未初始化，消息未发送")
+	// 5. 更新状态为 1（理解中）
+	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, form_view.StatusUnderstanding)
+	if err != nil {
+		return nil, fmt.Errorf("更新理解状态失败: %w", err)
 	}
+
+	// 6. 调用 AI 服务 HTTP API
+	go func() {
+		// 异步调用，避免阻塞主流程
+		if err := l.callAIService(req.Id, formViewData, fields); err != nil {
+			logx.WithContext(l.ctx).Errorf("调用 AI 服务失败: %v", err)
+			// 状态保持为 1-理解中，由 Kafka 消费者处理失败后更新为 5-理解失败
+		}
+	}()
 
 	resp = &types.RegenerateBusinessObjectsResp{
 		ObjectCount:    0, // 实际数量由 AI 识别完成后写入
@@ -90,28 +85,48 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 	return resp, nil
 }
 
-// buildKafkaMessage 构建 Kafka 消息
-func (l *RegenerateBusinessObjectsLogic) buildKafkaMessage(formViewId, tableTechName string, fields []*form_view_field.FormViewFieldBase, version int) map[string]interface{} {
+// callAIService 调用 AI 服务 HTTP API
+func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formViewData *form_view.FormViewDataBase, fields []*form_view_field.FormViewFieldBase) error {
 	// 构建字段列表
-	fieldList := make([]map[string]interface{}, 0, len(fields))
-	for i, f := range fields {
-		fieldList = append(fieldList, map[string]interface{}{
-			"form_view_field_id": f.Id,
-			"field_tech_name":    f.FieldTechName,
-			"field_type":         f.FieldType,
-			"field_index":        i + 1,
+	formViewFields := make([]map[string]interface{}, 0, len(fields))
+	for _, f := range fields {
+		fieldRole := ""
+		if f.FieldRole != nil {
+			// 将 int8 转换为字符串
+			fieldRole = fmt.Sprintf("%d", *f.FieldRole)
+		}
+
+		formViewFields = append(formViewFields, map[string]interface{}{
+			"form_view_field_id":           f.Id,
+			"form_view_field_technical_name": f.FieldTechName,
+			"form_view_field_business_name":  f.FieldBusinessName,
+			"form_view_field_type":          f.FieldType,
+			"form_view_field_role":          fieldRole,
+			"form_view_field_desc":          f.Comment,
 		})
 	}
 
-	return map[string]interface{}{
+	// 构建请求体
+	requestBody := map[string]interface{}{
 		"message_id":   uuid.New().String(),
-		"form_view_id": formViewId,
 		"request_type": "regenerate_business_objects",
-		"version":      version,
-		"request_time":  time.Now().Format(time.RFC3339),
-		"table_info": map[string]interface{}{
-			"table_tech_name": tableTechName,
+		"form_view": map[string]interface{}{
+			"form_view_id":               formViewId,
+			"form_view_technical_name":   formViewData.TableTechName,
+			"form_view_business_name":    formViewData.BusinessName,
+			"form_view_desc":             formViewData.Description,
+			"form_view_fields":           formViewFields,
 		},
-		"fields": fieldList,
 	}
+
+	// 调用 AI 服务
+	aiResponse, err := l.svcCtx.CallAIService("regenerate_business_objects", requestBody)
+	if err != nil {
+		return fmt.Errorf("调用 AI 服务失败: %w", err)
+	}
+
+	logx.WithContext(l.ctx).Infof("AI 服务调用成功: task_id=%s, status=%s, message=%s",
+		aiResponse.TaskID, aiResponse.Status, aiResponse.Message)
+
+	return nil
 }

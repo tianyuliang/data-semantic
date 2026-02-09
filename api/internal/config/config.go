@@ -30,6 +30,9 @@ type Config struct {
 
 	// Kafka 配置
 	Kafka KafkaConfig
+
+	// AI 服务配置
+	AIService AIServiceConfig
 }
 
 // DBConfig 数据库配置
@@ -95,3 +98,10 @@ type KafkaConfig struct {
 
 // RequestsTopic 请求消息 Topic
 const RequestsTopic = "data-understanding-requests"
+
+// AIServiceConfig AI 服务配置
+type AIServiceConfig struct {
+	URL             string `json:",optional"` // AI 服务地址，如 http://ai-service:8080
+	Token           string `json:",optional"` // AI 服务认证 Token
+	TimeoutSeconds  int    `json:",default=10"` // HTTP 请求超时时间（秒）
+}
