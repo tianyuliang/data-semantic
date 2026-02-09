@@ -101,7 +101,6 @@ const RequestsTopic = "data-understanding-requests"
 
 // AIServiceConfig AI 服务配置
 type AIServiceConfig struct {
-	URL             string `json:",optional"` // AI 服务地址，如 http://ai-service:8080
-	Token           string `json:",optional"` // AI 服务认证 Token
-	TimeoutSeconds  int    `json:",default=10"` // HTTP 请求超时时间（秒）
+	URL            string `json:",optional"` // AI 服务地址，如 http://ai-service:8080
+	TimeoutSeconds int    `json:",default=10"` // HTTP 请求超时时间（秒）
 }

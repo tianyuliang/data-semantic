@@ -141,9 +141,6 @@ func (s *ServiceContext) CallAIService(requestType string, requestBody map[strin
 
 	// 设置请求头
 	req.Header.Set("Content-Type", "application/json")
-	if s.Config.AIService.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+s.Config.AIService.Token)
-	}
 
 	// 发送请求
 	resp, err := s.HttpClient.Do(req)
