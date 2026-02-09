@@ -70,18 +70,17 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
 	fields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		// 记录错误但不中断流程，状态已更新
-		logx.WithContext(l.ctx).Errorf("查询字段数据失败: %v", err)
+		// 查询失败，回退状态
+		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
+		return nil, fmt.Errorf("查询字段数据失败: %w", err)
 	}
 
-	// 5. 调用 AI 服务 HTTP API
-	go func() {
-		// 异步调用，避免阻塞主流程
-		if err := l.callAIService(req.Id, formViewData, fields); err != nil {
-			logx.WithContext(l.ctx).Errorf("调用 AI 服务失败: %v", err)
-			// 状态保持为 1-理解中，由 Kafka 消费者处理失败后更新为 5-理解失败
-		}
-	}()
+	// 5. 调用 AI 服务 HTTP API（同步调用）
+	if err := l.callAIService(req.Id, formViewData, fields); err != nil {
+		// 调用失败，回退状态
+		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
+		return nil, fmt.Errorf("调用 AI 服务失败: %w", err)
+	}
 
 	// 6. 返回新状态
 	resp = &types.GenerateUnderstandingResp{
