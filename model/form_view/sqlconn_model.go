@@ -21,7 +21,7 @@ type FormViewModelSqlConn struct {
 // FindOneById 根据id查询库表视图
 func (m *FormViewModelSqlConn) FindOneById(ctx context.Context, id string) (*FormView, error) {
 	var resp FormView
-	query := `SELECT id, understand_status FROM form_view WHERE id = ? LIMIT 1`
+	query := `SELECT id, understand_status, table_tech_name, business_name, description FROM form_view WHERE id = ? LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("find form_view by id failed: %w", err)

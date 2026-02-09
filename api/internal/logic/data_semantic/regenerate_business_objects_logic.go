@@ -47,28 +47,34 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("当前状态不允许重新识别，当前状态: %d，仅状态 2 (待确认) 或 3 (已完成) 可重新识别", formViewData.UnderstandStatus)
 	}
 
-	// 3. 查询字段数据
+	// 3. 限流检查（1秒窗口，防止重复点击）
+	limiter := l.svcCtx.GetRateLimiter(req.Id)
+	if !limiter.Allow() {
+		return nil, fmt.Errorf("操作过于频繁，请稍后再试")
+	}
+
+	// 4. 查询字段数据（完整信息，包含业务名称和角色）
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	fields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
+	fields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("查询字段列表失败: %w", err)
 	}
 
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
 
-	// 4. 查询当前版本号
-	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
+	// 5. 查询当前版本号（用于版本控制，后续扩展使用）
+	_, err = businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
 	}
 
-	// 5. 更新状态为 1（理解中）
+	// 6. 更新状态为 1（理解中）
 	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, form_view.StatusUnderstanding)
 	if err != nil {
 		return nil, fmt.Errorf("更新理解状态失败: %w", err)
 	}
 
-	// 6. 调用 AI 服务 HTTP API
+	// 7. 调用 AI 服务 HTTP API
 	go func() {
 		// 异步调用，避免阻塞主流程
 		if err := l.callAIService(req.Id, formViewData, fields); err != nil {
@@ -86,7 +92,7 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 }
 
 // callAIService 调用 AI 服务 HTTP API
-func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formViewData *form_view.FormViewDataBase, fields []*form_view_field.FormViewFieldBase) error {
+func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formViewData *form_view.FormView, fields []*form_view_field.FormViewField) error {
 	// 构建字段列表
 	formViewFields := make([]map[string]interface{}, 0, len(fields))
 	for _, f := range fields {
@@ -96,13 +102,23 @@ func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formVi
 			fieldRole = fmt.Sprintf("%d", *f.FieldRole)
 		}
 
+		fieldDesc := ""
+		if f.FieldDescription != nil {
+			fieldDesc = *f.FieldDescription
+		}
+
+		fieldBusinessName := ""
+		if f.FieldBusinessName != nil {
+			fieldBusinessName = *f.FieldBusinessName
+		}
+
 		formViewFields = append(formViewFields, map[string]interface{}{
 			"form_view_field_id":           f.Id,
 			"form_view_field_technical_name": f.FieldTechName,
-			"form_view_field_business_name":  f.FieldBusinessName,
+			"form_view_field_business_name":  fieldBusinessName,
 			"form_view_field_type":          f.FieldType,
 			"form_view_field_role":          fieldRole,
-			"form_view_field_desc":          f.Comment,
+			"form_view_field_desc":          fieldDesc,
 		})
 	}
 

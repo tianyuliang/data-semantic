@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"golang.org/x/time/rate"
 )
 
 type ServiceContext struct {
@@ -23,6 +25,7 @@ type ServiceContext struct {
 	Kafka         sarama.SyncProducer // Kafka 生产者
 	Redis         *redis.Redis       // Redis 客户端
 	HttpClient    *http.Client       // HTTP 客户端（用于调用 AI 服务）
+	rateLimiters  sync.Map           // formViewId -> *rate.Limiter (限流器缓存)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -82,6 +85,22 @@ func initRedis(c config.Config) *redis.Redis {
 		Pass: c.Redis.Password,
 		Type: redis.NodeType,
 	})
+}
+
+// GetRateLimiter 获取或创建指定 formViewId 的限流器
+// 使用 1 秒窗口，允许 1 次请求
+func (s *ServiceContext) GetRateLimiter(formViewId string) *rate.Limiter {
+	// 尝试从缓存中获取
+	if limiter, ok := s.rateLimiters.Load(formViewId); ok {
+		return limiter.(*rate.Limiter)
+	}
+
+	// 创建新的限流器：1 秒内最多 1 次请求
+	limiter := rate.NewLimiter(rate.Every(time.Second), 1)
+
+	// 存入缓存（如果已存在则使用已存在的）
+	actual, _ := s.rateLimiters.LoadOrStore(formViewId, limiter)
+	return actual.(*rate.Limiter)
 }
 
 // SendKafkaMessage 发送 Kafka 消息

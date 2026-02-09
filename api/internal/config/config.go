@@ -37,7 +37,7 @@ type Config struct {
 
 // DBConfig 数据库配置
 type DBConfig struct {
-	Default DatabaseConfig `json:",default"`
+	Default DatabaseConfig
 }
 
 // DatabaseConfig 数据库连接配置

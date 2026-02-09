@@ -6,7 +6,6 @@ package data_semantic
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -47,17 +46,10 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 		return nil, fmt.Errorf("当前状态不允许生成理解数据，当前状态: %d", currentStatus)
 	}
 
-	// 2. Redis 限流检查（1秒窗口，防止重复点击）
-	if l.svcCtx.Redis != nil {
-		rateLimitKey := fmt.Sprintf("rate_limit:generate:%s", req.Id)
-		// 使用 Redis SETNX 实现简单的滑动窗口限流
-		allowed, err := l.checkRateLimit(rateLimitKey, time.Second)
-		if err != nil {
-			logx.WithContext(l.ctx).Errorf("限流检查失败: %v", err)
-		}
-		if !allowed {
-			return nil, fmt.Errorf("操作过于频繁，请稍后再试")
-		}
+	// 2. 限流检查（1秒窗口，防止重复点击）
+	limiter := l.svcCtx.GetRateLimiter(req.Id)
+	if !limiter.Allow() {
+		return nil, fmt.Errorf("操作过于频繁，请稍后再试")
 	}
 
 	// 3. 更新状态为 1（理解中）
@@ -66,9 +58,9 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 		return nil, fmt.Errorf("更新理解状态失败: %w", err)
 	}
 
-	// 4. 查询字段数据用于 AI 服务请求
+	// 4. 查询字段数据用于 AI 服务请求（完整信息，包含业务名称和角色）
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	fields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
+	fields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		// 查询失败，回退状态
 		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
@@ -90,23 +82,8 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	return resp, nil
 }
 
-// checkRateLimit 使用 Redis 检查限流
-func (l *GenerateUnderstandingLogic) checkRateLimit(key string, window time.Duration) (bool, error) {
-	// 使用 SETNX + EXPIRE 实现简单的限流
-	// SET key value NX
-	ok, err := l.svcCtx.Redis.SetnxCtx(l.ctx, key, "1")
-	if err != nil {
-		return false, err
-	}
-	if ok {
-		// 设置过期时间
-		_ = l.svcCtx.Redis.Expire(key, int(window.Seconds()))
-	}
-	return ok, nil
-}
-
 // callAIService 调用 AI 服务 HTTP API
-func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewData *form_view.FormViewDataBase, fields []*form_view_field.FormViewFieldBase) error {
+func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewData *form_view.FormView, fields []*form_view_field.FormViewField) error {
 	// 构建字段列表
 	formViewFields := make([]map[string]interface{}, 0, len(fields))
 	for _, f := range fields {
@@ -116,13 +93,23 @@ func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewDa
 			fieldRole = fmt.Sprintf("%d", *f.FieldRole)
 		}
 
+		fieldDesc := ""
+		if f.FieldDescription != nil {
+			fieldDesc = *f.FieldDescription
+		}
+
+		fieldBusinessName := ""
+		if f.FieldBusinessName != nil {
+			fieldBusinessName = *f.FieldBusinessName
+		}
+
 		formViewFields = append(formViewFields, map[string]interface{}{
 			"form_view_field_id":           f.Id,
 			"form_view_field_technical_name": f.FieldTechName,
-			"form_view_field_business_name":  f.FieldBusinessName,
+			"form_view_field_business_name":  fieldBusinessName,
 			"form_view_field_type":          f.FieldType,
 			"form_view_field_role":          fieldRole,
-			"form_view_field_desc":          f.Comment,
+			"form_view_field_desc":          fieldDesc,
 		})
 	}
 

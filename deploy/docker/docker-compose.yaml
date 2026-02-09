@@ -9,7 +9,6 @@ services:
     ports:
       - "${API_PORT:-8888}:8888"
     environment:
-    environment:
       - TZ=${TZ:-Asia/Shanghai}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -77,6 +76,68 @@ services:
     profiles:
       - with-redis
 
+  # Zookeeper (Kafka 依赖)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: data-semantic-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+      - ZOOKEEPER_TICK_TIME=2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    restart: unless-stopped
+    networks:
+      - data-semantic-network
+    profiles:
+      - with-kafka
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: data-semantic-kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    depends_on:
+      - zookeeper
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    restart: unless-stopped
+    networks:
+      - data-semantic-network
+    profiles:
+      - with-kafka
+
+  # Kafka UI (可选，方便管理)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: data-semantic-kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    restart: unless-stopped
+    networks:
+      - data-semantic-network
+    profiles:
+      - with-kafka
+
 networks:
   data-semantic-network:
     driver: bridge
@@ -84,3 +145,6 @@ networks:
 volumes:
   mysql-data:
   redis-data:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
