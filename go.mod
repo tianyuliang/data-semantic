@@ -5,9 +5,9 @@ go 1.24.11
 require (
 	github.com/IBM/sarama v1.46.3
 	github.com/go-sql-driver/mysql v1.9.0
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/stretchr/testify v1.11.1
 	github.com/zeromicro/go-zero v1.9.4
+	golang.org/x/time v0.14.0
 )
 
 require (
@@ -29,7 +29,6 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/redis/go-redis/v9 v9.17.3 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	golang.org/x/time v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

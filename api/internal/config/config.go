@@ -28,9 +28,6 @@ type Config struct {
 	// Redis 配置
 	Redis RedisConfig
 
-	// Kafka 配置
-	Kafka KafkaConfig
-
 	// AI 服务配置
 	AIService AIServiceConfig
 }
@@ -90,14 +87,6 @@ type RedisConfig struct {
 func (r RedisConfig) Addr() string {
 	return fmt.Sprintf("%s:%d", r.Host, r.Port)
 }
-
-// KafkaConfig Kafka 配置
-type KafkaConfig struct {
-	Brokers []string `json:",optional"` // Kafka broker 地址列表
-}
-
-// RequestsTopic 请求消息 Topic
-const RequestsTopic = "data-understanding-requests"
 
 // AIServiceConfig AI 服务配置
 type AIServiceConfig struct {
