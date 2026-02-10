@@ -16,10 +16,10 @@ import (
 
 type ServiceContext struct {
 	Config       config.Config
-	DB           sqlx.SqlConn  // 数据库连接
-	Redis        *redis.Redis  // Redis 客户端
-	AIClient     *aiservice.Client // AI 服务客户端
-	rateLimiters sync.Map      // formViewId -> *rate.Limiter (限流器缓存)
+	DB           sqlx.SqlConn              // 数据库连接
+	Redis        *redis.Redis              // Redis 客户端
+	AIClient     aiservice.ClientInterface // AI 服务客户端
+	rateLimiters sync.Map                  // formViewId -> *rate.Limiter (限流器缓存)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {

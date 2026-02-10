@@ -39,3 +39,8 @@ type FormViewField struct {
 	Role             string  `json:"form_view_field_role"`
 	Description      string  `json:"form_view_field_desc"`
 }
+
+// ClientInterface AI 服务客户端接口
+type ClientInterface interface {
+	Call(requestType RequestType, messageID string, formView *FormView) (*AIServiceResponse, error)
+}

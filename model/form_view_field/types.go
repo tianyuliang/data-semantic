@@ -5,8 +5,8 @@ package form_view_field
 type FormViewField struct {
 	Id               string `db:"id"`
 	FormViewId       string `db:"form_view_id"`
-	FieldTechName    string `db:"field_tech_name"`
-	FieldType        string `db:"field_type"`
+	FieldTechName    string `db:"technical_name"`
+	FieldType        string `db:"data_type"`
 	FieldBusinessName *string `db:"business_name"`
 	FieldRole        *int8  `db:"field_role"`
 	FieldDescription *string `db:"field_description"`

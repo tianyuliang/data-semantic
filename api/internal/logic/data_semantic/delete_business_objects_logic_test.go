@@ -17,8 +17,10 @@ func TestDeleteBusinessObjectsLogic_DeleteBusinessObjects(t *testing.T) {
 	// 创建测试上下文
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
-		DB:     testDB,
+		Config:   testConfig,
+		DB:       testDB,
+		Redis:    testRedis,
+		AIClient: testAIClient,
 	}
 	logic := NewDeleteBusinessObjectsLogic(ctx, svcCtx)
 

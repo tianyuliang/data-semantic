@@ -8,8 +8,8 @@ type FormView struct {
 	Id               string     `db:"id"`
 	UnderstandStatus int8       `db:"understand_status"`
 	TechnicalName    string     `db:"technical_name"`
-	BusinessName     string     `db:"business_name"`
-	Description      string     `db:"description"`
+	BusinessName     *string    `db:"business_name"`
+	Description      *string    `db:"description"`
 	CreatedAt        time.Time  `db:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at"`
 }

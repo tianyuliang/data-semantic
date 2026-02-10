@@ -17,7 +17,9 @@ func TestRegenerateBusinessObjectsLogic_RegenerateBusinessObjects(t *testing.T) 
 	// 创建测试上下文
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		DB:     testDB,
+		DB:       testDB,
+		Redis:    testRedis,
+		AIClient: testAIClient,
 	}
 	logic := NewRegenerateBusinessObjectsLogic(ctx, svcCtx)
 

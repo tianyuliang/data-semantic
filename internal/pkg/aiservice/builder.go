@@ -15,13 +15,13 @@ func BuildFormView(formViewID string, formViewData *form_view.FormView, fields [
 	}
 
 	businessName := ""
-	if formViewData.BusinessName != "" {
-		businessName = formViewData.BusinessName
+	if formViewData.BusinessName != nil {
+		businessName = *formViewData.BusinessName
 	}
 
 	description := ""
-	if formViewData.Description != "" {
-		description = formViewData.Description
+	if formViewData.Description != nil {
+		description = *formViewData.Description
 	}
 
 	return &FormView{

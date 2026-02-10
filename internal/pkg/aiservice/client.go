@@ -15,6 +15,9 @@ type Client struct {
 	httpClient *http.Client
 }
 
+// Ensure Client implements ClientInterface at compile time
+var _ ClientInterface = (*Client)(nil)
+
 // NewClient creates a new AI service client
 func NewClient(baseURL string, timeout time.Duration) *Client {
 	if timeout == 0 {
