@@ -29,12 +29,3 @@ service api {
 	get /health returns (HealthResp)
 }
 
-// ============================================
-// 需要鉴权的接口
-// ============================================
-@server (
-	prefix: /api/v1
-	jwt:    Auth
-)
-service api { // 其他需要鉴权的接口在 data_semantic 模块中定义}
-

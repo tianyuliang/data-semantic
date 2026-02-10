@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view_field"
@@ -91,50 +92,16 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 
 // callAIService 调用 AI 服务 HTTP API
 func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formViewData *form_view.FormView, fields []*form_view_field.FormViewField) error {
-	// 构建字段列表
-	formViewFields := make([]map[string]interface{}, 0, len(fields))
-	for _, f := range fields {
-		fieldRole := ""
-		if f.FieldRole != nil {
-			// 将 int8 转换为字符串
-			fieldRole = fmt.Sprintf("%d", *f.FieldRole)
-		}
+	// 使用 builder 构建 FormView
+	aiFormView := aiservice.BuildFormView(formViewId, formViewData, fields)
 
-		fieldDesc := ""
-		if f.FieldDescription != nil {
-			fieldDesc = *f.FieldDescription
-		}
+	// 生成 message_id
+	messageID := uuid.New().String()
 
-		fieldBusinessName := ""
-		if f.FieldBusinessName != nil {
-			fieldBusinessName = *f.FieldBusinessName
-		}
-
-		formViewFields = append(formViewFields, map[string]interface{}{
-			"form_view_field_id":           f.Id,
-			"form_view_field_technical_name": f.FieldTechName,
-			"form_view_field_business_name":  fieldBusinessName,
-			"form_view_field_type":          f.FieldType,
-			"form_view_field_role":          fieldRole,
-			"form_view_field_desc":          fieldDesc,
-		})
-	}
-
-	// 构建请求体
-	requestBody := map[string]interface{}{
-		"message_id":   uuid.New().String(),
-		"request_type": "regenerate_business_objects",
-		"form_view": map[string]interface{}{
-			"form_view_id":               formViewId,
-			"form_view_technical_name":   formViewData.TechnicalName,
-			"form_view_business_name":    formViewData.BusinessName,
-			"form_view_desc":             formViewData.Description,
-			"form_view_fields":           formViewFields,
-		},
-	}
+	logx.WithContext(l.ctx).Infof("调用 AI 服务: request_type=%s, field_count=%d", aiservice.RequestTypeRegenerateBusinessObjects, len(fields))
 
 	// 调用 AI 服务
-	aiResponse, err := l.svcCtx.CallAIService("regenerate_business_objects", requestBody)
+	aiResponse, err := l.svcCtx.AIClient.Call(aiservice.RequestTypeRegenerateBusinessObjects, messageID, aiFormView)
 	if err != nil {
 		return fmt.Errorf("调用 AI 服务失败: %w", err)
 	}

@@ -4,28 +4,27 @@
 package svc
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"golang.org/x/time/rate"
 )
 
 type ServiceContext struct {
-	Config        config.Config
-	DB            sqlx.SqlConn       // 数据库连接
-	Kafka         sarama.SyncProducer // Kafka 生产者
-	Redis         *redis.Redis       // Redis 客户端
-	HttpClient    *http.Client       // HTTP 客户端（用于调用 AI 服务）
-	rateLimiters  sync.Map           // formViewId -> *rate.Limiter (限流器缓存)
+	Config       config.Config
+	DB           sqlx.SqlConn       // 数据库连接
+	Kafka        sarama.SyncProducer // Kafka 生产者
+	Redis        *redis.Redis       // Redis 客户端
+	AIClient     *aiservice.Client  // AI 服务客户端
+	rateLimiters sync.Map           // formViewId -> *rate.Limiter (限流器缓存)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -41,21 +40,16 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化 Redis
 	redisClient := initRedis(c)
 
-	// 初始化 HTTP 客户端（用于调用 AI 服务）
+	// 初始化 AI 服务客户端
 	timeout := time.Duration(c.AIService.TimeoutSeconds) * time.Second
-	if timeout == 0 {
-		timeout = 10 * time.Second // 默认 10 秒
-	}
-	httpClient := &http.Client{
-		Timeout: timeout,
-	}
+	aiClient := aiservice.NewClient(c.AIService.URL, timeout)
 
 	return &ServiceContext{
-		Config:     c,
-		DB:         db,
-		Kafka:      kafkaProducer,
-		Redis:      redisClient,
-		HttpClient: httpClient,
+		Config:   c,
+		DB:       db,
+		Kafka:    kafkaProducer,
+		Redis:    redisClient,
+		AIClient: aiClient,
 	}
 }
 
@@ -129,55 +123,4 @@ func (s *ServiceContext) SendKafkaMessage(topic string, message map[string]inter
 
 	log.Printf("Kafka 消息发送成功: topic=%s, partition=%d, offset=%d", topic, partition, offset)
 	return nil
-}
-
-// AIServiceResponse AI 服务响应结构
-type AIServiceResponse struct {
-	TaskID    string `json:"task_id"`
-	Status    string `json:"status"`
-	Message   string `json:"message"`
-	MessageID string `json:"message_id"`
-}
-
-// CallAIService 调用 AI 服务 HTTP API
-func (s *ServiceContext) CallAIService(requestType string, requestBody map[string]interface{}) (*AIServiceResponse, error) {
-	if s.Config.AIService.URL == "" {
-		return nil, fmt.Errorf("AI 服务 URL 未配置")
-	}
-
-	// 构建 JSON 请求体
-	jsonBytes, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("序列化请求体失败: %w", err)
-	}
-
-	// 创建 HTTP 请求
-	url := fmt.Sprintf("%s/api/af-sailor-agent/v1/data_understand/view_semantic_and_business_analysis", s.Config.AIService.URL)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return nil, fmt.Errorf("创建 HTTP 请求失败: %w", err)
-	}
-
-	// 设置请求头
-	req.Header.Set("Content-Type", "application/json")
-
-	// 发送请求
-	resp, err := s.HttpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("发送 HTTP 请求失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// 检查 HTTP 状态码
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("AI 服务返回错误状态码: %d", resp.StatusCode)
-	}
-
-	// 解析响应
-	var aiResponse AIServiceResponse
-	if err := json.NewDecoder(resp.Body).Decode(&aiResponse); err != nil {
-		return nil, fmt.Errorf("解析 AI 服务响应失败: %w", err)
-	}
-
-	return &aiResponse, nil
 }

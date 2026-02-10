@@ -51,9 +51,6 @@
             "schema": {
               "type": "object",
               "properties": {
-                "current_version": {
-                  "type": "integer"
-                },
                 "list": {
                   "type": "array",
                   "items": {
@@ -392,7 +389,7 @@
     "/api/v1/data-semantic/{id}/generate": {
       "post": {
         "consumes": [
-          "application/x-www-form-urlencoded"
+          "application/json"
         ],
         "produces": [
           "application/json"
@@ -408,6 +405,53 @@
             "name": "id",
             "in": "path",
             "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "fields"
+              ],
+              "properties": {
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "form_view_field_id",
+                      "field_tech_name",
+                      "field_type",
+                      "field_business_name",
+                      "field_role",
+                      "field_description"
+                    ],
+                    "properties": {
+                      "field_business_name": {
+                        "type": "string"
+                      },
+                      "field_description": {
+                        "type": "string"
+                      },
+                      "field_role": {
+                        "type": "integer"
+                      },
+                      "field_tech_name": {
+                        "type": "string"
+                      },
+                      "field_type": {
+                        "type": "string"
+                      },
+                      "form_view_field_id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         ],
         "responses": {
@@ -599,7 +643,7 @@
         "schemes": [
           "https"
         ],
-        "summary": "HealthCheck",
+        "summary": "健康检查",
         "operationId": "healthCheck",
         "responses": {
           "200": {
@@ -617,7 +661,7 @@
       }
     }
   },
-  "x-date": "2026-02-04 14:53:09",
+  "x-date": "2026-02-10 10:53:00",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",

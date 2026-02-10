@@ -34,7 +34,8 @@
       "Bash(go doc:*)",
       "Bash(git checkout:*)",
       "Bash(curl:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(goctl api docs:*)"
     ]
   }
 }
