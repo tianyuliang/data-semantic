@@ -22,6 +22,15 @@ type BusinessObjectAttribute struct {
 type EmptyResp struct {
 }
 
+type FieldSelection struct {
+	FormViewFieldId   string  `json:"form_view_field_id" validate:"required"`
+	FieldTechName     string  `json:"field_tech_name" validate:"required"`
+	FieldType         string  `json:"field_type" validate:"required"`
+	FieldBusinessName *string `json:"field_business_name,omitempty"`
+	FieldRole         *int8   `json:"field_role,omitempty"`
+	FieldDescription  *string `json:"field_description,omitempty"`
+}
+
 type FieldSemanticInfo struct {
 	FormViewFieldId   string  `json:"form_view_field_id"`
 	FieldBusinessName *string `json:"field_business_name"`

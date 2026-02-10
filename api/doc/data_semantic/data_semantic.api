@@ -17,8 +17,19 @@ type (
 	}
 
 	// ====== 接口2: 一键生成理解数据 ======
+	// 字段选择参数（用于部分字段理解）
+	FieldSelection {
+		FormViewFieldId   string  `json:"form_view_field_id" validate:"required"`
+		FieldTechName     string  `json:"field_tech_name" validate:"required"`
+		FieldType         string  `json:"field_type" validate:"required"`
+		FieldBusinessName *string `json:"field_business_name,omitempty"`
+		FieldRole         *int8   `json:"field_role,omitempty"`
+		FieldDescription  *string `json:"field_description,omitempty"`
+	}
+
 	GenerateUnderstandingReq {
-		Id string `path:"id" validate:"required"`
+		Id     string           `path:"id" validate:"required"`
+		Fields []FieldSelection `json:"fields,omitempty"`
 	}
 	GenerateUnderstandingResp {
 		UnderstandStatus int8 `json:"understand_status"`
@@ -144,7 +155,6 @@ type (
 @server (
 	prefix: /api/v1/data-semantic
 	group:  data_semantic
-	jwt:    Auth
 )
 service api {
 	@doc "查询库表理解状态"

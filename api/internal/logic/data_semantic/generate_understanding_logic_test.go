@@ -111,4 +111,61 @@ func TestGenerateUnderstandingLogic_GenerateUnderstanding(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, resp)
 	})
+
+	// 测试用例 7: 部分字段理解 - 传入 fields 参数
+	t.Run("部分字段理解-传入fields参数", func(t *testing.T) {
+		t.Skip("需要数据库连接")
+
+		fieldRole1 := int8(1) // 业务主键
+		fieldRole2 := int8(2) // 关联标识
+
+		req := &types.GenerateUnderstandingReq{
+			Id: "test-form-view-id-partial",
+			Fields: []types.FieldSelection{
+				{
+					FormViewFieldId:   "field-id-1",
+					FieldTechName:     "id",
+					FieldType:         "BIGINT",
+					FieldBusinessName: stringPtr("用户ID"),
+					FieldRole:         &fieldRole1,
+					FieldDescription:  stringPtr("用户唯一标识"),
+				},
+				{
+					FormViewFieldId:   "field-id-2",
+					FieldTechName:     "email",
+					FieldType:         "VARCHAR",
+					FieldBusinessName: stringPtr("邮箱"),
+					FieldRole:         &fieldRole2,
+					FieldDescription:  stringPtr("用户邮箱地址"),
+				},
+			},
+		}
+
+		resp, err := logic.GenerateUnderstanding(req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, form_view.StatusUnderstanding, resp.UnderstandStatus)
+	})
+
+	// 测试用例 8: 部分字段理解 - fields 为空数组（按全部字段处理）
+	t.Run("部分字段理解-fields为空数组", func(t *testing.T) {
+		t.Skip("需要数据库连接")
+
+		req := &types.GenerateUnderstandingReq{
+			Id:     "test-form-view-id-status0",
+			Fields: []types.FieldSelection{},
+		}
+
+		resp, err := logic.GenerateUnderstanding(req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, form_view.StatusUnderstanding, resp.UnderstandStatus)
+	})
+}
+
+// stringPtr 返回字符串指针的辅助函数
+func stringPtr(s string) *string {
+	return &s
 }

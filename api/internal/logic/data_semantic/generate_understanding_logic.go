@@ -32,7 +32,7 @@ func NewGenerateUnderstandingLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUnderstandingReq) (resp *types.GenerateUnderstandingResp, err error) {
-	logx.Infof("GenerateUnderstanding called with id: %s", req.Id)
+	logx.Infof("GenerateUnderstanding called with id: %s, fields count: %d", req.Id, len(req.Fields))
 
 	// 1. 状态校验：只有状态 0（未理解）或 3（已完成）才允许生成
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
@@ -58,17 +58,26 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 		return nil, fmt.Errorf("更新理解状态失败: %w", err)
 	}
 
-	// 4. 查询字段数据用于 AI 服务请求（完整信息，包含业务名称和角色）
-	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	fields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
-	if err != nil {
-		// 查询失败，回退状态
-		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
-		return nil, fmt.Errorf("查询字段数据失败: %w", err)
+	// 4. 获取字段数据（全部字段或部分字段）
+	var fields []*form_view_field.FormViewField
+	if len(req.Fields) > 0 {
+		// 方式一：使用传入的字段信息（部分字段理解）
+		fields = l.convertFieldsSelection(req.Fields)
+		logx.Infof("使用传入的字段信息进行部分理解，字段数量: %d", len(fields))
+	} else {
+		// 方式二：查询数据库获取所有字段（全部字段理解）
+		formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
+		fields, err = formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
+		if err != nil {
+			// 查询失败，回退状态
+			_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
+			return nil, fmt.Errorf("查询字段数据失败: %w", err)
+		}
+		logx.Infof("查询数据库获取全部字段，字段数量: %d", len(fields))
 	}
 
 	// 5. 调用 AI 服务 HTTP API（同步调用）
-	if err := l.callAIService(req.Id, formViewData, fields); err != nil {
+	if err := l.callAIService(req.Id, formViewData, fields, len(req.Fields) > 0); err != nil {
 		// 调用失败，回退状态
 		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
 		return nil, fmt.Errorf("调用 AI 服务失败: %w", err)
@@ -82,8 +91,24 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	return resp, nil
 }
 
+// convertFieldsSelection 将 FieldSelection 转换为 FormViewField
+func (l *GenerateUnderstandingLogic) convertFieldsSelection(fieldSelections []types.FieldSelection) []*form_view_field.FormViewField {
+	fields := make([]*form_view_field.FormViewField, 0, len(fieldSelections))
+	for _, fs := range fieldSelections {
+		fields = append(fields, &form_view_field.FormViewField{
+			Id:                fs.FormViewFieldId,
+			FieldTechName:     fs.FieldTechName,
+			FieldType:         fs.FieldType,
+			FieldBusinessName: fs.FieldBusinessName,
+			FieldRole:         fs.FieldRole,
+			FieldDescription:  fs.FieldDescription,
+		})
+	}
+	return fields
+}
+
 // callAIService 调用 AI 服务 HTTP API
-func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewData *form_view.FormView, fields []*form_view_field.FormViewField) error {
+func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewData *form_view.FormView, fields []*form_view_field.FormViewField, isPartial bool) error {
 	// 构建字段列表
 	formViewFields := make([]map[string]interface{}, 0, len(fields))
 	for _, f := range fields {
@@ -113,10 +138,16 @@ func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewDa
 		})
 	}
 
+	// 确定 request_type：部分字段使用 partial_understanding，全部字段使用 full_understanding
+	requestType := "full_understanding"
+	if isPartial {
+		requestType = "partial_understanding"
+	}
+
 	// 构建请求体
 	requestBody := map[string]interface{}{
 		"message_id":   uuid.New().String(),
-		"request_type": "full_understanding",
+		"request_type": requestType,
 		"form_view": map[string]interface{}{
 			"form_view_id":               formViewId,
 			"form_view_technical_name":   formViewData.TechnicalName,
@@ -126,8 +157,10 @@ func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewDa
 		},
 	}
 
+	logx.WithContext(l.ctx).Infof("调用 AI 服务: request_type=%s, field_count=%d", requestType, len(formViewFields))
+
 	// 调用 AI 服务
-	aiResponse, err := l.svcCtx.CallAIService("full_understanding", requestBody)
+	aiResponse, err := l.svcCtx.CallAIService(requestType, requestBody)
 	if err != nil {
 		return fmt.Errorf("调用 AI 服务失败: %w", err)
 	}

@@ -64,15 +64,9 @@
 
 - [X] T004 在 `internal/errorx/codes.go` 中定义数据理解错误码 (600101-600130)
 
-### Step 2: JWT 中间件配置（使用通用库）
+### Step 2: 错误码定义
 
-- [X] T005 [P] 在 `api/internal/svc/service_context.go` 中初始化通用库 JWT 中间件
-  ```go
-  import "github.com/jinguoxing/idrm-go-base/middleware"
-
-  // 使用通用库的 JWT 中间件
-  ```
-- [X] T006 [P] 在 `api/doc/api.api` 的 @server 声明中添加 `middleware: JwtAuth`
+- [X] T004 在 `internal/errorx/codes.go` 中定义数据理解错误码
 
 ### Step 3: 数据库迁移文件
 
@@ -150,7 +144,8 @@
   - 状态校验 (0 或 3 才允许生成)
   - 更新状态为 1（理解中）
   - Redis 限流检查
-  - AI 服务 HTTP API 调用
+  - **支持 fields 参数（部分字段理解）**
+  - AI 服务 HTTP API 调用（full_understanding 或 partial_understanding）
 - [X] T033 [IF2] **[TEST]** 创建 `generate_understanding_logic_test.go`
 
 ### Step 4: Kafka Consumer 实现

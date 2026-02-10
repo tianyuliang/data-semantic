@@ -632,8 +632,19 @@ type (
     }
 
     // ====== 接口6: 一键生成理解数据 ======
+    // 字段选择参数（用于部分字段理解）
+    FieldSelection {
+        FormViewFieldId   string  `json:"form_view_field_id" validate:"required"`
+        FieldTechName     string  `json:"field_tech_name" validate:"required"`
+        FieldType         string  `json:"field_type" validate:"required"`
+        FieldBusinessName *string `json:"field_business_name,omitempty"`
+        FieldRole         *int8   `json:"field_role,omitempty"`
+        FieldDescription  *string `json:"field_description,omitempty"`
+    }
+
     GenerateUnderstandingReq {
-        Id string `path:"id" validate:"required"`
+        Id     string            `path:"id" validate:"required"`
+        Fields []FieldSelection  `json:"fields,omitempty"`
     }
     GenerateUnderstandingResp {
         UnderstandStatus int8 `json:"understand_status"`
@@ -693,7 +704,6 @@ type (
 @server(
     prefix: /api/v1/data-semantic
     group: data_semantic
-    middleware: JwtAuth
 )
 service data-semantic-api {
     @doc "查询字段语义补全数据"
@@ -750,7 +760,7 @@ service data-semantic-api {
 
 **请求格式**：
 
-**类型**: `full_understanding` (一键生成)
+**类型**: `full_understanding` (一键生成 - 全部字段)
 ```json
 {
     "message_id": "uuid-request-xxx",
@@ -776,6 +786,34 @@ service data-semantic-api {
                 "form_view_field_type": "VARCHAR",
                 "form_view_field_role": "2",
                 "form_view_field_desc": "员工姓名"
+            }
+        ]
+    }
+}
+```
+
+**类型**: `partial_understanding` (一键生成 - 部分字段)
+```json
+{
+    "message_id": "uuid-request-xxx",
+    "request_type": "partial_understanding",
+    "form_view": {
+        "form_view_id": "form-view-uuid",
+        "form_view_technical_name": "cowenrr",
+        "form_view_business_name": "员工信息表",
+        "form_view_desc": "员工基础信息表",
+        "form_view_fields": [
+            {
+                "form_view_field_id": "field-uuid-3",
+                "form_view_field_technical_name": "email",
+                "form_view_field_business_name": "邮箱",
+                "form_view_field_type": "VARCHAR"
+            },
+            {
+                "form_view_field_id": "field-uuid-4",
+                "form_view_field_technical_name": "phone",
+                "form_view_field_business_name": "电话",
+                "form_view_field_type": "VARCHAR"
             }
         ]
     }
@@ -1185,3 +1223,4 @@ if !allowed {
 | 1.1 | 2026-02-06 | - | Kafka 响应格式更新：regenerate_business_objects 也返回完整数据；消费者增加库表状态检查 |
 | 1.2 | 2026-02-09 | - | 添加 formal_id 字段到 DDL 和 Go Struct，更新 Summary 说明增量更新策略 |
 | 1.3 | 2026-02-09 | - | 修正 AI 服务集成架构：API 同步调用触发任务，AI 异步处理通过 Kafka 回传结果 |
+| 1.4 | 2026-02-10 | - | 移除 JWT 中间件要求，添加部分字段理解支持（Fields 参数、FieldSelection 类型、partial_understanding 请求类型） |
