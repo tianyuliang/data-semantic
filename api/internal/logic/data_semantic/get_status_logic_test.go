@@ -19,6 +19,7 @@ func TestGetStatusLogic_GetStatus(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
 		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGetStatusLogic(ctx, svcCtx)
 

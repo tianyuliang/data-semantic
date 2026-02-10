@@ -16,7 +16,7 @@ import (
 func BenchmarkGetStatus(b *testing.B) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGetStatusLogic(ctx, svcCtx)
 	req := &types.GetStatusReq{
@@ -34,7 +34,7 @@ func BenchmarkGetStatus(b *testing.B) {
 func BenchmarkGetFields(b *testing.B) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGetFieldsLogic(ctx, svcCtx)
 	req := &types.GetFieldsReq{
@@ -51,7 +51,7 @@ func BenchmarkGetFields(b *testing.B) {
 func BenchmarkGetBusinessObjects(b *testing.B) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGetBusinessObjectsLogic(ctx, svcCtx)
 	req := &types.GetBusinessObjectsReq{

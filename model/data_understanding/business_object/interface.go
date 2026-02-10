@@ -31,4 +31,15 @@ type BusinessObjectModel interface {
 
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectModel
+
+	// ========== 增量更新相关方法 ==========
+
+	// UpdateByFormalId 根据formal_id更新业务对象（增量更新）
+	UpdateByFormalId(ctx context.Context, formViewId string, version int) (int, error)
+
+	// InsertFromTempWithoutFormalId 从临时表插入formal_id为NULL的记录（增量更新）
+	InsertFromTempWithoutFormalId(ctx context.Context, formViewId string, version int) (int, error)
+
+	// DeleteNotInFormalIdList 删除不在temp表formal_id列表中的记录（增量更新）
+	DeleteNotInFormalIdList(ctx context.Context, formViewId string, version int) (int, error)
 }

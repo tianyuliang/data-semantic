@@ -8,18 +8,32 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
-// NewFormViewFieldModel 创建FormViewFieldModel实例 (使用 go-zero SqlConn)
-func NewFormViewFieldModel(conn sqlx.SqlConn) *FormViewFieldModelSqlConn {
-	return &FormViewFieldModelSqlConn{conn: conn}
+// NewFormViewFieldModel 创建FormViewFieldModel实例 (使用 go-zero Sqlx)
+func NewFormViewFieldModel(conn sqlx.SqlConn) *FormViewFieldModelSqlx {
+	return &FormViewFieldModelSqlx{conn: conn}
 }
 
-// FormViewFieldModelSqlConn FormViewFieldModel实现 (基于 go-zero SqlConn)
-type FormViewFieldModelSqlConn struct {
-	conn sqlx.SqlConn
+// NewFormViewFieldModelSession 创建FormViewFieldModelSqlx实例 (使用 Session)
+func NewFormViewFieldModelSession(session sqlx.Session) *FormViewFieldModelSqlx {
+	return &FormViewFieldModelSqlx{conn: session}
+}
+
+// FormViewFieldModelSqlx FormViewFieldModel实现 (基于 go-zero Sqlx)
+type FormViewFieldModelSqlx struct {
+	conn sqlx.Session
+}
+
+// WithTx 设置事务
+func (m *FormViewFieldModelSqlx) WithTx(tx interface{}) FormViewFieldModel {
+	session, ok := tx.(sqlx.Session)
+	if !ok {
+		return nil
+	}
+	return &FormViewFieldModelSqlx{conn: session}
 }
 
 // FindByFormViewId 根据form_view_id查询字段列表
-func (m *FormViewFieldModelSqlConn) FindByFormViewId(ctx context.Context, formViewId string) ([]*FormViewFieldBase, error) {
+func (m *FormViewFieldModelSqlx) FindByFormViewId(ctx context.Context, formViewId string) ([]*FormViewFieldBase, error) {
 	var resp []*FormViewFieldBase
 	query := `SELECT id, field_tech_name, field_type FROM form_view_field WHERE form_view_id = ? AND deleted_at IS NULL ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
@@ -30,7 +44,7 @@ func (m *FormViewFieldModelSqlConn) FindByFormViewId(ctx context.Context, formVi
 }
 
 // FindFullByFormViewId 根据form_view_id查询字段完整信息 (包含语义信息)
-func (m *FormViewFieldModelSqlConn) FindFullByFormViewId(ctx context.Context, formViewId string) ([]*FormViewField, error) {
+func (m *FormViewFieldModelSqlx) FindFullByFormViewId(ctx context.Context, formViewId string) ([]*FormViewField, error) {
 	var resp []*FormViewField
 	query := `SELECT id, form_view_id, field_tech_name, field_type, business_name, field_role, field_description
 	          FROM form_view_field WHERE form_view_id = ? AND deleted_at IS NULL ORDER BY id ASC`

@@ -34,8 +34,8 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 	logx.Infof("MoveAttribute called with id: %s, attributeId: %s, targetObjectUuid: %s",
 		req.Id, req.AttributeId, req.TargetObjectUuid)
 
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
-	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
 
 	// 1. 验证目标业务对象是否存在
 	targetObject, err := businessObjectTempModel.FindOneById(l.ctx, req.TargetObjectUuid)

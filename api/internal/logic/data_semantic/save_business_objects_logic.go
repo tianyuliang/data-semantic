@@ -49,7 +49,7 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 	// 2. 根据 type 决定更新业务对象还是属性
 	if req.Type == "object" {
 		// 更新业务对象名称
-		businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+		businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 
 		// 先查询记录是否存在
 		objData, err := businessObjectTempModel.FindOneById(l.ctx, req.Id)
@@ -68,7 +68,7 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 
 	} else if req.Type == "attribute" {
 		// 更新属性名称
-		businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+		businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
 
 		// 先查询记录是否存在
 		attrData, err := businessObjectAttrTempModel.FindOneById(l.ctx, req.Id)

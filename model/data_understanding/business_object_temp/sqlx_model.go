@@ -1,41 +1,55 @@
-// Package business_object_temp 业务对象临时表Model
+// Package business_object_temp 业务对象临时表Model (Sqlx实现)
 package business_object_temp
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
-// NewBusinessObjectTempModel 创建BusinessObjectTempModel实例
-func NewBusinessObjectTempModel(db *sqlx.Tx) *BusinessObjectTempModelImpl {
-	return &BusinessObjectTempModelImpl{db: db}
+// NewBusinessObjectTempModelSqlx 创建BusinessObjectTempModelSqlx实例
+func NewBusinessObjectTempModelSqlx(conn sqlx.SqlConn) *BusinessObjectTempModelSqlx {
+	return &BusinessObjectTempModelSqlx{conn: conn}
 }
 
-// BusinessObjectTempModelImpl BusinessObjectTempModel实现
-type BusinessObjectTempModelImpl struct {
-	db *sqlx.Tx
+// NewBusinessObjectTempModelSession 创建BusinessObjectTempModelSqlx实例 (使用 Session)
+func NewBusinessObjectTempModelSession(session sqlx.Session) *BusinessObjectTempModelSqlx {
+	return &BusinessObjectTempModelSqlx{conn: session}
+}
+
+// BusinessObjectTempModelSqlx BusinessObjectTempModel实现 (基于 go-zero Sqlx)
+type BusinessObjectTempModelSqlx struct {
+	conn sqlx.Session
 }
 
 // Insert 插入业务对象记录
-func (m *BusinessObjectTempModelImpl) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
-	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
-	           VALUES (?, ?, ?, ?, ?)`
-	_, err := m.db.ExecContext(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName)
+func (m *BusinessObjectTempModelSqlx) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
+	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name, formal_id)
+	           VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName, data.FormalId)
 	if err != nil {
 		return nil, fmt.Errorf("insert business_object_temp failed: %w", err)
 	}
 	return data, nil
 }
 
-// FindOneByFormViewAndVersion 根据form_view_id和version查询业务对象列表
-func (m *BusinessObjectTempModelImpl) FindByFormViewAndVersion(ctx context.Context, formViewId string, version int) ([]*BusinessObjectTemp, error) {
+// WithTx 设置事务
+func (m *BusinessObjectTempModelSqlx) WithTx(tx interface{}) BusinessObjectTempModel {
+	session, ok := tx.(sqlx.Session)
+	if !ok {
+		return nil
+	}
+	return &BusinessObjectTempModelSqlx{conn: session}
+}
+
+// FindByFormViewAndVersion 根据form_view_id和version查询业务对象列表
+func (m *BusinessObjectTempModelSqlx) FindByFormViewAndVersion(ctx context.Context, formViewId string, version int) ([]*BusinessObjectTemp, error) {
 	var resp []*BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, user_id, version, object_name, formal_id, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL ORDER BY id ASC`
-	err := m.db.SelectContext(ctx, &resp, query, formViewId, version)
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, version)
 	if err != nil {
 		return nil, fmt.Errorf("find business_object_temp by form_view_id and version failed: %w", err)
 	}
@@ -43,52 +57,78 @@ func (m *BusinessObjectTempModelImpl) FindByFormViewAndVersion(ctx context.Conte
 }
 
 // FindOneById 根据id查询业务对象
-func (m *BusinessObjectTempModelImpl) FindOneById(ctx context.Context, id string) (*BusinessObjectTemp, error) {
+func (m *BusinessObjectTempModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObjectTemp, error) {
 	var resp BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, user_id, version, object_name, formal_id, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
-	err := m.db.GetContext(ctx, &resp, query, id)
+	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("find business_object_temp by id failed: %w", err)
 	}
 	return &resp, nil
 }
 
-// FindLatestVersion 查询指定form_view_id的最新版本号
-func (m *BusinessObjectTempModelImpl) FindLatestVersion(ctx context.Context, formViewId string) (int, error) {
-	var latestVersion int
-	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
-	           FROM t_business_object_temp
-	           WHERE form_view_id = ? AND deleted_at IS NULL`
-	err := m.db.GetContext(ctx, &latestVersion, query, formViewId)
-	if err != nil {
-		return 0, fmt.Errorf("find latest version by form_view_id failed: %w", err)
-	}
-	return latestVersion, nil
-}
-
 // Update 更新业务对象名称
-func (m *BusinessObjectTempModelImpl) Update(ctx context.Context, data *BusinessObjectTemp) error {
+func (m *BusinessObjectTempModelSqlx) Update(ctx context.Context, data *BusinessObjectTemp) error {
 	query := `UPDATE t_business_object_temp
 	           SET object_name = ?
 	           WHERE id = ?`
-	_, err := m.db.ExecContext(ctx, query, data.ObjectName, data.Id)
+	_, err := m.conn.ExecCtx(ctx, query, data.ObjectName, data.Id)
 	if err != nil {
 		return fmt.Errorf("update business_object_temp failed: %w", err)
 	}
 	return nil
 }
 
-// WithTx 设置事务
-func (m *BusinessObjectTempModelImpl) WithTx(tx interface{}) BusinessObjectTempModel {
-	return &BusinessObjectTempModelImpl{db: tx.(*sqlx.Tx)}
+// FindLatestVersion 查询指定form_view_id的最新版本号
+func (m *BusinessObjectTempModelSqlx) FindLatestVersion(ctx context.Context, formViewId string) (int, error) {
+	var result struct {
+		LatestVersion int `db:"latest_version"`
+	}
+	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND deleted_at IS NULL`
+	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("find latest version by form_view_id failed: %w", err)
+	}
+	return result.LatestVersion, nil
+}
+
+// FindLatestVersionByFormViewId 查询指定form_view_id的最新版本号
+func (m *BusinessObjectTempModelSqlx) FindLatestVersionByFormViewId(ctx context.Context, formViewId string) (int, error) {
+	var result struct {
+		LatestVersion int `db:"latest_version"`
+	}
+	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND deleted_at IS NULL`
+	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("find latest version by form_view_id failed: %w", err)
+	}
+	return result.LatestVersion, nil
+}
+
+// FindByFormViewIdLatest 查询指定form_view_id的最新版本业务对象列表
+func (m *BusinessObjectTempModelSqlx) FindByFormViewIdLatest(ctx context.Context, formViewId string) ([]*BusinessObjectTemp, error) {
+	// 先获取最新版本号
+	latestVersion, err := m.FindLatestVersionByFormViewId(ctx, formViewId)
+	if err != nil {
+		return nil, err
+	}
+	// 如果没有数据，返回空列表
+	if latestVersion == 0 {
+		return []*BusinessObjectTemp{}, nil
+	}
+	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)
 }
 
 // DeleteByFormViewId 根据form_view_id删除所有业务对象
-func (m *BusinessObjectTempModelImpl) DeleteByFormViewId(ctx context.Context, formViewId string) error {
+func (m *BusinessObjectTempModelSqlx) DeleteByFormViewId(ctx context.Context, formViewId string) error {
 	query := `UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE form_view_id = ?`
-	_, err := m.db.ExecContext(ctx, query, formViewId)
+	_, err := m.conn.ExecCtx(ctx, query, formViewId)
 	if err != nil {
 		return fmt.Errorf("delete business_object_temp by form_view_id failed: %w", err)
 	}
@@ -96,11 +136,33 @@ func (m *BusinessObjectTempModelImpl) DeleteByFormViewId(ctx context.Context, fo
 }
 
 // DeleteById 根据id删除业务对象
-func (m *BusinessObjectTempModelImpl) DeleteById(ctx context.Context, id string) error {
+func (m *BusinessObjectTempModelSqlx) DeleteById(ctx context.Context, id string) error {
 	query := `UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE id = ?`
-	_, err := m.db.ExecContext(ctx, query, id)
+	_, err := m.conn.ExecCtx(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("delete business_object_temp by id failed: %w", err)
 	}
 	return nil
+}
+
+// ========== 增量更新相关方法实现 ==========
+
+// UpdateFormalId 回写formal_id到临时表（提交后回写新生成的正式表ID）
+// 将临时表中id和正式表id相同的记录的formal_id更新为正式表id
+func (m *BusinessObjectTempModelSqlx) UpdateFormalId(ctx context.Context, formViewId string, version int) (int, error) {
+	query := `UPDATE t_business_object_temp bot
+	           JOIN t_business_object bo ON bot.id = bo.id
+	           SET bot.formal_id = bo.id,
+	               bot.updated_at = NOW(3)
+	           WHERE bot.form_view_id = ?
+	             AND bot.version = ?
+	             AND bot.formal_id IS NULL
+	             AND bot.deleted_at IS NULL
+	             AND bo.deleted_at IS NULL`
+	result, err := m.conn.ExecCtx(ctx, query, formViewId, version)
+	if err != nil {
+		return 0, fmt.Errorf("update formal_id in temp table failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	return int(rowsAffected), nil
 }

@@ -18,6 +18,7 @@ func TestGetFieldsLogic_GetFields(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
 		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGetFieldsLogic(ctx, svcCtx)
 

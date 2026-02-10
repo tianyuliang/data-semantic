@@ -6,27 +6,20 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 // 测试数据库连接字符串
-const testDSN = "root:password@tcp(localhost:3306)/test_db?parseTime=true"
+const testDSN = "root:root123456@tcp(localhost:3306)/data-semantic?parseTime=true"
 
 // TestFormViewInfoTempModel_Insert 测试插入记录
 func TestFormViewInfoTempModel_Insert(t *testing.T) {
 	// 跳过集成测试（需要数据库）
-	t.Skip("需要数据库连接")
+	
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewFormViewInfoTempModel(tx)
+	model := NewFormViewInfoTempModelSqlx(conn)
 
 	data := &FormViewInfoTemp{
 		Id:                "test-id",
@@ -41,38 +34,12 @@ func TestFormViewInfoTempModel_Insert(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-// TestFormViewInfoTempModel_FindOneByFormViewAndVersion 测试根据form_view_id和version查询
-func TestFormViewInfoTempModel_FindOneByFormViewAndVersion(t *testing.T) {
-	t.Skip("需要数据库连接")
-
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewFormViewInfoTempModel(tx)
-
-	result, err := model.FindOneByFormViewAndVersion(context.Background(), "test-form-view-id", InitialVersion)
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-}
-
 // TestFormViewInfoTempModel_FindLatestByFormViewId 测试查询最新版本
 func TestFormViewInfoTempModel_FindLatestByFormViewId(t *testing.T) {
-	t.Skip("需要数据库连接")
+	
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewFormViewInfoTempModel(tx)
+	model := NewFormViewInfoTempModelSqlx(conn)
 
 	result, err := model.FindLatestByFormViewId(context.Background(), "test-form-view-id")
 	assert.NoError(t, err)

@@ -6,27 +6,20 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 // 测试数据库连接字符串
-const testDSN = "root:password@tcp(localhost:3306)/test_db?parseTime=true"
+const testDSN = "root:root123456@tcp(localhost:3306)/data-semantic?parseTime=true"
 
 // TestBusinessObjectTempModel_Insert 测试插入记录
 func TestBusinessObjectTempModel_Insert(t *testing.T) {
 	// 跳过集成测试（需要数据库）
-	t.Skip("需要数据库连接")
+	
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer tx.Rollback()
-
-	model := NewBusinessObjectTempModel(tx)
+	model := NewBusinessObjectTempModelSqlx(conn)
 
 	data := &BusinessObjectTemp{
 		Id:         "test-id",
@@ -42,17 +35,10 @@ func TestBusinessObjectTempModel_Insert(t *testing.T) {
 
 // TestBusinessObjectTempModel_FindOneByFormViewAndVersion 测试根据form_view_id和version查询
 func TestBusinessObjectTempModel_FindOneByFormViewAndVersion(t *testing.T) {
-	t.Skip("需要数据库连接")
+	
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer tx.Rollback()
-
-	model := NewBusinessObjectTempModel(tx)
+	model := NewBusinessObjectTempModelSqlx(conn)
 
 	result, err := model.FindByFormViewAndVersion(context.Background(), "test-form-view-id", InitialVersion)
 	assert.NoError(t, err)
@@ -61,17 +47,10 @@ func TestBusinessObjectTempModel_FindOneByFormViewAndVersion(t *testing.T) {
 
 // TestBusinessObjectTempModel_FindOneById 测试根据id查询
 func TestBusinessObjectTempModel_FindOneById(t *testing.T) {
-	t.Skip("需要数据库连接")
+	
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer tx.Rollback()
-
-	model := NewBusinessObjectTempModel(tx)
+	model := NewBusinessObjectTempModelSqlx(conn)
 
 	result, err := model.FindOneById(context.Background(), "test-id")
 	assert.NoError(t, err)

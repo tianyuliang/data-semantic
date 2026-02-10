@@ -6,27 +6,19 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 // 测试数据库连接字符串
-const testDSN = "root:password@tcp(localhost:3306)/test_db?parseTime=true"
+const testDSN = "root:root123456@tcp(localhost:3306)/data-semantic?parseTime=true"
 
 // TestKafkaMessageLogModel_Insert 测试插入记录
 func TestKafkaMessageLogModel_Insert(t *testing.T) {
-	// 跳过集成测试（需要数据库）
-	t.Skip("需要数据库连接")
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
+	conn := sqlx.NewMysql(testDSN)
 
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewKafkaMessageLogModel(tx)
+	model := NewKafkaMessageLogModelSqlx(conn)
 
 	data := &KafkaMessageLog{
 		Id:         "test-id",
@@ -40,21 +32,15 @@ func TestKafkaMessageLogModel_Insert(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-// TestKafkaMessageLogModel_FindOneByMessageId 测试根据消息ID查询
-func TestKafkaMessageLogModel_FindOneByMessageId(t *testing.T) {
+// TestKafkaMessageLogModel_ExistsByMessageId 测试检查消息是否存在
+func TestKafkaMessageLogModel_ExistsByMessageId(t *testing.T) {
 	t.Skip("需要数据库连接")
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
+	conn := sqlx.NewMysql(testDSN)
 
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
+	model := NewKafkaMessageLogModelSqlx(conn)
 
-	model := NewKafkaMessageLogModel(tx)
-
-	result, err := model.FindOneByMessageId(context.Background(), "test-message-id")
+	exists, err := model.ExistsByMessageId(context.Background(), "test-message-id")
 	assert.NoError(t, err)
-	assert.NotNil(t, result)
+	assert.False(t, exists) // 测试数据中应该不存在
 }

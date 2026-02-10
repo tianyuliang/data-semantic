@@ -117,7 +117,7 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 
 // checkMessageId 检查消息是否已处理
 func (h *DataUnderstandingHandler) checkMessageId(ctx context.Context, messageId string) (bool, error) {
-	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSqlConn(h.svcCtx.DB)
+	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSqlx(h.svcCtx.DB)
 	return kafkaMessageLogModel.ExistsByMessageId(ctx, messageId)
 }
 
@@ -310,7 +310,7 @@ func (h *DataUnderstandingHandler) recordFailure(ctx context.Context, messageId,
 		messageId, formViewId, errMsg)
 
 	// 记录到 t_kafka_message_log
-	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSqlConn(h.svcCtx.DB)
+	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSqlx(h.svcCtx.DB)
 	if _, err := kafkaMessageLogModel.InsertFailure(ctx, messageId, formViewId, errMsg); err != nil {
 		logx.Errorf("记录Kafka消息失败日志失败: %v", err)
 	}

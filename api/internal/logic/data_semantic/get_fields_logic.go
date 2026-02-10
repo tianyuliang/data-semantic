@@ -46,7 +46,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 
 	// 2. 根据状态返回不同数据源
 	understandStatus := tableInfo.UnderstandStatus
-	tableTechName := tableInfo.TableTechName
+	tableTechName := tableInfo.TechnicalName
 
 	// 状态 2 (待确认) - 查询临时表
 	if understandStatus == 2 {
@@ -60,14 +60,14 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 // getFieldsFromTemp 从临时表查询数据
 func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechName string) (*types.GetFieldsResp, error) {
 	// 查询临时表信息
-	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlConn(l.svcCtx.DB)
+	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
 	tableInfoTemp, err := formViewInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("查询库表信息临时表失败: %w", err)
 	}
 
 	// 查询字段信息临时表
-	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlConn(l.svcCtx.DB)
+	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
 	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("查询字段信息临时表失败: %w", err)

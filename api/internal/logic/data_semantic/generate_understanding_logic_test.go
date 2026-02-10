@@ -18,7 +18,7 @@ func TestGenerateUnderstandingLogic_GenerateUnderstanding(t *testing.T) {
 	// 创建测试上下文
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewGenerateUnderstandingLogic(ctx, svcCtx)
 

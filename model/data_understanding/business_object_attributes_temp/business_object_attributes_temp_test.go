@@ -6,27 +6,18 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 // 测试数据库连接字符串
-const testDSN = "root:password@tcp(localhost:3306)/test_db?parseTime=true"
+const testDSN = "root:root123456@tcp(localhost:3306)/data-semantic?parseTime=true"
 
 // TestBusinessObjectAttributesTempModel_Insert 测试插入记录
 func TestBusinessObjectAttributesTempModel_Insert(t *testing.T) {
-	// 跳过集成测试（需要数据库）
-	t.Skip("需要数据库连接")
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewBusinessObjectAttributesTempModel(tx)
+	model := NewBusinessObjectAttributesTempModelSqlx(conn)
 
 	data := &BusinessObjectAttributesTemp{
 		Id:               "test-attr-id",
@@ -44,17 +35,9 @@ func TestBusinessObjectAttributesTempModel_Insert(t *testing.T) {
 
 // TestBusinessObjectAttributesTempModel_FindByBusinessObjectId 测试根据business_object_id查询属性列表
 func TestBusinessObjectAttributesTempModel_FindByBusinessObjectId(t *testing.T) {
-	t.Skip("需要数据库连接")
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewBusinessObjectAttributesTempModel(tx)
+	model := NewBusinessObjectAttributesTempModelSqlx(conn)
 
 	result, err := model.FindByBusinessObjectId(context.Background(), "test-object-id")
 	assert.NoError(t, err)
@@ -63,17 +46,9 @@ func TestBusinessObjectAttributesTempModel_FindByBusinessObjectId(t *testing.T) 
 
 // TestBusinessObjectAttributesTempModel_FindByFormViewAndVersion 测试根据form_view_id和version查询所有属性
 func TestBusinessObjectAttributesTempModel_FindByFormViewAndVersion(t *testing.T) {
-	t.Skip("需要数据库连接")
+	conn := sqlx.NewMysql(testDSN)
 
-	db, err := sqlx.Connect("mysql", testDSN)
-	assert.NoError(t, err)
-	defer db.Close()
-
-	tx, err := db.Beginx()
-	assert.NoError(t, err)
-	defer func() { _ = tx.Rollback() }()
-
-	model := NewBusinessObjectAttributesTempModel(tx)
+	model := NewBusinessObjectAttributesTempModelSqlx(conn)
 
 	result, err := model.FindByFormViewAndVersion(context.Background(), "test-form-view-id", 10)
 	assert.NoError(t, err)

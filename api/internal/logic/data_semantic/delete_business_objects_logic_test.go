@@ -18,6 +18,7 @@ func TestDeleteBusinessObjectsLogic_DeleteBusinessObjects(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
 		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewDeleteBusinessObjectsLogic(ctx, svcCtx)
 

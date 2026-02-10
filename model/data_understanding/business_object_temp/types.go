@@ -10,6 +10,7 @@ type BusinessObjectTemp struct {
 	UserId     *string    `db:"user_id"`
 	Version    int        `db:"version"`
 	ObjectName string     `db:"object_name"`
+	FormalId   *string    `db:"formal_id"` // 关联正式表ID（用于增量更新匹配）
 	CreatedAt  time.Time  `db:"created_at"`
 	UpdatedAt  time.Time  `db:"updated_at"`
 	DeletedAt  *time.Time `db:"deleted_at"`

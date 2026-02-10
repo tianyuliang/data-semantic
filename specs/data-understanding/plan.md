@@ -11,9 +11,10 @@
 
 本技术方案实现了库表数据的语义理解和业务对象自动识别功能。核心决策包括：
 - **版本控制机制**：通过临时表实现数据的版本管理，支持重新识别和历史追溯
-- **异步处理架构**：Kafka 消息队列实现 AI 服务的异步调用
+- **异步处理架构**：API 同步调用触发 AI 任务，AI 异步处理后通过 Kafka 回传结果
 - **状态机设计**：6种理解状态（0-5）的单向流转管理，包含理解失败状态
 - **数据源隔离**：正式表与临时表分离，根据状态动态切换数据源
+- **增量更新策略**：提交时采用 3 步增量更新（UPDATE 已有、INSERT 新增、DELETE 移除），通过 `formal_id` 字段追踪正式表关联关系
 
 ---
 
@@ -219,7 +220,7 @@ HTTP Request → Handler → Logic → Model → Database
        │ [一键生成]                        │
        ▼                                   │
 ┌─────────────┐                           │
-│ 1 - 理解中   │ ──[Kafka消费]────────────► │
+│ 1 - 理解中   │ ──[AI服务HTTP调用]───────► │
 └──────┬──────┘                           │
        │ [AI完成]                         │
        ▼                                   │
@@ -243,30 +244,34 @@ HTTP Request → Handler → Logic → Model → Database
 > - 状态 2（待确认）删除：仅删除临时数据，若正式表有数据则保持状态 3，否则回退到状态 0
 > - 状态 3（已完成）删除：仅删除临时数据，保持状态 3不变（正式表有数据）
 
-### Kafka 集成架构
+### AI 服务集成架构
 
 ```
-┌─────────────┐         ┌──────────────┐         ┌─────────────┐
-│   API 服务   │         │   Kafka      │         │   AI 服务    │
-│             │         │              │         │             │
-│ /generate   ├────────►│ -requests    ├────────►│  分析处理   │
-│ /regenerate  │  发送   │              │  推送   │             │
-│             │         └──────┬───────┘         └──────┬──────┘
-└─────────────┘                │                        │
-                               │                        │
-                    ┌──────────▼──────────┐             │
-                    │  -responses        │◄────────────┘
-                    │                    │    接收结果
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────▼──────────┐
-                    │   Kafka Consumer   │
-                    │                    │
-                    │ - 保存临时表       │
-                    │ - 更新状态         │
-                    │ - 记录日志         │
-                    └────────────────────┘
+┌─────────────┐                    ┌──────────────┐         ┌─────────────┐
+│   API 服务   │                    │     AI 服务   │         │   Kafka     │
+│             │                    │              │         │             │
+│ /generate   ├───────────────────►│  分析处理    ├────────►│ -responses  │
+│ /regenerate  │  HTTP POST (同步)   │  (异步)      │  推送   │             │
+│             │◄───────────────────┤              │         └──────┬──────┘
+└─────────────┘  立即返回task_id    └──────────────┘                │
+      │                                                           │
+      │ 状态保持 1-理解中                                          │
+      ▼                                                           │
+┌─────────────┐                                                   │
+│   Database   │                                                   │
+│             │                                                   │
+│ understand_status = 1                                           │
+│                                                       ┌──────────▼──────────┐
+│                                                       │   Kafka Consumer    │
+│                                                       │                     │
+│                                                       │ - 保存临时表       │
+│                                                       │ - 更新状态为 2/5   │
+│                                                       └─────────────────────┘
 ```
+
+> **调用方式**: API 同步调用 AI HTTP API，立即返回 task_id（不等待 AI 处理完成）
+> - HTTP API 返回 `task_id` 和 `status=pending/running` 表示任务已接收
+> - 状态保持 `1-理解中`，由 Kafka 消费者处理完成后更新为 `2-待确认`（成功）或 `5-理解失败`（失败）
 
 ---
 
@@ -331,6 +336,7 @@ CREATE TABLE IF NOT EXISTS t_business_object_attributes (
 CREATE TABLE IF NOT EXISTS t_business_object_temp (
     id             CHAR(36)     NOT NULL                       COMMENT '业务对象UUID（主键）',
     form_view_id   CHAR(36)     NOT NULL                       COMMENT '关联数据视图UUID',
+    formal_id      CHAR(36)                                         COMMENT '正式表UUID（用于增量更新）',
     user_id        CHAR(36)                                         COMMENT '为空代表模型操作，不为空代表某用户操作',
     version        INT          NOT NULL DEFAULT 10            COMMENT '版本号（存储格式：10=1.0，11=1.1，每次递增1表示0.1版本）',
     object_name    VARCHAR(100) NOT NULL                       COMMENT '业务对象名称',
@@ -338,7 +344,8 @@ CREATE TABLE IF NOT EXISTS t_business_object_temp (
     updated_at     DATETIME(3)          DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     deleted_at     DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
-    KEY idx_form_view_version (form_view_id, version, deleted_at)
+    KEY idx_form_view_version (form_view_id, version, deleted_at),
+    KEY idx_formal_id (formal_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务对象临时表';
 ```
 
@@ -349,6 +356,7 @@ CREATE TABLE IF NOT EXISTS t_business_object_attributes_temp (
     id                          CHAR(36)     NOT NULL                       COMMENT '属性UUID（主键）',
     form_view_id                CHAR(36)     NOT NULL                       COMMENT '关联数据视图UUID',
     business_object_id          CHAR(36)     NOT NULL                       COMMENT '关联业务对象UUID',
+    formal_id                   CHAR(36)                                         COMMENT '正式表UUID（用于增量更新）',
     user_id                     CHAR(36)                                         COMMENT '为空代表模型操作，不为空代表某用户操作',
     version                     INT          NOT NULL DEFAULT 10            COMMENT '版本号（存储格式：10=1.0，11=1.1，每次递增1表示0.1版本）',
     form_view_field_id          CHAR(36)     NOT NULL                       COMMENT '关联字段UUID',
@@ -358,7 +366,8 @@ CREATE TABLE IF NOT EXISTS t_business_object_attributes_temp (
     deleted_at                  DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
     KEY idx_form_view_object (form_view_id, business_object_id, deleted_at),
-    KEY idx_form_view_version (form_view_id, version, deleted_at)
+    KEY idx_form_view_version (form_view_id, version, deleted_at),
+    KEY idx_formal_id (formal_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务对象属性临时表';
 ```
 
@@ -463,6 +472,7 @@ type BusinessObjectAttribute struct {
 type BusinessObjectTemp struct {
     Id          string     `db:"id" json:"id"`
     FormViewId  string     `db:"form_view_id" json:"form_view_id"`
+    FormalId    *string    `db:"formal_id" json:"formal_id,omitempty"`    // 正式表UUID（用于增量更新）
     UserId      *string    `db:"user_id" json:"user_id,omitempty"`
     Version     int        `db:"version" json:"version"`
     ObjectName  string     `db:"object_name" json:"object_name"`
@@ -476,6 +486,7 @@ type BusinessObjectAttributeTemp struct {
     Id                 string     `db:"id" json:"id"`
     FormViewId         string     `db:"form_view_id" json:"form_view_id"`
     BusinessObjectId   string     `db:"business_object_id" json:"business_object_id"`
+    FormalId           *string    `db:"formal_id" json:"formal_id,omitempty"`    // 正式表UUID（用于增量更新）
     UserId             *string    `db:"user_id" json:"user_id,omitempty"`
     Version            int        `db:"version" json:"version"`
     FormViewFieldId    string     `db:"form_view_field_id" json:"form_view_field_id"`
@@ -795,7 +806,7 @@ service data-semantic-api {
 }
 ```
 
-**响应**：接口立即返回"任务处理中"（不等待AI处理完成）
+**响应**：接口立即返回（不等待 AI 处理完成）
 
 **响应体结构**：
 ```json
@@ -807,12 +818,20 @@ service data-semantic-api {
 }
 ```
 
+**调用说明**：
+- API 同步调用 AI HTTP API，仅触发任务，立即返回 `task_id`
+- `status=pending|running` 表示任务已接收，AI 服务在后台异步处理
+- 状态保持 `1-理解中`，不立即更新
+
 **异常处理**：
 - HTTP 响应码 ≠ 200 → 提示"服务异常，请稍后再试"，状态保持 `1-理解中`
 - HTTP 响应码 = 200 且 status = "failed" → 提示"服务异常，请稍后再试"，状态保持 `1-理解中`
-- HTTP 响应码 = 200 且 status ≠ "failed" → 正常，AI 服务异步处理中，状态保持 `1-理解中`
+- HTTP 响应码 = 200 且 status ≠ "failed" → 正常，任务已提交
 
-**说明**：无论 AI 服务调用成功与否，状态都保持 `1-理解中`，由 Kafka 消费者处理完成后更新为 `2-待确认`。
+**后续处理**：
+AI 服务异步处理完成后，将结果写入 Kafka 消息到 `data-understanding-responses` 主题，由 Kafka 消费者处理：
+- 成功：保存临时表，更新状态为 `2-待确认`
+- 失败：记录错误日志，更新状态为 `5-理解失败`
 
 ---
 
@@ -1164,3 +1183,5 @@ if !allowed {
 |---------|------|--------|---------|
 | 1.0 | 2026-02-03 | - | 初始版本，基于 807707-库表数据理解方案设计.md |
 | 1.1 | 2026-02-06 | - | Kafka 响应格式更新：regenerate_business_objects 也返回完整数据；消费者增加库表状态检查 |
+| 1.2 | 2026-02-09 | - | 添加 formal_id 字段到 DDL 和 Go Struct，更新 Summary 说明增量更新策略 |
+| 1.3 | 2026-02-09 | - | 修正 AI 服务集成架构：API 同步调用触发任务，AI 异步处理通过 Kafka 回传结果 |

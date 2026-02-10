@@ -17,7 +17,7 @@ func TestSaveBusinessObjectsLogic_SaveBusinessObjects(t *testing.T) {
 	// 创建测试上下文
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewSaveBusinessObjectsLogic(ctx, svcCtx)
 

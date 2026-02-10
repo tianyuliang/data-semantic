@@ -119,7 +119,7 @@ func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewDa
 		"request_type": "full_understanding",
 		"form_view": map[string]interface{}{
 			"form_view_id":               formViewId,
-			"form_view_technical_name":   formViewData.TableTechName,
+			"form_view_technical_name":   formViewData.TechnicalName,
 			"form_view_business_name":    formViewData.BusinessName,
 			"form_view_desc":             formViewData.Description,
 			"form_view_fields":           formViewFields,

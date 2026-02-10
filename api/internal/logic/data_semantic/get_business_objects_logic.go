@@ -56,8 +56,8 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 
 // getBusinessObjectsFromTemp 从临时表查询业务对象（最新版本）
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
-	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlConn(l.svcCtx.DB)
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
 
@@ -120,8 +120,8 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 
 // getBusinessObjectsFromFormal 从正式表查询业务对象
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	businessObjectModel := business_object.NewBusinessObjectModelSqlConn(l.svcCtx.DB)
-	businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlConn(l.svcCtx.DB)
+	businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
+	businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
 

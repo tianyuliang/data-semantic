@@ -60,7 +60,7 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("查询字段列表失败: %w", err)
 	}
 
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlConn(l.svcCtx.DB)
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 
 	// 5. 查询当前版本号（用于版本控制，后续扩展使用）
 	_, err = businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
@@ -74,14 +74,12 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("更新理解状态失败: %w", err)
 	}
 
-	// 7. 调用 AI 服务 HTTP API
-	go func() {
-		// 异步调用，避免阻塞主流程
-		if err := l.callAIService(req.Id, formViewData, fields); err != nil {
-			logx.WithContext(l.ctx).Errorf("调用 AI 服务失败: %v", err)
-			// 状态保持为 1-理解中，由 Kafka 消费者处理失败后更新为 5-理解失败
-		}
-	}()
+	// 7. 调用 AI 服务 HTTP API（同步调用）
+	if err := l.callAIService(req.Id, formViewData, fields); err != nil {
+		// 调用失败，回退状态
+		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, formViewData.UnderstandStatus)
+		return nil, fmt.Errorf("调用 AI 服务失败: %w", err)
+	}
 
 	resp = &types.RegenerateBusinessObjectsResp{
 		ObjectCount:    0, // 实际数量由 AI 识别完成后写入
@@ -128,7 +126,7 @@ func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formVi
 		"request_type": "regenerate_business_objects",
 		"form_view": map[string]interface{}{
 			"form_view_id":               formViewId,
-			"form_view_technical_name":   formViewData.TableTechName,
+			"form_view_technical_name":   formViewData.TechnicalName,
 			"form_view_business_name":    formViewData.BusinessName,
 			"form_view_desc":             formViewData.Description,
 			"form_view_fields":           formViewFields,

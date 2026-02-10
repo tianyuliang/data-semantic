@@ -17,7 +17,7 @@ func TestSubmitUnderstandingLogic_SubmitUnderstanding(t *testing.T) {
 	// 创建测试上下文
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
-		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewSubmitUnderstandingLogic(ctx, svcCtx)
 

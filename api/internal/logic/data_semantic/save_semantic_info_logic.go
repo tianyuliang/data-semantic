@@ -48,7 +48,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 	// 2. 如果提供了 TableData，更新 t_form_view_info_temp
 	if req.TableData != nil {
-		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlConn(l.svcCtx.DB)
+		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
 
 		// 构建更新数据
 		tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
@@ -67,7 +67,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 	// 3. 如果提供了 FieldData，更新 t_form_view_field_info_temp
 	if req.FieldData != nil {
-		formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlConn(l.svcCtx.DB)
+		formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
 
 		// 构建更新数据
 		fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{

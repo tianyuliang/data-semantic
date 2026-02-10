@@ -18,6 +18,7 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{
 		Config: testConfig,
+		DB:     testDB,
 	}
 	logic := NewSaveSemanticInfoLogic(ctx, svcCtx)
 

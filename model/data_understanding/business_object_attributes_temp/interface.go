@@ -25,4 +25,9 @@ type BusinessObjectAttributesTempModel interface {
 
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectAttributesTempModel
+
+	// ========== 增量更新相关方法 ==========
+
+	// UpdateFormalId 回写formal_id到临时表（提交后回写新生成的正式表ID）
+	UpdateFormalId(ctx context.Context, formViewId string, version int) (int, error)
 }
