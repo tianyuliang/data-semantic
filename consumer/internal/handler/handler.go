@@ -87,10 +87,7 @@ type AttributeInfo struct {
 
 // NoPatternFieldInfo 未识别出属性的字段信息
 type NoPatternFieldInfo struct {
-	FormViewFieldId   string  `json:"form_view_field_id"`
-	FieldBusinessName *string `json:"field_business_name,omitempty"` // 字段业务名称（可能为空）
-	FieldRole         *int8   `json:"field_role,omitempty"`
-	FieldDescription  *string `json:"field_description,omitempty"`
+	FormViewFieldId string `json:"form_view_field_id"`
 }
 
 // Handle 处理Kafka消息
@@ -362,17 +359,14 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		// 生成新的属性 ID
 		attrId := uuid.New().String()
 
-		// 未识别出属性的字段，attr_name 使用空字符串
-		attrName := coalesceString(field.FieldBusinessName, "")
-
-		// 插入属性记录，business_object_id 为空
+		// 插入属性记录，business_object_id 和 attr_name 均为空
 		attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
 			Id:               attrId,
 			FormViewId:       formViewId,
-			BusinessObjectId: "", // AI未识别出归属，business_object_id 为空
+			BusinessObjectId: "", // AI未识别出归属
 			Version:          version,
 			FormViewFieldId:  field.FormViewFieldId,
-			AttrName:         attrName,
+			AttrName:         "", // 未识别出属性，attr_name 为空
 		}
 		if _, err := businessObjectAttrTempModel.Insert(ctx, attrData); err != nil {
 			return fmt.Errorf("插入未识别字段属性失败: %w", err)
@@ -380,14 +374,6 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 	}
 
 	return nil
-}
-
-// coalesceString 返回字符串指针的值，如果为nil则返回默认值
-func coalesceString(s *string, defaultVal string) string {
-	if s != nil {
-		return *s
-	}
-	return defaultVal
 }
 
 // recordFailure 记录处理失败
