@@ -44,6 +44,8 @@ type AIResponse struct {
 	FieldsSemantic  []FieldInfo `json:"fields_semantic,omitempty"` // 兼容字段
 	// 业务对象列表（全量生成和部分生成都有值）
 	BusinessObjects []BusinessObjectInfo `json:"business_objects,omitempty"`
+	// 未识别出属性的字段列表（AI未归入任何业务对象的字段）
+	NoPatternFields []NoPatternFieldInfo `json:"no_pattern_fields,omitempty"`
 	// 错误信息（失败时有值）
 	Error *ErrorInfo `json:"error,omitempty"`
 }
@@ -81,6 +83,14 @@ type AttributeInfo struct {
 	Id              string `json:"id"`
 	AttrName        string `json:"attr_name"`
 	FormViewFieldId string `json:"form_view_field_id"`
+}
+
+// NoPatternFieldInfo 未识别出属性的字段信息
+type NoPatternFieldInfo struct {
+	FormViewFieldId   string  `json:"form_view_field_id"`
+	FieldBusinessName *string `json:"field_business_name,omitempty"`
+	FieldRole         *int8   `json:"field_role,omitempty"`
+	FieldDescription  *string `json:"field_description,omitempty"`
 }
 
 // Handle 处理Kafka消息
@@ -189,9 +199,9 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
 	}
 
-	// 1.4 保存业务对象到临时表
-	if len(aiResp.BusinessObjects) > 0 {
-		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects); err != nil {
+	// 1.4 保存业务对象到临时表（包括未识别出属性的字段）
+	if len(aiResp.BusinessObjects) > 0 || len(aiResp.NoPatternFields) > 0 {
+		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects, aiResp.NoPatternFields); err != nil {
 			return fmt.Errorf("保存业务对象失败: %w", err)
 		}
 	}
@@ -308,7 +318,7 @@ func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sq
 }
 
 // saveBusinessObjects 保存业务对象到临时表（直接插入，使用 UUID 作为 ID）
-func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, version int, objects []BusinessObjectInfo) error {
+func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, version int, objects []BusinessObjectInfo, noPatternFields []NoPatternFieldInfo) error {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 
@@ -347,7 +357,34 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		}
 	}
 
+	// 4. 处理未识别出属性的字段（business_object_id 为空）
+	for _, field := range noPatternFields {
+		// 生成新的属性 ID
+		attrId := uuid.New().String()
+
+		// 插入属性记录，business_object_id 为空
+		attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
+			Id:               attrId,
+			FormViewId:       formViewId,
+			BusinessObjectId: "", // AI未识别出归属，business_object_id 为空
+			Version:          version,
+			FormViewFieldId:  field.FormViewFieldId,
+			AttrName:         coalesceString(field.FieldBusinessName, ""),
+		}
+		if _, err := businessObjectAttrTempModel.Insert(ctx, attrData); err != nil {
+			return fmt.Errorf("插入未识别字段属性失败: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// coalesceString 返回字符串指针的值，如果为nil则返回默认值
+func coalesceString(s *string, defaultVal string) string {
+	if s != nil {
+		return *s
+	}
+	return defaultVal
 }
 
 // recordFailure 记录处理失败
