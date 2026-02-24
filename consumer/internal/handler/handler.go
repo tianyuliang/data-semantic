@@ -33,7 +33,6 @@ func NewDataUnderstandingHandler(svcCtx *svc.ServiceContext) *DataUnderstandingH
 type AIResponse struct {
 	MessageId    string `json:"message_id"`
 	FormViewId   string `json:"form_view_id"`
-	Version      int    `json:"version"`
 	RequestTime  string `json:"request_time"`
 	ResponseType string `json:"response_type,omitempty"` // 消息类型: full_understanding, regenerate_business_objects
 	Status       string `json:"status,omitempty"`        // 消息状态: success, failed
