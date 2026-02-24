@@ -128,8 +128,7 @@ type (
 		Id string `path:"id" validate:"required"`
 	}
 	RegenerateBusinessObjectsResp {
-		ObjectCount    int `json:"object_count"`
-		AttributeCount int `json:"attribute_count"`
+		UnderstandStatus int8 `json:"understand_status"`
 	}
 
 	// ====== 接口9: 提交确认理解数据 ======

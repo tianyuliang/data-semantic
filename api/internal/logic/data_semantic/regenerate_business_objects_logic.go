@@ -11,7 +11,7 @@ import (
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view_field"
 
@@ -43,9 +43,10 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("查询库表视图失败: %w", err)
 	}
 
-	// 2. 状态校验 (仅允许状态 2 或 3)
-	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm && formViewData.UnderstandStatus != form_view.StatusCompleted {
-		return nil, fmt.Errorf("当前状态不允许重新识别，当前状态: %d，仅状态 2 (待确认) 或 3 (已完成) 可重新识别", formViewData.UnderstandStatus)
+	// 2. 状态校验 (仅允许状态 2、3 或 5)
+	currentStatus := formViewData.UnderstandStatus
+	if currentStatus != form_view.StatusPendingConfirm && currentStatus != form_view.StatusCompleted && currentStatus != form_view.StatusFailed {
+		return nil, fmt.Errorf("当前状态不允许重新识别，当前状态: %d，仅状态 2 (待确认)、3 (已完成) 或 5 (理解失败) 可重新识别", currentStatus)
 	}
 
 	// 3. 限流检查（1秒窗口，防止重复点击）
@@ -54,22 +55,36 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 		return nil, fmt.Errorf("操作过于频繁，请稍后再试")
 	}
 
-	// 4. 查询字段数据（完整信息，包含业务名称和角色）
+	// 4. 查询字段数据（从临时表获取已理解的字段）
+	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
+	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, fmt.Errorf("查询字段信息临时表失败: %w", err)
+	}
+
+	// 如果临时表没有数据，返回错误
+	if len(fieldsTemp) == 0 {
+		return nil, fmt.Errorf("暂无已理解字段数据，请先生成理解数据")
+	}
+
+	// 查询基础字段信息 (field_tech_name, field_type)
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	fields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
+	baseFields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询字段列表失败: %w", err)
+		return nil, fmt.Errorf("查询基础字段信息失败: %w", err)
 	}
 
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
-
-	// 5. 查询当前版本号（用于版本控制，后续扩展使用）
-	_, err = businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
-	if err != nil {
-		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
+	// 构建字段ID到基础信息的映射
+	baseFieldMap := make(map[string]*form_view_field.FormViewFieldBase)
+	for _, f := range baseFields {
+		baseFieldMap[f.Id] = f
 	}
 
-	// 6. 更新状态为 1（理解中）
+	// 合并临时表数据和基础字段信息，转换为 FormViewField 格式
+	fields := l.buildFormViewFields(fieldsTemp, baseFieldMap)
+	logx.WithContext(l.ctx).Infof("重新识别业务对象，基于字段数量: %d", len(fields))
+
+	// 5. 更新状态为 1（理解中）
 	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, form_view.StatusUnderstanding)
 	if err != nil {
 		return nil, fmt.Errorf("更新理解状态失败: %w", err)
@@ -77,14 +92,13 @@ func (l *RegenerateBusinessObjectsLogic) RegenerateBusinessObjects(req *types.Re
 
 	// 7. 调用 AI 服务 HTTP API（同步调用）
 	if err := l.callAIService(req.Id, formViewData, fields); err != nil {
-		// 调用失败，回退状态
-		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, formViewData.UnderstandStatus)
+		// 调用失败，回退到原始状态
+		_ = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, currentStatus)
 		return nil, fmt.Errorf("调用 AI 服务失败: %w", err)
 	}
 
 	resp = &types.RegenerateBusinessObjectsResp{
-		ObjectCount:    0, // 实际数量由 AI 识别完成后写入
-		AttributeCount: len(fields),
+		UnderstandStatus: form_view.StatusUnderstanding,
 	}
 
 	return resp, nil
@@ -110,4 +124,25 @@ func (l *RegenerateBusinessObjectsLogic) callAIService(formViewId string, formVi
 		aiResponse.TaskID, aiResponse.Status, aiResponse.Message)
 
 	return nil
+}
+
+// buildFormViewFields 合并临时表数据和基础字段信息，转换为 FormViewField 格式
+func (l *RegenerateBusinessObjectsLogic) buildFormViewFields(fieldsTemp []*form_view_field_info_temp.FormViewFieldInfoTemp, baseFieldMap map[string]*form_view_field.FormViewFieldBase) []*form_view_field.FormViewField {
+	fields := make([]*form_view_field.FormViewField, 0, len(fieldsTemp))
+	for _, ft := range fieldsTemp {
+		baseInfo, exists := baseFieldMap[ft.FormViewFieldId]
+		if !exists {
+			logx.WithContext(l.ctx).Infof("字段 %s 在基础表 中不存在，跳过", ft.FormViewFieldId)
+			continue
+		}
+		fields = append(fields, &form_view_field.FormViewField{
+			Id:               ft.FormViewFieldId,
+			FieldTechName:    baseInfo.FieldTechName,
+			FieldType:        baseInfo.FieldType,
+			FieldBusinessName: ft.FieldBusinessName,
+			FieldRole:        ft.FieldRole,
+			FieldDescription: ft.FieldDescription,
+		})
+	}
+	return fields
 }

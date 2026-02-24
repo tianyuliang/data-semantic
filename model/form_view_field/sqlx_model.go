@@ -35,7 +35,7 @@ func (m *FormViewFieldModelSqlx) WithTx(tx interface{}) FormViewFieldModel {
 // FindByFormViewId 根据form_view_id查询字段列表
 func (m *FormViewFieldModelSqlx) FindByFormViewId(ctx context.Context, formViewId string) ([]*FormViewFieldBase, error) {
 	var resp []*FormViewFieldBase
-	query := `SELECT id, technical_name, data_type FROM form_view_field WHERE form_view_id = ? AND deleted_at IS NULL ORDER BY id ASC`
+	query := `SELECT id, technical_name, data_type FROM form_view_field WHERE form_view_id = ? AND deleted_at = 0 ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
 	if err != nil {
 		return nil, fmt.Errorf("find form_view_field by form_view_id failed: %w", err)
@@ -47,7 +47,7 @@ func (m *FormViewFieldModelSqlx) FindByFormViewId(ctx context.Context, formViewI
 func (m *FormViewFieldModelSqlx) FindFullByFormViewId(ctx context.Context, formViewId string) ([]*FormViewField, error) {
 	var resp []*FormViewField
 	query := `SELECT id, form_view_id, technical_name, data_type, business_name, field_role, field_description
-	          FROM form_view_field WHERE form_view_id = ? AND deleted_at IS NULL ORDER BY id ASC`
+	          FROM form_view_field WHERE form_view_id = ? AND deleted_at = 0 ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
 	if err != nil {
 		return nil, fmt.Errorf("find form_view_field full info by form_view_id failed: %w", err)

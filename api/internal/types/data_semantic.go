@@ -69,8 +69,7 @@ type RegenerateBusinessObjectsReq struct {
 }
 
 type RegenerateBusinessObjectsResp struct {
-	ObjectCount    int `json:"object_count"`
-	AttributeCount int `json:"attribute_count"`
+	UnderstandStatus int8 `json:"understand_status"`
 }
 
 type SaveBusinessObjectsReq struct {
