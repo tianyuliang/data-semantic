@@ -88,7 +88,7 @@ type AttributeInfo struct {
 // NoPatternFieldInfo 未识别出属性的字段信息
 type NoPatternFieldInfo struct {
 	FormViewFieldId   string  `json:"form_view_field_id"`
-	FieldBusinessName *string `json:"field_business_name,omitempty"`
+	FieldBusinessName *string `json:"field_business_name,omitempty"` // 字段业务名称（可能为空）
 	FieldRole         *int8   `json:"field_role,omitempty"`
 	FieldDescription  *string `json:"field_description,omitempty"`
 }
@@ -357,10 +357,13 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		}
 	}
 
-	// 4. 处理未识别出属性的字段（business_object_id 为空）
+	// 4. 处理未识别出属性的字段（business_object_id 为空，attr_name 为空）
 	for _, field := range noPatternFields {
 		// 生成新的属性 ID
 		attrId := uuid.New().String()
+
+		// 未识别出属性的字段，attr_name 使用空字符串
+		attrName := coalesceString(field.FieldBusinessName, "")
 
 		// 插入属性记录，business_object_id 为空
 		attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
@@ -369,7 +372,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			BusinessObjectId: "", // AI未识别出归属，business_object_id 为空
 			Version:          version,
 			FormViewFieldId:  field.FormViewFieldId,
-			AttrName:         coalesceString(field.FieldBusinessName, ""),
+			AttrName:         attrName,
 		}
 		if _, err := businessObjectAttrTempModel.Insert(ctx, attrData); err != nil {
 			return fmt.Errorf("插入未识别字段属性失败: %w", err)
