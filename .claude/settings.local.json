@@ -35,7 +35,10 @@
       "Bash(git checkout:*)",
       "Bash(curl:*)",
       "Bash(find:*)",
-      "Bash(goctl api docs:*)"
+      "Bash(goctl api docs:*)",
+      "Bash(mysql:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist)"
     ]
   }
 }
