@@ -81,6 +81,17 @@ func (m *KafkaMessageLogModelSqlx) ExistsByMessageId(ctx context.Context, messag
 	return count > 0, nil
 }
 
+// ExistsSuccessByMessageId 检查消息ID是否已成功处理（status=1）
+func (m *KafkaMessageLogModelSqlx) ExistsSuccessByMessageId(ctx context.Context, messageId string) (bool, error) {
+	var count int64
+	query := `SELECT COUNT(*) FROM t_kafka_message_log WHERE message_id = ? AND status = 1`
+	err := m.conn.QueryRowCtx(ctx, &count, query, messageId)
+	if err != nil {
+		return false, fmt.Errorf("exists success kafka message log by message_id failed: %w", err)
+	}
+	return count > 0, nil
+}
+
 // InsertSuccess 插入成功处理记录
 func (m *KafkaMessageLogModelSqlx) InsertSuccess(ctx context.Context, messageId, formViewId string) (*KafkaMessageLog, error) {
 	data := &KafkaMessageLog{

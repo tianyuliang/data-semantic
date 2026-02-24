@@ -36,6 +36,7 @@ type AIResponse struct {
 	Version      int    `json:"version"`
 	RequestTime  string `json:"request_time"`
 	ResponseType string `json:"response_type,omitempty"` // 消息类型: full_understanding, regenerate_business_objects
+	Status       string `json:"status,omitempty"`        // 消息状态: success, failed
 	// 表信息（全量生成时有值）
 	TableInfo       *TableInfo  `json:"table_info,omitempty"`
 	TableSemantic   *TableInfo  `json:"table_semantic,omitempty"` // 兼容字段
@@ -44,6 +45,14 @@ type AIResponse struct {
 	FieldsSemantic  []FieldInfo `json:"fields_semantic,omitempty"` // 兼容字段
 	// 业务对象列表（全量生成和部分生成都有值）
 	BusinessObjects []BusinessObjectInfo `json:"business_objects,omitempty"`
+	// 错误信息（失败时有值）
+	Error *ErrorInfo `json:"error,omitempty"`
+}
+
+// ErrorInfo 错误信息
+type ErrorInfo struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 // TableInfo 表信息
@@ -96,24 +105,32 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 		return err
 	}
 
+	// 判断消息类型：失败消息或成功消息
+	isFailedMessage := aiResp.Status == "failed"
+
 	// 在事务中处理：去重检查 + 数据保存 + 状态更新
 	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
-		// 1. 去重检查（在事务中，使用行锁）
+		// 1. 去重检查（只检查成功处理的消息，允许失败消息重试）
 		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
-		if exists, err := kafkaMessageLogModel.ExistsByMessageId(ctx, aiResp.MessageId); err != nil {
+		if exists, err := kafkaMessageLogModel.ExistsSuccessByMessageId(ctx, aiResp.MessageId); err != nil {
 			return fmt.Errorf("检查消息去重失败: %w", err)
 		} else if exists {
-			logx.Infof("消息已处理，跳过: message_id=%s", aiResp.MessageId)
-			// 返回特殊错误标记跳过，但不是真正的错误
+			logx.Infof("消息已成功处理，跳过: message_id=%s", aiResp.MessageId)
 			return nil
 		}
 
-		// 2. 处理成功响应（包括数据保存和状态更新）
+		// 2. 根据消息状态处理
+		if isFailedMessage {
+			// 处理失败消息：记录失败日志 + 更新状态为 5（理解失败）
+			return h.processFailedResponseInTx(ctx, session, &aiResp)
+		}
+
+		// 3. 处理成功响应（包括数据保存和状态更新）
 		if err := h.processSuccessResponseInTx(ctx, session, &aiResp); err != nil {
 			return err
 		}
 
-		// 3. 记录消息处理日志
+		// 4. 记录消息处理日志
 		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, aiResp.MessageId, aiResp.FormViewId); err != nil {
 			return fmt.Errorf("记录Kafka消息日志失败: %w", err)
 		}
@@ -184,6 +201,32 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 	formViewModel := form_view.NewFormViewModelSession(session)
 	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
 		return fmt.Errorf("更新form_view状态失败: %w", err)
+	}
+
+	return nil
+}
+
+// processFailedResponseInTx 处理失败响应（在事务中执行，包含状态更新）
+func (h *DataUnderstandingHandler) processFailedResponseInTx(ctx context.Context, session sqlx.Session, aiResp *AIResponse) error {
+	// 构建错误信息
+	errMsg := "AI 服务处理失败"
+	if aiResp.Error != nil {
+		errMsg = fmt.Sprintf("%s: %s", aiResp.Error.Code, aiResp.Error.Message)
+	}
+
+	logx.WithContext(ctx).Errorf("处理失败消息: message_id=%s, form_view_id=%s, error=%s",
+		aiResp.MessageId, aiResp.FormViewId, errMsg)
+
+	// 记录失败日志到 kafka_message_log
+	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
+	if _, err := kafkaMessageLogModel.InsertFailure(ctx, aiResp.MessageId, aiResp.FormViewId, errMsg); err != nil {
+		return fmt.Errorf("记录Kafka消息失败日志失败: %w", err)
+	}
+
+	// 更新 form_view 状态为 5（理解失败）
+	formViewModel := form_view.NewFormViewModelSession(session)
+	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusFailed); err != nil {
+		return fmt.Errorf("更新form_view状态为理解失败失败: %w", err)
 	}
 
 	return nil
