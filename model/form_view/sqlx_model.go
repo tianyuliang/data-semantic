@@ -13,6 +13,11 @@ func NewFormViewModel(conn sqlx.SqlConn) *FormViewModelSqlx {
 	return &FormViewModelSqlx{conn: conn}
 }
 
+// NewFormViewModelSession 创建FormViewModel实例 (使用 Session)
+func NewFormViewModelSession(session sqlx.Session) *FormViewModelSqlx {
+	return &FormViewModelSqlx{conn: session}
+}
+
 // FormViewModelSqlx FormViewModel实现 (基于 go-zero Sqlx)
 type FormViewModelSqlx struct {
 	conn sqlx.Session

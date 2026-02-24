@@ -86,7 +86,7 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersion(ctx context.Context, for
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL`
 	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
@@ -101,12 +101,28 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersionByFormViewId(ctx context.
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL`
 	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
 	if err != nil {
 		return 0, fmt.Errorf("find latest version by form_view_id failed: %w", err)
+	}
+	return result.LatestVersion, nil
+}
+
+// FindLatestVersionWithLock 查询指定form_view_id的最新版本号（带行锁，用于防止并发冲突）
+func (m *BusinessObjectTempModelSqlx) FindLatestVersionWithLock(ctx context.Context, formViewId string) (int, error) {
+	var result struct {
+		LatestVersion int `db:"latest_version"`
+	}
+	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND deleted_at IS NULL
+	           FOR UPDATE`
+	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("find latest version with lock by form_view_id failed: %w", err)
 	}
 	return result.LatestVersion, nil
 }
@@ -118,8 +134,8 @@ func (m *BusinessObjectTempModelSqlx) FindByFormViewIdLatest(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	// 如果没有数据，返回空列表
-	if latestVersion == 0 {
+	// 如果版本号为初始值10，说明没有数据，返回空列表
+	if latestVersion == 10 {
 		return []*BusinessObjectTemp{}, nil
 	}
 	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)

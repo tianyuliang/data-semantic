@@ -96,106 +96,35 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 		return err
 	}
 
-	// 去重检查
-	if exists, err := h.checkMessageId(ctx, aiResp.MessageId); err != nil {
-		logx.Errorf("检查消息去重失败: %v", err)
-		return err
-	} else if exists {
-		logx.Infof("消息已处理，跳过: message_id=%s", aiResp.MessageId)
-		return nil
-	}
-
-	// 处理成功响应
-	if err := h.processSuccessResponse(ctx, &aiResp); err != nil {
-		// 记录失败日志
-		_ = h.recordFailure(ctx, aiResp.MessageId, aiResp.FormViewId, err.Error())
-		return err
-	}
-
-	return nil
-}
-
-// checkMessageId 检查消息是否已处理
-func (h *DataUnderstandingHandler) checkMessageId(ctx context.Context, messageId string) (bool, error) {
-	kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSqlx(h.svcCtx.DB)
-	return kafkaMessageLogModel.ExistsByMessageId(ctx, messageId)
-}
-
-// processSuccessResponse 处理成功响应
-func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, aiResp *AIResponse) error {
-	// 判断消息类型：全量生成 vs 部分生成（重新识别业务对象）
-	isFullUnderstanding := aiResp.ResponseType == "full_understanding" ||
-		aiResp.ResponseType == "" ||
-		(aiResp.TableInfo != nil || len(aiResp.Fields) > 0)
-
-	// 1. 开启事务处理
+	// 在事务中处理：去重检查 + 数据保存 + 状态更新
 	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
-		var newVersion int
-
-		if isFullUnderstanding {
-			// 全量生成：查询表信息临时表的版本号
-			formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
-			latestVersion := 0
-			latestRecord, err := formViewInfoTempModel.FindLatestByFormViewId(ctx, aiResp.FormViewId)
-			if err == nil && latestRecord != nil {
-				latestVersion = latestRecord.Version
-			}
-			newVersion = latestVersion + 1
-
-			logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 旧版本=%d, 新版本=%d",
-				aiResp.FormViewId, latestVersion, newVersion)
-
-			// 1.1 保存表信息到临时表（如果有）
-			if aiResp.TableInfo != nil {
-				if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableInfo); err != nil {
-					return fmt.Errorf("保存表信息失败: %w", err)
-				}
-			}
-
-			// 1.2 保存字段信息到临时表（如果有）
-			if len(aiResp.Fields) > 0 {
-				if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.Fields); err != nil {
-					return fmt.Errorf("保存字段信息失败: %w", err)
-				}
-			}
-		} else {
-			// 部分生成（重新识别业务对象）：查询业务对象临时表的版本号
-			businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
-			latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(ctx, aiResp.FormViewId)
-			if err != nil {
-				// 查询失败，使用默认值 0
-				latestVersion = 0
-			}
-			newVersion = latestVersion + 1
-
-			logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 旧版本=%d, 新版本=%d",
-				aiResp.FormViewId, latestVersion, newVersion)
+		// 1. 去重检查（在事务中，使用行锁）
+		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
+		if exists, err := kafkaMessageLogModel.ExistsByMessageId(ctx, aiResp.MessageId); err != nil {
+			return fmt.Errorf("检查消息去重失败: %w", err)
+		} else if exists {
+			logx.Infof("消息已处理，跳过: message_id=%s", aiResp.MessageId)
+			// 返回特殊错误标记跳过，但不是真正的错误
+			return nil
 		}
 
-		// 1.3 记录消息处理日志
-		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
+		// 2. 处理成功响应（包括数据保存和状态更新）
+		if err := h.processSuccessResponseInTx(ctx, session, &aiResp); err != nil {
+			return err
+		}
+
+		// 3. 记录消息处理日志
 		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, aiResp.MessageId, aiResp.FormViewId); err != nil {
 			return fmt.Errorf("记录Kafka消息日志失败: %w", err)
-		}
-
-		// 1.4 保存业务对象到临时表
-		if len(aiResp.BusinessObjects) > 0 {
-			if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects); err != nil {
-				return fmt.Errorf("保存业务对象失败: %w", err)
-			}
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return fmt.Errorf("事务执行失败: %w", err)
-	}
-
-	// 2. 更新 form_view 状态为 2（待确认）
-	formViewModel := form_view.NewFormViewModel(h.svcCtx.DB)
-	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
-		return fmt.Errorf("更新form_view状态失败: %w", err)
+		// 记录失败日志
+		_ = h.recordFailure(ctx, aiResp.MessageId, aiResp.FormViewId, err.Error())
+		return err
 	}
 
 	logx.WithContext(ctx).Infof("处理成功响应: message_id=%s, form_view_id=%s, type=%s",
@@ -204,16 +133,101 @@ func (h *DataUnderstandingHandler) processSuccessResponse(ctx context.Context, a
 	return nil
 }
 
-// saveTableInfo 保存表信息到临时表（逻辑删除旧版本，插入新版本）
+// processSuccessResponseInTx 处理成功响应（在事务中执行，包含状态更新）
+func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Context, session sqlx.Session, aiResp *AIResponse) error {
+	// 判断消息类型：优先使用 response_type 字段判断
+	isFullUnderstanding := h.isFullUnderstanding(aiResp)
+
+	var newVersion int
+	var err error
+
+	if isFullUnderstanding {
+		// 全量生成：使用行锁查询表信息临时表的版本号
+		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId, "table_info")
+		if err != nil {
+			return fmt.Errorf("获取表信息版本号失败: %w", err)
+		}
+
+		logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
+
+		// 1.1 保存表信息到临时表（如果有）
+		if aiResp.TableInfo != nil {
+			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableInfo); err != nil {
+				return fmt.Errorf("保存表信息失败: %w", err)
+			}
+		}
+
+		// 1.2 保存字段信息到临时表（如果有）
+		if len(aiResp.Fields) > 0 {
+			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.Fields); err != nil {
+				return fmt.Errorf("保存字段信息失败: %w", err)
+			}
+		}
+	} else {
+		// 部分生成（重新识别业务对象）：使用行锁查询业务对象临时表的版本号
+		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId, "business_object")
+		if err != nil {
+			return fmt.Errorf("获取业务对象版本号失败: %w", err)
+		}
+
+		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
+	}
+
+	// 1.4 保存业务对象到临时表
+	if len(aiResp.BusinessObjects) > 0 {
+		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects); err != nil {
+			return fmt.Errorf("保存业务对象失败: %w", err)
+		}
+	}
+
+	// 1.5 更新 form_view 状态为 2（待确认）- 在事务中执行
+	formViewModel := form_view.NewFormViewModelSession(session)
+	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
+		return fmt.Errorf("更新form_view状态失败: %w", err)
+	}
+
+	return nil
+}
+
+// isFullUnderstanding 判断是否为全量生成
+func (h *DataUnderstandingHandler) isFullUnderstanding(aiResp *AIResponse) bool {
+	// 优先使用 response_type 字段判断
+	switch aiResp.ResponseType {
+	case "regenerate_business_objects":
+		return false
+	case "full_understanding":
+		return true
+	}
+
+	// 兼容旧逻辑：如果有表信息或字段信息，则认为是全量生成
+	return aiResp.TableInfo != nil || len(aiResp.Fields) > 0
+}
+
+// getNextVersionWithLock 获取下一个版本号（使用行锁防止并发冲突）
+func (h *DataUnderstandingHandler) getNextVersionWithLock(ctx context.Context, session sqlx.Session, formViewId, versionType string) (int, error) {
+	var latestVersion int
+	var err error
+
+	if versionType == "table_info" {
+		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
+		latestVersion, err = formViewInfoTempModel.FindLatestVersionWithLock(ctx, formViewId)
+	} else {
+		businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
+		latestVersion, err = businessObjectTempModel.FindLatestVersionWithLock(ctx, formViewId)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	return latestVersion + 1, nil
+}
+
+// saveTableInfo 保存表信息到临时表（直接插入）
 func (h *DataUnderstandingHandler) saveTableInfo(ctx context.Context, session sqlx.Session, formViewId string, version int, tableInfo *TableInfo) error {
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
 
-	// 1. 逻辑删除旧版本数据
-	if err := formViewInfoTempModel.DeleteByFormViewId(ctx, formViewId); err != nil {
-		return fmt.Errorf("逻辑删除旧版本表信息失败: %w", err)
-	}
-
-	// 2. 插入新版本数据
+	// 直接插入新版本数据
 	data := &form_view_info_temp.FormViewInfoTemp{
 		Id:                uuid.New().String(),
 		FormViewId:        formViewId,
@@ -228,17 +242,12 @@ func (h *DataUnderstandingHandler) saveTableInfo(ctx context.Context, session sq
 	return nil
 }
 
-// saveFieldInfo 保存字段信息到临时表（逻辑删除旧版本，插入新版本）
+// saveFieldInfo 保存字段信息到临时表（直接插入）
 func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sqlx.Session, formViewId string, version int, fields []FieldInfo) error {
 	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSession(session)
 
 	for _, field := range fields {
-		// 1. 逻辑删除该字段的旧版本数据
-		if err := formViewFieldInfoTempModel.DeleteByFormFieldId(ctx, field.FormViewFieldId); err != nil {
-			return fmt.Errorf("逻辑删除旧版本字段信息失败: %w", err)
-		}
-
-		// 2. 插入新版本数据
+		// 直接插入新版本数据
 		data := &form_view_field_info_temp.FormViewFieldInfoTemp{
 			Id:                uuid.New().String(),
 			FormViewId:        formViewId,
@@ -256,20 +265,18 @@ func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sq
 	return nil
 }
 
-// saveBusinessObjects 保存业务对象到临时表（逻辑删除旧版本，插入新版本）
+// saveBusinessObjects 保存业务对象到临时表（直接插入，使用 UUID 作为 ID）
 func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, version int, objects []BusinessObjectInfo) error {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 
 	for _, obj := range objects {
-		// 1. 逻辑删除该业务对象的旧版本数据
-		if err := businessObjectTempModel.DeleteById(ctx, obj.Id); err != nil {
-			return fmt.Errorf("逻辑删除旧版本业务对象失败: %w", err)
-		}
+		// 1. 生成新的业务对象 ID
+		businessObjectId := uuid.New().String()
 
 		// 2. 插入新版本业务对象
 		objectData := &business_object_temp.BusinessObjectTemp{
-			Id:         obj.Id,
+			Id:         businessObjectId,
 			FormViewId: formViewId,
 			Version:    version,
 			ObjectName: obj.ObjectName,
@@ -280,16 +287,14 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 
 		// 3. 处理属性
 		for _, attr := range obj.Attributes {
-			// 逻辑删除该属性的旧版本数据
-			if err := businessObjectAttrTempModel.DeleteById(ctx, attr.Id); err != nil {
-				return fmt.Errorf("逻辑删除旧版本属性失败: %w", err)
-			}
+			// 生成新的属性 ID
+			attrId := uuid.New().String()
 
 			// 插入新版本属性
 			attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
-				Id:               attr.Id,
+				Id:               attrId,
 				FormViewId:       formViewId,
-				BusinessObjectId: obj.Id,
+				BusinessObjectId: businessObjectId,
 				Version:          version,
 				FormViewFieldId:  attr.FormViewFieldId,
 				AttrName:         attr.AttrName,
