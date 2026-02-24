@@ -264,13 +264,13 @@ func (l *GetBusinessObjectsLogic) convertAttrTempToAPI(attrs []*business_object_
 // convertAttrTempItemToAPI 转换单个临时表属性项
 func (l *GetBusinessObjectsLogic) convertAttrTempItemToAPI(attr *business_object_attributes_temp.FieldWithAttrInfoTemp) types.BusinessObjectAttribute {
 	return types.BusinessObjectAttribute{
-		Id:               attr.Id,
-		AttrName:         attr.AttrName,
-		FormViewFieldId:  attr.FormViewFieldId,
-		FieldTechName:    attr.FieldTechName,
+		Id:                attr.Id,
+		AttrName:          attr.AttrName,
+		FormViewFieldId:   attr.FormViewFieldId,
+		FieldTechName:     attr.FieldTechName,
 		FieldBusinessName: attr.FieldBusinessName,
-		FieldRole:        attr.FieldRole,
-		FieldType:        attr.FieldType,
+		FieldRole:         attr.FieldRole,
+		FieldType:         attr.FieldType,
 	}
 }
 
@@ -279,13 +279,13 @@ func (l *GetBusinessObjectsLogic) convertAttrFormalToAPI(attrs []*business_objec
 	result := make([]types.BusinessObjectAttribute, 0, len(attrs))
 	for _, attr := range attrs {
 		result = append(result, types.BusinessObjectAttribute{
-			Id:               attr.Id,
-			AttrName:         attr.AttrName,
-			FormViewFieldId:  attr.FormViewFieldId,
-			FieldTechName:    attr.FieldTechName,
+			Id:                attr.Id,
+			AttrName:          attr.AttrName,
+			FormViewFieldId:   attr.FormViewFieldId,
+			FieldTechName:     attr.FieldTechName,
 			FieldBusinessName: attr.FieldBusinessName,
-			FieldRole:        attr.FieldRole,
-			FieldType:        attr.FieldType,
+			FieldRole:         attr.FieldRole,
+			FieldType:         attr.FieldType,
 		})
 	}
 	return result

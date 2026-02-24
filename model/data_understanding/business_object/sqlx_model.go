@@ -78,6 +78,19 @@ func (m *BusinessObjectModelSqlx) FindByFormViewId(ctx context.Context, formView
 	return resp, nil
 }
 
+// FindByFormViewIdAndObjectName 根据form_view_id和object_name查询单个业务对象
+func (m *BusinessObjectModelSqlx) FindByFormViewIdAndObjectName(ctx context.Context, formViewId string, objectName string) (*BusinessObject, error) {
+	var resp BusinessObject
+	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	           FROM t_business_object
+	           WHERE form_view_id = ? AND object_name = ? AND deleted_at IS NULL LIMIT 1`
+	err := m.conn.QueryRowCtx(ctx, &resp, query, formViewId, objectName)
+	if err != nil {
+		return nil, fmt.Errorf("find business_object by form_view_id and object_name failed: %w", err)
+	}
+	return &resp, nil
+}
+
 // FindOneById 根据id查询业务对象
 func (m *BusinessObjectModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObject, error) {
 	var resp BusinessObject

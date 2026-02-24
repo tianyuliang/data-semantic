@@ -38,7 +38,9 @@
       "Bash(goctl api docs:*)",
       "Bash(mysql:*)",
       "Bash(taskkill:*)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(netstat:*)",
+      "Bash(cmd //c \"taskkill //F //PID 79176\")"
     ]
   }
 }

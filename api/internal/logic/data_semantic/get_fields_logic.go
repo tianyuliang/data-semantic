@@ -81,8 +81,10 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	// 查询正式表的完整字段信息（包含语义信息）作为基础
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
 	formalFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
-	if err != nil && err.Error() != "sql: no rows in result set" {
+	if err != nil {
+		// 正式表无数据时继续执行，仅返回临时表数据
 		logx.WithContext(l.ctx).Infof("查询正式表完整字段信息失败: %v", err)
+		formalFields = []*form_view_field.FormViewField{}
 	}
 
 	// 构建字段信息：正式表为基础，临时表为更新
