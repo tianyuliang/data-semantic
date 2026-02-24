@@ -86,7 +86,7 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersion(ctx context.Context, for
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 9) AS latest_version
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL`
 	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
@@ -101,7 +101,7 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersionByFormViewId(ctx context.
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 9) AS latest_version
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL`
 	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
@@ -116,7 +116,7 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersionWithLock(ctx context.Cont
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 9) AS latest_version
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL
 	           FOR UPDATE`

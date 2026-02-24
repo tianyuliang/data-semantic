@@ -74,7 +74,7 @@ func (m *FormViewInfoTempModelSqlx) FindLatestVersionWithLock(ctx context.Contex
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
-	query := `SELECT COALESCE(MAX(version), 10) AS latest_version
+	query := `SELECT COALESCE(MAX(version), 9) AS latest_version
 	           FROM t_form_view_info_temp
 	           WHERE form_view_id = ? AND deleted_at IS NULL
 	           FOR UPDATE`
