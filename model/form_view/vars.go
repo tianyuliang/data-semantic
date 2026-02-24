@@ -11,4 +11,5 @@ const (
 	StatusPendingConfirm   int8 = 2 // 待确认
 	StatusCompleted        int8 = 3 // 已完成
 	StatusPublished        int8 = 4 // 已发布
+	StatusFailed           int8 = 5 // 理解失败
 )

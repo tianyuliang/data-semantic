@@ -43,7 +43,7 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	}
 
 	currentStatus := formViewData.UnderstandStatus
-	if currentStatus != form_view.StatusNotUnderstanding && currentStatus != form_view.StatusCompleted {
+	if currentStatus != form_view.StatusNotUnderstanding && currentStatus != form_view.StatusCompleted && currentStatus != form_view.StatusFailed {
 		return nil, fmt.Errorf("当前状态不允许生成理解数据，当前状态: %d", currentStatus)
 	}
 
