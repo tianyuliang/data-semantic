@@ -22,7 +22,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: HealthCheckHandler(serverCtx),
 			},
 		},
-		rest.WithPrefix("/api/v1/data-semantic"),
+		rest.WithPrefix("/api/v1"),
 	)
 
 	server.AddRoutes(

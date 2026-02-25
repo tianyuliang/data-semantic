@@ -106,8 +106,9 @@ type (
 	}
 	// ====== 接口6: 保存业务对象及属性 ======
 	SaveBusinessObjectsReq {
+		Id   string `path:"id" validate:"required"`
 		Type string `json:"type" validate:"required,oneof=object attribute"`
-		Id   string `json:"id" validate:"required"`
+		ObjectId   string `json:"id" validate:"required"`
 		Name string `json:"name" validate:"required,max=100"`
 	}
 	SaveBusinessObjectsResp {

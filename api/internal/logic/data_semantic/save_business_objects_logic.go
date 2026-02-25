@@ -32,8 +32,8 @@ func NewSaveBusinessObjectsLogic(ctx context.Context, svcCtx *svc.ServiceContext
 }
 
 func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessObjectsReq) (resp *types.SaveBusinessObjectsResp, err error) {
-	logx.Infof("SaveBusinessObjects called with type: %s, id: %s, name: %s",
-		req.Type, req.Id, req.Name)
+	logx.Infof("SaveBusinessObjects called with pathId: %s, type: %s, objectId: %s, name: %s",
+		req.Id, req.Type, req.ObjectId, req.Name)
 
 	// 1. 状态校验：只有状态 2（待确认）才能编辑
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
@@ -48,13 +48,13 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 
 	// 2. 根据 type 决定更新业务对象还是属性
 	if req.Type == "object" {
-		err = l.saveBusinessObjectName(req.Id, req.Name)
+		err = l.saveBusinessObjectName(req.ObjectId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 
 	} else if req.Type == "attribute" {
-		err = l.saveAttributeName(req.Id, req.Name)
+		err = l.saveAttributeName(req.ObjectId, req.Name)
 		if err != nil {
 			return nil, err
 		}
