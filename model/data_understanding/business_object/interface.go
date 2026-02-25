@@ -11,6 +11,9 @@ type BusinessObjectModel interface {
 	// FindByFormViewId 根据form_view_id查询业务对象列表
 	FindByFormViewId(ctx context.Context, formViewId string) ([]*BusinessObject, error)
 
+	// FindByFormViewIdAndObjectName 根据form_view_id和object_name查询单个业务对象
+	FindByFormViewIdAndObjectName(ctx context.Context, formViewId string, objectName string) (*BusinessObject, error)
+
 	// FindOneById 根据id查询业务对象
 	FindOneById(ctx context.Context, id string) (*BusinessObject, error)
 
