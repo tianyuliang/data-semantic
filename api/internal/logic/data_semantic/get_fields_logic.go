@@ -5,9 +5,9 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
@@ -41,7 +41,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	tableInfo, err := formViewModel.GetTableInfo(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询库表视图信息失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表视图信息", err)
 	}
 
 	// 2. 根据状态返回不同数据源
@@ -50,7 +50,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 
 	// 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, fmt.Errorf("当前状态为理解中，请等待处理完成后再查询")
+		return nil, errorx.NewInvalidUnderstandStatus(understandStatus)
 	}
 
 	// 状态 2 (待确认) - 查询临时表
@@ -68,14 +68,14 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
 	tableInfoTemp, err := formViewInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询库表信息临时表失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表信息临时表", err)
 	}
 
 	// 查询字段信息临时表
 	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
 	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询字段信息临时表失败: %w", err)
+		return nil, errorx.NewQueryFailed("字段信息临时表", err)
 	}
 
 	// 查询正式表的完整字段信息（包含语义信息）作为基础
@@ -108,7 +108,7 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
 	fullFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询字段完整信息失败: %w", err)
+		return nil, errorx.NewQueryFailed("字段完整信息", err)
 	}
 
 	// 构建字段信息
@@ -134,27 +134,6 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 		TableDescription:  nil,
 		Fields:            fields,
 	}, nil
-}
-
-// buildFieldInfo 构建字段信息
-func (l *GetFieldsLogic) buildFieldInfo(fieldsTemp []*form_view_field_info_temp.FormViewFieldInfoTemp, baseFieldMap map[string]*form_view_field.FormViewFieldBase) []types.FieldSemanticInfo {
-	fields := make([]types.FieldSemanticInfo, 0, len(fieldsTemp))
-	for _, ft := range fieldsTemp {
-		baseInfo, exists := baseFieldMap[ft.FormViewFieldId]
-		if !exists {
-			logx.WithContext(l.ctx).Infof("字段 %s 在基础表 中不存在", ft.FormViewFieldId)
-			continue
-		}
-		fields = append(fields, types.FieldSemanticInfo{
-			FormViewFieldId:   ft.FormViewFieldId,
-			FieldBusinessName: ft.FieldBusinessName,
-			FieldTechName:     baseInfo.FieldTechName,
-			FieldType:         baseInfo.FieldType,
-			FieldRole:         ft.FieldRole,
-			FieldDescription:  ft.FieldDescription,
-		})
-	}
-	return fields
 }
 
 // applyFilters 应用过滤条件
