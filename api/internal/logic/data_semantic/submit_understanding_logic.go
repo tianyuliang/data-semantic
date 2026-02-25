@@ -11,7 +11,6 @@ import (
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
@@ -49,7 +48,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	}
 
 	// 2. 获取当前版本号
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	businessObjectTempModel := business_object.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, errorx.NewQueryFailed("当前版本号", err)
@@ -60,74 +59,29 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 
 	// 3. 开启事务处理
 	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
-		// 使用事务的 Session 创建正式表和临时表 model 实例
+		// 使用事务的 Session 创建正式表 model 实例
 		businessObjectModel := business_object.NewBusinessObjectModelSession(session)
 		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSession(session)
-		businessObjectTempModelSession := business_object_temp.NewBusinessObjectTempModelSession(session)
-		businessObjectAttrTempModelSession := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 		formViewModelSession := form_view.NewFormViewModelSession(session)
 
-		// ========== 增量更新业务对象 ==========
+		// ========== 合并业务对象（基于业务主键：form_view_id + object_name）==========
 
-		// 3.1 更新已有记录（通过 formal_id 匹配）
-		updatedCount, err := businessObjectModel.UpdateByFormalId(ctx, req.Id, latestVersion)
+		objInserted, objUpdated, objDeleted, err := businessObjectModel.MergeFromTemp(ctx, req.Id, latestVersion)
 		if err != nil {
 			return errorx.NewUpdateFailed("业务对象", err)
 		}
-		logx.WithContext(ctx).Infof("Updated business objects: %d", updatedCount)
+		logx.WithContext(ctx).Infof("Merged business objects: inserted=%d, updated=%d, deleted=%d", objInserted, objUpdated, objDeleted)
 
-		// 3.2 新增记录（formal_id 为 NULL 的记录）
-		insertedCount, err := businessObjectModel.InsertFromTempWithoutFormalId(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewUpdateFailed("业务对象", err)
-		}
-		logx.WithContext(ctx).Infof("Inserted business objects: %d", insertedCount)
+		// ========== 合并业务对象属性（基于业务对象匹配 + form_view_field_id）==========
 
-		// 3.3 删除不再需要的记录（正式表有但临时表没有的）
-		deletedCount, err := businessObjectModel.DeleteNotInFormalIdList(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewDeleteFailed("业务对象", err)
-		}
-		logx.WithContext(ctx).Infof("Deleted business objects: %d", deletedCount)
-
-		// 3.4 回写 formal_id 到临时表（为下次提交准备）
-		formalIdUpdatedCount, err := businessObjectTempModelSession.UpdateFormalId(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewUpdateFailed("业务对象formal_id", err)
-		}
-		logx.WithContext(ctx).Infof("Updated formal_id in temp table: %d", formalIdUpdatedCount)
-
-		// ========== 增量更新业务对象属性 ==========
-
-		// 3.5 更新已有属性（通过 formal_id 匹配）
-		attrUpdatedCount, err := businessObjectAttrModel.UpdateByFormalId(ctx, req.Id, latestVersion)
+		attrInserted, attrUpdated, attrDeleted, err := businessObjectAttrModel.MergeFromTemp(ctx, req.Id, latestVersion)
 		if err != nil {
 			return errorx.NewUpdateFailed("属性", err)
 		}
-		logx.WithContext(ctx).Infof("Updated attributes: %d", attrUpdatedCount)
+		logx.WithContext(ctx).Infof("Merged attributes: inserted=%d, updated=%d, deleted=%d", attrInserted, attrUpdated, attrDeleted)
 
-		// 3.6 新增属性（formal_id 为 NULL 的记录）
-		attrInsertedCount, err := businessObjectAttrModel.InsertFromTempWithoutFormalId(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewUpdateFailed("属性", err)
-		}
-		logx.WithContext(ctx).Infof("Inserted attributes: %d", attrInsertedCount)
+		// ========== 更新 form_view 状态为 3 (已完成) ==========
 
-		// 3.7 删除不再需要的属性（正式表有但临时表没有的）
-		attrDeletedCount, err := businessObjectAttrModel.DeleteNotInFormalIdList(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewDeleteFailed("属性", err)
-		}
-		logx.WithContext(ctx).Infof("Deleted attributes: %d", attrDeletedCount)
-
-		// 3.8 回写 formal_id 到属性临时表
-		attrFormalIdUpdatedCount, err := businessObjectAttrTempModelSession.UpdateFormalId(ctx, req.Id, latestVersion)
-		if err != nil {
-			return errorx.NewUpdateFailed("属性formal_id", err)
-		}
-		logx.WithContext(ctx).Infof("Updated formal_id in attributes temp table: %d", attrFormalIdUpdatedCount)
-
-		// 3.9 更新 form_view 状态为 3 (已完成) - 在事务中保证原子性
 		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, form_view.StatusCompleted)
 		if err != nil {
 			return errorx.NewUpdateFailed("理解状态", err)

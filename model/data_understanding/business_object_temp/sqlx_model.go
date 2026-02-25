@@ -25,9 +25,9 @@ type BusinessObjectTempModelSqlx struct {
 
 // Insert 插入业务对象记录
 func (m *BusinessObjectTempModelSqlx) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
-	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name, formal_id)
-	           VALUES (?, ?, ?, ?, ?, ?)`
-	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName, data.FormalId)
+	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
+	           VALUES (?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName)
 	if err != nil {
 		return nil, fmt.Errorf("insert business_object_temp failed: %w", err)
 	}
@@ -46,7 +46,7 @@ func (m *BusinessObjectTempModelSqlx) WithTx(tx interface{}) BusinessObjectTempM
 // FindByFormViewAndVersion 根据form_view_id和version查询业务对象列表
 func (m *BusinessObjectTempModelSqlx) FindByFormViewAndVersion(ctx context.Context, formViewId string, version int) ([]*BusinessObjectTemp, error) {
 	var resp []*BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, formal_id, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, version)
@@ -59,7 +59,7 @@ func (m *BusinessObjectTempModelSqlx) FindByFormViewAndVersion(ctx context.Conte
 // FindOneById 根据id查询业务对象
 func (m *BusinessObjectTempModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObjectTemp, error) {
 	var resp BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, formal_id, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
@@ -159,26 +159,4 @@ func (m *BusinessObjectTempModelSqlx) DeleteById(ctx context.Context, id string)
 		return fmt.Errorf("delete business_object_temp by id failed: %w", err)
 	}
 	return nil
-}
-
-// ========== 增量更新相关方法实现 ==========
-
-// UpdateFormalId 回写formal_id到临时表（提交后回写新生成的正式表ID）
-// 将临时表中id和正式表id相同的记录的formal_id更新为正式表id
-func (m *BusinessObjectTempModelSqlx) UpdateFormalId(ctx context.Context, formViewId string, version int) (int, error) {
-	query := `UPDATE t_business_object_temp bot
-	           JOIN t_business_object bo ON bot.id = bo.id
-	           SET bot.formal_id = bo.id,
-	               bot.updated_at = NOW(3)
-	           WHERE bot.form_view_id = ?
-	             AND bot.version = ?
-	             AND bot.formal_id IS NULL
-	             AND bot.deleted_at IS NULL
-	             AND bo.deleted_at IS NULL`
-	result, err := m.conn.ExecCtx(ctx, query, formViewId, version)
-	if err != nil {
-		return 0, fmt.Errorf("update formal_id in temp table failed: %w", err)
-	}
-	rowsAffected, err := result.RowsAffected()
-	return int(rowsAffected), nil
 }

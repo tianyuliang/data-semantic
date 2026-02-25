@@ -31,12 +31,7 @@ type BusinessObjectAttributesModel interface {
 
 	// ========== 增量更新相关方法 ==========
 
-	// UpdateByFormalId 根据formal_id更新属性（增量更新）
-	UpdateByFormalId(ctx context.Context, formViewId string, version int) (int, error)
-
-	// InsertFromTempWithoutFormalId 从临时表插入formal_id为NULL的记录（增量更新）
-	InsertFromTempWithoutFormalId(ctx context.Context, formViewId string, version int) (int, error)
-
-	// DeleteNotInFormalIdList 删除不在temp表formal_id列表中的记录（增量更新）
-	DeleteNotInFormalIdList(ctx context.Context, formViewId string, version int) (int, error)
+	// MergeFromTemp 从临时表合并数据到正式表（基于业务对象匹配 + form_view_field_id）
+	// 逻辑：使用 INSERT ... ON DUPLICATE KEY UPDATE 实现增量更新
+	MergeFromTemp(ctx context.Context, formViewId string, version int) (inserted, updated, deleted int, err error)
 }

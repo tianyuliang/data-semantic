@@ -12,7 +12,6 @@ type BusinessObjectAttributesTemp struct {
 	Version          int        `db:"version"`
 	FormViewFieldId  string     `db:"form_view_field_id"`
 	AttrName         string     `db:"attr_name"`
-	FormalId         *string    `db:"formal_id"` // 关联正式表ID（用于增量更新匹配）
 	CreatedAt        time.Time  `db:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at"`
 	DeletedAt        *time.Time `db:"deleted_at"`
