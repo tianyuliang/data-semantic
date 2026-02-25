@@ -133,6 +133,10 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			tempAttrMap[attr.BusinessObjectId] = append(tempAttrMap[attr.BusinessObjectId], attr)
 		}
 
+		// 获取正式表 Model（用于融合）
+		businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
+		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
+
 		// 构建响应
 		objects = make([]types.BusinessObject, 0, len(tempObjList))
 		for _, obj := range tempObjList {
@@ -140,11 +144,37 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			if !ok {
 				attrsTemp = []*business_object_attributes_temp.FieldWithAttrInfoTemp{}
 			}
-			objects = append(objects, types.BusinessObject{
-				Id:         obj.Id,
-				ObjectName: obj.ObjectName,
-				Attributes: l.convertAttrTempToAPI(attrsTemp),
-			})
+
+			// 检查正式表是否存在该业务对象（通过 object_name 匹配）
+			objFormal, err := businessObjectModel.FindByFormViewIdAndObjectName(l.ctx, obj.FormViewId, obj.ObjectName)
+			if err != nil || objFormal == nil {
+				// 正式表不存在该对象，直接返回临时表数据（不涉及融合）
+				objects = append(objects, types.BusinessObject{
+					Id:         obj.Id,
+					ObjectName: obj.ObjectName,
+					Attributes: l.convertAttrTempToAPI(attrsTemp),
+				})
+			} else {
+				// 正式表存在该对象，查询正式表属性并进行融合
+				attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
+				if err != nil {
+					logx.WithContext(l.ctx).Infof("查询正式表属性失败，仅返回临时表数据: %v", err)
+					objects = append(objects, types.BusinessObject{
+						Id:         obj.Id,
+						ObjectName: obj.ObjectName,
+						Attributes: l.convertAttrTempToAPI(attrsTemp),
+					})
+				} else {
+					// 融合属性：正式表为基础，临时表中 form_view_field_id 不存在的属性作为新增
+					mergedAttrs := l.mergeAttributes(attrsFormal, attrsTemp)
+					// 使用正式表对象的ID（保持稳定性）
+					objects = append(objects, types.BusinessObject{
+						Id:         objFormal.Id,
+						ObjectName: objFormal.ObjectName,
+						Attributes: l.convertAttrTempToAPI(mergedAttrs),
+					})
+				}
+			}
 		}
 
 		// 如果提供了 keyword，按名称过滤
