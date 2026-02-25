@@ -28,10 +28,4 @@ type BusinessObjectAttributesModel interface {
 
 	// WithTx 设置事务
 	WithTx(tx interface{}) BusinessObjectAttributesModel
-
-	// ========== 增量更新相关方法 ==========
-
-	// MergeFromTemp 从临时表合并数据到正式表（基于业务对象匹配 + form_view_field_id）
-	// 逻辑：使用 INSERT ... ON DUPLICATE KEY UPDATE 实现增量更新
-	MergeFromTemp(ctx context.Context, formViewId string, version int) (inserted, updated, deleted int, err error)
 }
