@@ -13,7 +13,10 @@ import (
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_info_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view_field"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -63,9 +66,12 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		// 使用事务的 Session 创建 model 实例
 		tempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 		tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
+		tempFormViewInfoModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
+		tempFormViewFieldInfoModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSession(session)
 		formalModel := business_object.NewBusinessObjectModelSession(session)
 		formalAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSession(session)
 		formViewModelSession := form_view.NewFormViewModelSession(session)
+		formViewFieldModel := form_view_field.NewFormViewFieldModelSession(session)
 
 		// ========== 合并业务对象（基于业务主键：form_view_id + object_name）==========
 		objInserted, objUpdated, objDeleted, err := l.mergeBusinessObjects(ctx, req.Id, latestVersion, tempModel, formalModel)
@@ -80,6 +86,19 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 			return errorx.NewUpdateFailed("属性", err)
 		}
 		logx.WithContext(ctx).Infof("Merged attributes: inserted=%d, updated=%d, deleted=%d", attrInserted, attrUpdated, attrDeleted)
+
+		// ========== 更新库表业务名称和描述 ==========
+		if err := l.updateFormViewInfo(ctx, req.Id, latestVersion, tempFormViewInfoModel, formViewModelSession); err != nil {
+			return errorx.NewUpdateFailed("库表信息", err)
+		}
+		logx.WithContext(ctx).Infof("Updated form view info")
+
+		// ========== 更新字段业务名称、角色和描述 ==========
+		fieldUpdated, err := l.updateFormViewFieldInfo(ctx, req.Id, latestVersion, tempFormViewFieldInfoModel, formViewFieldModel)
+		if err != nil {
+			return errorx.NewUpdateFailed("字段信息", err)
+		}
+		logx.WithContext(ctx).Infof("Updated form view field info: updated=%d", fieldUpdated)
 
 		// ========== 更新 form_view 状态为 3 (已完成) ==========
 		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, form_view.StatusCompleted)
@@ -267,4 +286,50 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 	}
 
 	return inserted, updated, deleted, nil
+}
+
+// updateFormViewInfo 更新库表业务名称和描述
+func (l *SubmitUnderstandingLogic) updateFormViewInfo(
+	ctx context.Context,
+	formViewId string,
+	version int,
+	tempModel *form_view_info_temp.FormViewInfoTempModelSqlx,
+	formViewModel *form_view.FormViewModelSqlx,
+) error {
+	// 查询临时表库表信息
+	tempInfo, err := tempModel.FindOneByFormViewAndVersion(ctx, formViewId, version)
+	if err != nil {
+		// 如果没有找到临时数据，跳过（可能用户没有修改库表信息）
+		return nil
+	}
+
+	// 更新正式表的库表信息
+	return formViewModel.UpdateBusinessInfo(ctx, formViewId, tempInfo.TableBusinessName, tempInfo.TableDescription)
+}
+
+// updateFormViewFieldInfo 更新字段业务名称、角色和描述
+func (l *SubmitUnderstandingLogic) updateFormViewFieldInfo(
+	ctx context.Context,
+	formViewId string,
+	version int,
+	tempModel *form_view_field_info_temp.FormViewFieldInfoTempModelSqlx,
+	formViewFieldModel *form_view_field.FormViewFieldModelSqlx,
+) (updated int, err error) {
+	// 查询临时表字段信息
+	tempFields, err := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
+	if err != nil {
+		// 如果没有找到临时数据，跳过
+		return 0, nil
+	}
+
+	// 更新每个字段的信息
+	for _, field := range tempFields {
+		err := formViewFieldModel.UpdateBusinessInfo(ctx, field.FormViewFieldId, field.FieldBusinessName, field.FieldRole, field.FieldDescription)
+		if err != nil {
+			return 0, err
+		}
+		updated++
+	}
+
+	return updated, nil
 }

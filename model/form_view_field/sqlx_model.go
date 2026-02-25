@@ -55,6 +55,16 @@ func (m *FormViewFieldModelSqlx) FindFullByFormViewId(ctx context.Context, formV
 	return resp, nil
 }
 
+// UpdateBusinessInfo 更新字段业务名称、角色和描述
+func (m *FormViewFieldModelSqlx) UpdateBusinessInfo(ctx context.Context, id string, businessName *string, fieldRole *int8, fieldDescription *string) error {
+	query := `UPDATE form_view_field SET business_name = ?, field_role = ?, field_description = ? WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, businessName, fieldRole, fieldDescription, id)
+	if err != nil {
+		return fmt.Errorf("update form_view_field business info failed: %w", err)
+	}
+	return nil
+}
+
 // FormViewFieldBase 字段基础信息结构
 type FormViewFieldBase struct {
 	Id            string `db:"id"`

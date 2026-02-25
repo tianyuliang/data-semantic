@@ -77,6 +77,16 @@ func (m *FormViewModelSqlx) UpdateUnderstandStatus(ctx context.Context, id strin
 	return nil
 }
 
+// UpdateBusinessInfo 更新库表业务名称和描述
+func (m *FormViewModelSqlx) UpdateBusinessInfo(ctx context.Context, id string, businessName *string, description *string) error {
+	query := `UPDATE form_view SET business_name = ?, description = ? WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, businessName, description, id)
+	if err != nil {
+		return fmt.Errorf("update form_view business info failed: %w", err)
+	}
+	return nil
+}
+
 // FormViewTableInfo 表信息结构
 type FormViewTableInfo struct {
 	Id              string `db:"id"`

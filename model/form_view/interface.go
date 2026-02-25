@@ -11,6 +11,9 @@ type FormViewModel interface {
 	// UpdateUnderstandStatus 更新理解状态
 	UpdateUnderstandStatus(ctx context.Context, id string, status int8) error
 
+	// UpdateBusinessInfo 更新库表业务名称和描述
+	UpdateBusinessInfo(ctx context.Context, id string, businessName *string, description *string) error
+
 	// WithTx 设置事务
 	WithTx(tx interface{}) FormViewModel
 }

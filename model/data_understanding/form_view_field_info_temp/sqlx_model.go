@@ -61,6 +61,19 @@ func (m *FormViewFieldInfoTempModelSqlx) FindLatestByFormViewId(ctx context.Cont
 	return m.deduplicateByFieldId(resp), nil
 }
 
+// FindByFormViewAndVersion 根据form_view_id和version查询字段列表
+func (m *FormViewFieldInfoTempModelSqlx) FindByFormViewAndVersion(ctx context.Context, formViewId string, version int) ([]*FormViewFieldInfoTemp, error) {
+	var resp []*FormViewFieldInfoTemp
+	query := `SELECT id, form_view_id, form_view_field_id, user_id, version, field_business_name, field_role, field_description, created_at, updated_at, deleted_at
+	           FROM t_form_view_field_info_temp
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL ORDER BY id ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, version)
+	if err != nil {
+		return nil, fmt.Errorf("find form_view_field_info_temp by form_view_id and version failed: %w", err)
+	}
+	return resp, nil
+}
+
 // deduplicateByFieldId 去重，保留每个form_view_field_id的最新版本
 func (m *FormViewFieldInfoTempModelSqlx) deduplicateByFieldId(fields []*FormViewFieldInfoTemp) []*FormViewFieldInfoTemp {
 	fieldMap := make(map[string]*FormViewFieldInfoTemp)

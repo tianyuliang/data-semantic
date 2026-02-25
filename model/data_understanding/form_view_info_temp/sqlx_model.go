@@ -47,6 +47,19 @@ func (m *FormViewInfoTempModelSqlx) FindLatestByFormViewId(ctx context.Context, 
 	return &resp, nil
 }
 
+// FindOneByFormViewAndVersion 根据form_view_id和version查询记录
+func (m *FormViewInfoTempModelSqlx) FindOneByFormViewAndVersion(ctx context.Context, formViewId string, version int) (*FormViewInfoTemp, error) {
+	var resp FormViewInfoTemp
+	query := `SELECT id, form_view_id, user_id, version, table_business_name, table_description, created_at, updated_at, deleted_at
+	           FROM t_form_view_info_temp
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL LIMIT 1`
+	err := m.conn.QueryRowCtx(ctx, &resp, query, formViewId, version)
+	if err != nil {
+		return nil, fmt.Errorf("find form_view_info_temp by form_view_id and version failed: %w", err)
+	}
+	return &resp, nil
+}
+
 // Update 更新库表信息
 func (m *FormViewInfoTempModelSqlx) Update(ctx context.Context, data *FormViewInfoTemp) error {
 	query := `UPDATE t_form_view_info_temp
