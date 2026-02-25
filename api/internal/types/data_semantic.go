@@ -50,7 +50,6 @@ type GetStatusReq struct {
 
 type GetStatusResp struct {
 	UnderstandStatus int8 `json:"understand_status"`
-	CurrentVersion   int  `json:"current_version"`
 }
 
 type MoveAttributeReq struct {

@@ -41,7 +41,6 @@ func (l *GetStatusLogic) GetStatus(req *types.GetStatusReq) (resp *types.GetStat
 
 	resp = &types.GetStatusResp{
 		UnderstandStatus: formViewData.UnderstandStatus,
-		CurrentVersion:   0,
 	}
 
 	logx.Infof("GetStatus success: form_view_id=%s, status=%d",
