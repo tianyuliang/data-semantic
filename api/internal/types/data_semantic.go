@@ -85,8 +85,8 @@ type SaveBusinessObjectsResp struct {
 
 type SaveSemanticInfoReq struct {
 	Id        string                     `path:"id" validate:"required"`
-	TableData *SaveSemanticInfoTableData `json:"tableData"`
-	FieldData *SaveSemanticInfoFieldData `json:"fieldData"`
+	TableData *SaveSemanticInfoTableData `json:"tableData,optional"`
+	FieldData *SaveSemanticInfoFieldData `json:"fieldData,optional"`
 }
 
 type SaveSemanticInfoResp struct {

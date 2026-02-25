@@ -65,8 +65,8 @@ type (
 	}
 	SaveSemanticInfoReq {
 		Id        string                     `path:"id" validate:"required"`
-		TableData *SaveSemanticInfoTableData `json:"tableData"`
-		FieldData *SaveSemanticInfoFieldData `json:"fieldData"`
+		TableData *SaveSemanticInfoTableData `json:"tableData,optional"`
+		FieldData *SaveSemanticInfoFieldData `json:"fieldData,optional"`
 	}
 	SaveSemanticInfoResp {
 		Code int32 `json:"code"`
