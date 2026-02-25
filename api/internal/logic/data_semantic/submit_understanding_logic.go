@@ -48,7 +48,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	}
 
 	// 2. 获取当前版本号
-	businessObjectTempModel := business_object.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, errorx.NewQueryFailed("当前版本号", err)

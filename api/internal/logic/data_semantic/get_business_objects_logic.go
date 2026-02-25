@@ -60,229 +60,215 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	return l.getBusinessObjectsFromFormal(req)
 }
 
-// getBusinessObjectsFromTemp 从临时表查询业务对象（最新版本）
+// getBusinessObjectsFromTemp 从临时表查询业务对象（最新版本，融合正式表）
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
-	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
+	tempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
+	formalModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
+	formalAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
+	var err error
 
-	// 如果提供了 object_id，查询单个业务对象
 	if req.ObjectId != nil {
-		// 查询临时表对象
-		objDataTemp, err := businessObjectTempModel.FindOneById(l.ctx, *req.ObjectId)
-		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象", err)
-		}
-
-		// 查询临时表属性
-		attrsTemp, err := businessObjectAttrTempModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
-		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象属性", err)
-		}
-
-		// 检查正式表是否存在该业务对象（通过 object_name 匹配）
-		businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
-		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
-
-		objFormal, err := businessObjectModel.FindByFormViewIdAndObjectName(l.ctx, objDataTemp.FormViewId, objDataTemp.ObjectName)
-		if err != nil || objFormal == nil {
-			// 正式表不存在该对象，直接返回临时表数据（不涉及融合）
-			objects = []types.BusinessObject{{
-				Id:         objDataTemp.Id,
-				ObjectName: objDataTemp.ObjectName,
-				Attributes: l.convertAttrTempToAPI(attrsTemp),
-			}}
-		} else {
-			// 正式表存在该对象，查询正式表属性并进行融合
-			attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
-			if err != nil {
-				logx.WithContext(l.ctx).Infof("查询正式表属性失败，仅返回临时表数据: %v", err)
-				objects = []types.BusinessObject{{
-					Id:         objDataTemp.Id,
-					ObjectName: objDataTemp.ObjectName,
-					Attributes: l.convertAttrTempToAPI(attrsTemp),
-				}}
-			} else {
-				// 融合属性：正式表为基础，临时表中 form_view_field_id 不存在的属性作为新增
-				attrsTemp = l.mergeAttributes(attrsFormal, attrsTemp)
-				// 使用正式表对象的ID（保持稳定性）
-				objects = []types.BusinessObject{{
-					Id:         objFormal.Id,
-					ObjectName: objFormal.ObjectName,
-					Attributes: l.convertAttrTempToAPI(attrsTemp),
-				}}
-			}
-		}
+		// 查询单个对象
+		objects, err = l.buildObjectFromTemp(*req.ObjectId, tempModel, tempAttrModel, formalModel, formalAttrModel)
 	} else {
-		// 获取正式表 Model（用于融合）
-		businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
-		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
-
-		// 1. 查询正式表所有业务对象（作为基础数据，用于临时表中没有的对象）
-		formalObjList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
-		if err != nil {
-			logx.WithContext(l.ctx).Infof("查询正式表业务对象失败: %v", err)
-		}
-
-		// 构建正式表对象映射（key: object_name）
-		formalObjMap := make(map[string]*business_object.BusinessObject)
-		for _, obj := range formalObjList {
-			formalObjMap[obj.ObjectName] = obj
-		}
-
-		// 2. 查询临时表最新版本的所有业务对象
-		tempObjList, err := businessObjectTempModel.FindByFormViewIdLatest(l.ctx, req.Id)
-		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象列表", err)
-		}
-
-		// 3. 查询临时表最新版本的所有属性
-		allTempAttrs, err := businessObjectAttrTempModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, req.Id)
-		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象属性列表", err)
-		}
-
-		// 按业务对象ID分组临时表属性
-		tempAttrMap := make(map[string][]*business_object_attributes_temp.FieldWithAttrInfoTemp)
-		for _, attr := range allTempAttrs {
-			tempAttrMap[attr.BusinessObjectId] = append(tempAttrMap[attr.BusinessObjectId], attr)
-		}
-
-		// 4. 构建响应
-		objects = make([]types.BusinessObject, 0)
-
-		// 4.1 处理临时表中的对象
-		for _, obj := range tempObjList {
-			attrsTemp, ok := tempAttrMap[obj.Id]
-			if !ok {
-				attrsTemp = []*business_object_attributes_temp.FieldWithAttrInfoTemp{}
-			}
-
-			// 检查正式表是否存在该业务对象（通过 object_name 匹配）
-			objFormal, exists := formalObjMap[obj.ObjectName]
-			if !exists || objFormal == nil {
-				// 正式表不存在该对象，直接返回临时表数据（新增对象）
-				objects = append(objects, types.BusinessObject{
-					Id:         obj.Id,
-					ObjectName: obj.ObjectName,
-					Attributes: l.convertAttrTempToAPI(attrsTemp),
-				})
-				// 从映射中移除，表示已处理
-				delete(formalObjMap, obj.ObjectName)
-			} else {
-				// 正式表存在该对象，查询正式表属性并进行融合
-				attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
-				if err != nil {
-					logx.WithContext(l.ctx).Infof("查询正式表属性失败，仅返回临时表数据: %v", err)
-					objects = append(objects, types.BusinessObject{
-						Id:         obj.Id,
-						ObjectName: obj.ObjectName,
-						Attributes: l.convertAttrTempToAPI(attrsTemp),
-					})
-					delete(formalObjMap, obj.ObjectName)
-				} else {
-					// 融合属性：正式表为基础，临时表中 form_view_field_id 不存在的属性作为新增
-					mergedAttrs := l.mergeAttributes(attrsFormal, attrsTemp)
-					// 使用正式表对象的ID（保持稳定性）
-					objects = append(objects, types.BusinessObject{
-						Id:         objFormal.Id,
-						ObjectName: objFormal.ObjectName,
-						Attributes: l.convertAttrTempToAPI(mergedAttrs),
-					})
-					// 从映射中移除，表示已处理
-					delete(formalObjMap, obj.ObjectName)
-				}
-			}
-		}
-
-		// 4.2 添加正式表中存在但临时表中不存在的对象（保留原数据）
-		for _, obj := range formalObjMap {
-			attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
-			if err != nil {
-				logx.WithContext(l.ctx).Infof("查询正式表对象属性失败，跳过: %v", err)
-				continue
-			}
-			objects = append(objects, types.BusinessObject{
-				Id:         obj.Id,
-				ObjectName: obj.ObjectName,
-				Attributes: l.convertAttrFormalToAPI(attrsFormal),
-			})
-		}
-
-		// 5. 如果提供了 keyword，按名称过滤
+		// 查询所有对象
+		objects, err = l.buildAllObjectsFromTemp(req.Id, tempModel, tempAttrModel, formalModel, formalAttrModel)
 		if req.Keyword != nil && *req.Keyword != "" {
 			objects = l.filterByKeyword(objects, *req.Keyword)
 		}
 	}
 
-	return &types.GetBusinessObjectsResp{
-		List: objects,
-	}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &types.GetBusinessObjectsResp{List: objects}, nil
+}
+
+// buildObjectFromTemp 构建单个业务对象（含融合）
+func (l *GetBusinessObjectsLogic) buildObjectFromTemp(
+	objectId string,
+	tempModel *business_object_temp.BusinessObjectTempModelSqlx,
+	tempAttrModel *business_object_attributes_temp.BusinessObjectAttributesTempModelSqlx,
+	formalModel *business_object.BusinessObjectModelSqlx,
+	formalAttrModel *business_object_attributes.BusinessObjectAttributesModelSqlx,
+) ([]types.BusinessObject, error) {
+	objTemp, err := tempModel.FindOneById(l.ctx, objectId)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("业务对象", err)
+	}
+
+	attrsTemp, err := tempAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objectId)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("业务对象属性", err)
+	}
+
+	// 检查正式表是否存在同名对象
+	objFormal, _ := formalModel.FindByFormViewIdAndObjectName(l.ctx, objTemp.FormViewId, objTemp.ObjectName)
+
+	if objFormal == nil {
+		// 正式表不存在，返回临时表数据
+		return []types.BusinessObject{{
+			Id:         objTemp.Id,
+			ObjectName: objTemp.ObjectName,
+			Attributes: l.toAPIAttrs(attrsTemp),
+		}}, nil
+	}
+
+	// 正式表存在，融合属性
+	attrsFormal, err := formalAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
+	if err != nil {
+		logx.WithContext(l.ctx).Infof("查询正式表属性失败: %v", err)
+		return []types.BusinessObject{{
+			Id:         objTemp.Id,
+			ObjectName: objTemp.ObjectName,
+			Attributes: l.toAPIAttrs(attrsTemp),
+		}}, nil
+	}
+
+	mergedAttrs := l.mergeAttrs(attrsFormal, attrsTemp)
+	return []types.BusinessObject{{
+		Id:         objFormal.Id,
+		ObjectName: objFormal.ObjectName,
+		Attributes: l.toAPIAttrs(mergedAttrs),
+	}}, nil
+}
+
+// buildAllObjectsFromTemp 构建所有业务对象（含融合）
+func (l *GetBusinessObjectsLogic) buildAllObjectsFromTemp(
+	formViewId string,
+	tempModel *business_object_temp.BusinessObjectTempModelSqlx,
+	tempAttrModel *business_object_attributes_temp.BusinessObjectAttributesTempModelSqlx,
+	formalModel *business_object.BusinessObjectModelSqlx,
+	formalAttrModel *business_object_attributes.BusinessObjectAttributesModelSqlx,
+) ([]types.BusinessObject, error) {
+	// 查询正式表对象映射（key: object_name）
+	formalObjs, _ := formalModel.FindByFormViewId(l.ctx, formViewId)
+	formalObjMap := make(map[string]*business_object.BusinessObject)
+	for _, obj := range formalObjs {
+		formalObjMap[obj.ObjectName] = obj
+	}
+
+	// 查询临时表对象和属性
+	tempObjs, err := tempModel.FindByFormViewIdLatest(l.ctx, formViewId)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("业务对象列表", err)
+	}
+
+	allTempAttrs, err := tempAttrModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, formViewId)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("业务对象属性列表", err)
+	}
+
+	// 按对象ID分组临时表属性
+	tempAttrMap := make(map[string][]*business_object_attributes_temp.FieldWithAttrInfoTemp)
+	for _, attr := range allTempAttrs {
+		tempAttrMap[attr.BusinessObjectId] = append(tempAttrMap[attr.BusinessObjectId], attr)
+	}
+
+	objects := make([]types.BusinessObject, 0)
+
+	// 处理临时表对象（与正式表融合）
+	for _, obj := range tempObjs {
+		attrsTemp := tempAttrMap[obj.Id]
+		objFormal, exists := formalObjMap[obj.ObjectName]
+
+		if !exists || objFormal == nil {
+			// 新增对象，直接返回临时表数据
+			objects = append(objects, types.BusinessObject{
+				Id:         obj.Id,
+				ObjectName: obj.ObjectName,
+				Attributes: l.toAPIAttrs(attrsTemp),
+			})
+		} else {
+			// 已存在对象，融合属性
+			attrsFormal, err := formalAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
+			if err != nil {
+				logx.WithContext(l.ctx).Infof("查询正式表属性失败: %v", err)
+				objects = append(objects, types.BusinessObject{
+					Id:         obj.Id,
+					ObjectName: obj.ObjectName,
+					Attributes: l.toAPIAttrs(attrsTemp),
+				})
+			} else {
+				objects = append(objects, types.BusinessObject{
+					Id:         objFormal.Id,
+					ObjectName: objFormal.ObjectName,
+					Attributes: l.toAPIAttrs(l.mergeAttrs(attrsFormal, attrsTemp)),
+				})
+			}
+			delete(formalObjMap, obj.ObjectName)
+		}
+	}
+
+	// 添加正式表中独有的对象
+	for _, obj := range formalObjMap {
+		attrsFormal, err := formalAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
+		if err != nil {
+			continue
+		}
+		objects = append(objects, types.BusinessObject{
+			Id:         obj.Id,
+			ObjectName: obj.ObjectName,
+			Attributes: l.toAPIAttrsFormal(attrsFormal),
+		})
+	}
+
+	return objects, nil
 }
 
 // getBusinessObjectsFromFormal 从正式表查询业务对象
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
-	businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
-	businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
+	model := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
+	attrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
 
-	// 如果提供了 object_id，查询单个业务对象
 	if req.ObjectId != nil {
-		objData, err := businessObjectModel.FindOneById(l.ctx, *req.ObjectId)
+		// 查询单个对象
+		obj, err := model.FindOneById(l.ctx, *req.ObjectId)
 		if err != nil {
 			return nil, errorx.NewQueryFailed("业务对象", err)
 		}
-
-		// 查询属性
-		attributes, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
+		attrs, err := attrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
 		if err != nil {
 			return nil, errorx.NewQueryFailed("业务对象属性", err)
 		}
-
 		objects = []types.BusinessObject{{
-			Id:         objData.Id,
-			ObjectName: objData.ObjectName,
-			Attributes: l.convertAttrFormalToAPI(attributes),
+			Id:         obj.Id,
+			ObjectName: obj.ObjectName,
+			Attributes: l.toAPIAttrsFormal(attrs),
 		}}
 	} else {
-		// 查询所有业务对象
-		objList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
+		// 查询所有对象
+		objs, err := model.FindByFormViewId(l.ctx, req.Id)
 		if err != nil {
 			return nil, errorx.NewQueryFailed("业务对象列表", err)
 		}
-
-		// 构建响应
-		objects = make([]types.BusinessObject, 0, len(objList))
-		for _, obj := range objList {
-			// 查询每个业务对象的属性
-			attributes, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
+		objects = make([]types.BusinessObject, 0, len(objs))
+		for _, obj := range objs {
+			attrs, err := attrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
 			if err != nil {
-				logx.WithContext(l.ctx).Errorf("查询业务对象属性失败: %v", err)
 				continue
 			}
-
 			objects = append(objects, types.BusinessObject{
 				Id:         obj.Id,
 				ObjectName: obj.ObjectName,
-				Attributes: l.convertAttrFormalToAPI(attributes),
+				Attributes: l.toAPIAttrsFormal(attrs),
 			})
 		}
-
-		// 如果提供了 keyword，按名称过滤
 		if req.Keyword != nil && *req.Keyword != "" {
 			objects = l.filterByKeyword(objects, *req.Keyword)
 		}
 	}
 
-	return &types.GetBusinessObjectsResp{
-		List: objects,
-	}, nil
+	return &types.GetBusinessObjectsResp{List: objects}, nil
 }
 
-// convertAttrTempToAPI 转换临时表属性到API格式
-func (l *GetBusinessObjectsLogic) convertAttrTempToAPI(attrs []*business_object_attributes_temp.FieldWithAttrInfoTemp) []types.BusinessObjectAttribute {
+// toAPIAttrs 转换临时表属性到API格式
+func (l *GetBusinessObjectsLogic) toAPIAttrs(attrs []*business_object_attributes_temp.FieldWithAttrInfoTemp) []types.BusinessObjectAttribute {
 	result := make([]types.BusinessObjectAttribute, 0, len(attrs))
 	for _, attr := range attrs {
 		result = append(result, types.BusinessObjectAttribute{
@@ -298,8 +284,8 @@ func (l *GetBusinessObjectsLogic) convertAttrTempToAPI(attrs []*business_object_
 	return result
 }
 
-// convertAttrFormalToAPI 转换正式表属性到API格式
-func (l *GetBusinessObjectsLogic) convertAttrFormalToAPI(attrs []*business_object_attributes.FieldWithAttrInfo) []types.BusinessObjectAttribute {
+// toAPIAttrsFormal 转换正式表属性到API格式
+func (l *GetBusinessObjectsLogic) toAPIAttrsFormal(attrs []*business_object_attributes.FieldWithAttrInfo) []types.BusinessObjectAttribute {
 	result := make([]types.BusinessObjectAttribute, 0, len(attrs))
 	for _, attr := range attrs {
 		result = append(result, types.BusinessObjectAttribute{
@@ -340,36 +326,54 @@ func (l *GetBusinessObjectsLogic) filterByKeyword(objects []types.BusinessObject
 	return result
 }
 
-// mergeAttributes 融合正式表和临时表的属性
-// 规则：正式表为基础，临时表中 form_view_field_id 不存在的属性作为新增
-func (l *GetBusinessObjectsLogic) mergeAttributes(attrsFormal []*business_object_attributes.FieldWithAttrInfo, attrsTemp []*business_object_attributes_temp.FieldWithAttrInfoTemp) []*business_object_attributes_temp.FieldWithAttrInfoTemp {
-	// 构建正式表属性的 form_view_field_id 集合（用于快速查找）
-	formalFieldIds := make(map[string]bool)
+// mergeAttrs 融合正式表和临时表的属性
+// 融合规则：按 attr_name + form_view_field_id 判断是否同一属性
+// 1. 临时表新增的属性（正式表中不存在）→ 作为新增（attr_name 不为空）
+// 2. 正式表和临时表都存在的属性 → 临时表 attr_name 不为空则使用临时表值，否则使用正式表值
+func (l *GetBusinessObjectsLogic) mergeAttrs(attrsFormal []*business_object_attributes.FieldWithAttrInfo, attrsTemp []*business_object_attributes_temp.FieldWithAttrInfoTemp) []*business_object_attributes_temp.FieldWithAttrInfoTemp {
+	formalMap := make(map[string]*business_object_attributes.FieldWithAttrInfo, len(attrsFormal))
 	for _, attr := range attrsFormal {
-		formalFieldIds[attr.FormViewFieldId] = true
+		key := attr.FormViewFieldId + ":" + attr.AttrName
+		formalMap[key] = attr
 	}
 
-	// 融合结果：正式表属性 + 临时表中的新增/更新属性
+	tempMap := make(map[string]*business_object_attributes_temp.FieldWithAttrInfoTemp, len(attrsTemp))
+	for _, attr := range attrsTemp {
+		key := attr.FormViewFieldId + ":" + attr.AttrName
+		tempMap[key] = attr
+	}
+
 	result := make([]*business_object_attributes_temp.FieldWithAttrInfoTemp, 0, len(attrsFormal)+len(attrsTemp))
 
-	// 1. 先将正式表属性转换为临时表格式
-	for _, attr := range attrsFormal {
-		result = append(result, &business_object_attributes_temp.FieldWithAttrInfoTemp{
-			Id:                attr.Id,
-			BusinessObjectId:  "", // 临时表中不需要
-			AttrName:          attr.AttrName,
-			FormViewFieldId:   attr.FormViewFieldId,
-			FieldTechName:     attr.FieldTechName,
-			FieldBusinessName: attr.FieldBusinessName,
-			FieldRole:         attr.FieldRole,
-			FieldType:         attr.FieldType,
-		})
+	// 处理正式表属性
+	for _, attrFormal := range attrsFormal {
+		key := attrFormal.FormViewFieldId + ":" + attrFormal.AttrName
+		attrTemp, exists := tempMap[key]
+		if !exists || attrTemp.AttrName == "" {
+			// 使用正式表数据
+			result = append(result, &business_object_attributes_temp.FieldWithAttrInfoTemp{
+				Id:                attrFormal.Id,
+				BusinessObjectId:  "",
+				AttrName:          attrFormal.AttrName,
+				FormViewFieldId:   attrFormal.FormViewFieldId,
+				FieldTechName:     attrFormal.FieldTechName,
+				FieldBusinessName: attrFormal.FieldBusinessName,
+				FieldRole:         attrFormal.FieldRole,
+				FieldType:         attrFormal.FieldType,
+			})
+		} else {
+			// 使用临时表数据
+			result = append(result, attrTemp)
+		}
 	}
 
-	// 2. 添加临时表中的新增/更新属性（form_view_field_id 在正式表中不存在的）
+	// 添加临时表新增属性（attr_name 不为空）
 	for _, attr := range attrsTemp {
-		if !formalFieldIds[attr.FormViewFieldId] {
-			result = append(result, attr)
+		key := attr.FormViewFieldId + ":" + attr.AttrName
+		if _, exists := formalMap[key]; !exists {
+			if attr.AttrName != "" {
+				result = append(result, attr)
+			}
 		}
 	}
 
