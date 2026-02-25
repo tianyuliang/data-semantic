@@ -183,21 +183,52 @@ func (m *BusinessObjectAttributesModelSqlx) InsertFromTempWithoutFormalId(ctx co
 	return int(rowsAffected), nil
 }
 
-// DeleteNotInFormalIdList 删除不在temp表formal_id列表中的记录（增量更新）
-// 逻辑删除正式表中有但临时表中没有的记录（通过formal_id判断）
+// DeleteNotInFormalIdList 删除不在temp表formal_id列表中的记录（增量更新，融合规则）
+//
+// 融合规则说明：
+// 1. 只处理有更新的业务对象（在临时表中有对应记录的业务对象）
+// 2. 只删除临时表中涉及的 form_view_field_id 范围内的属性
+// 3. 对于同一个业务对象，保留临时表中不涉及的字段属性（用户可能只修改了部分）
+//
+// 删除条件：
+// - 正式表属性所属的业务对象有更新（即该业务对象在临时表中存在）
+// - 该 form_view_field_id 在临时表中被涉及
+// - 但该属性不属于当前业务对象（即不是当前业务对象在临时表中的属性）
 func (m *BusinessObjectAttributesModelSqlx) DeleteNotInFormalIdList(ctx context.Context, formViewId string, version int) (int, error) {
-	query := `UPDATE t_business_object_attributes
+	query := `UPDATE t_business_object_attributes boa
 	           SET deleted_at = NOW(3)
-	           WHERE form_view_id = ?
-	             AND deleted_at IS NULL
-	             AND id NOT IN (
-	               SELECT formal_id FROM t_business_object_attributes_temp
-	               WHERE form_view_id = ?
-	                 AND version = ?
-	                 AND formal_id IS NOT NULL
-	                 AND deleted_at IS NULL
+	           WHERE boa.form_view_id = ?
+	             AND boa.deleted_at IS NULL
+	             -- 只处理有更新的业务对象
+	             AND boa.business_object_id IN (
+	               SELECT DISTINCT bo.id
+	               FROM t_business_object bo
+	               INNER JOIN t_business_object_temp bot ON bot.formal_id = bo.id
+	               WHERE bot.form_view_id = ?
+	                 AND bot.version = ?
+	                 AND bot.deleted_at IS NULL
+	             )
+	             -- 只删除临时表中涉及的 form_view_field_id
+	             AND boa.form_view_field_id IN (
+	               SELECT DISTINCT boat.form_view_field_id
+	               FROM t_business_object_attributes_temp boat
+	               INNER JOIN t_business_object_temp bot ON boat.business_object_id = bot.id
+	               WHERE bot.form_view_id = ?
+	                 AND bot.version = ?
+	                 AND boat.deleted_at IS NULL
+	                 AND boat.form_view_field_id IS NOT NULL
+	             )
+	             -- 但不属于当前业务对象的属性（即该业务对象没有这个字段的属性在临时表中）
+	             AND boa.id NOT IN (
+	               SELECT boat.formal_id
+	               FROM t_business_object_attributes_temp boat
+	               INNER JOIN t_business_object_temp bot ON boat.business_object_id = bot.id
+	               WHERE bot.form_view_id = ?
+	                 AND bot.version = ?
+	                 AND boat.formal_id IS NOT NULL
+	                 AND boat.deleted_at IS NULL
 	             )`
-	result, err := m.conn.ExecCtx(ctx, query, formViewId, formViewId, version)
+	result, err := m.conn.ExecCtx(ctx, query, formViewId, formViewId, version, formViewId, version, formViewId, version)
 	if err != nil {
 		return 0, fmt.Errorf("delete business_object_attributes not in formal_id list failed: %w", err)
 	}
