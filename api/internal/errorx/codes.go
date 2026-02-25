@@ -21,6 +21,7 @@ const (
 
 	// 状态校验错误 20101-20200
 	ErrCodeInvalidUnderstandStatus = 20101 // 无效的理解状态
+	ErrCodeDuplicateName            = 20102 // 名称重复
 
 	// 数据操作错误 20201-20300
 	ErrCodeQueryFailed    = 20201 // 查询失败
@@ -99,6 +100,7 @@ var (
 
 	// 状态校验错误
 	ErrInvalidUnderstandStatus = New(ErrCodeInvalidUnderstandStatus, "无效的理解状态")
+	ErrDuplicateName            = New(ErrCodeDuplicateName, "名称重复")
 
 	// 数据操作错误
 	ErrQueryFailed    = New(ErrCodeQueryFailed, "查询失败")
@@ -122,6 +124,11 @@ func NewFormViewNotFound(format string, args ...interface{}) *CodeError {
 // NewInvalidUnderstandStatus 创建无效理解状态错误
 func NewInvalidUnderstandStatus(currentStatus int8) *CodeError {
 	return Newf(ErrCodeInvalidUnderstandStatus, "当前状态不允许操作，当前状态: %d", currentStatus)
+}
+
+// NewDuplicateName 创建名称重复错误
+func NewDuplicateName(nameType string, name string) *CodeError {
+	return Newf(ErrCodeDuplicateName, "%s名称已存在: %s", nameType, name)
 }
 
 // NewQueryFailed 创建查询失败错误
