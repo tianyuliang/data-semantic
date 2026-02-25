@@ -188,3 +188,43 @@ func (m *BusinessObjectAttributesTempModelSqlx) DeleteById(ctx context.Context, 
 	}
 	return nil
 }
+
+// UnidentifiedFieldInfo 未识别字段信息
+type UnidentifiedFieldInfo struct {
+	Id            string  `db:"id"`
+	TechnicalName string  `db:"technical_name"`
+	DataType      string  `db:"data_type"`
+	BusinessName  *string `db:"business_name"`
+	FieldRole     *int8   `db:"field_role"`
+	Description   *string `db:"description"`
+}
+
+// FindUnidentifiedFieldsLatest 查询未识别字段（attr_name 和 business_object_id 为空的字段）
+// 返回最新版本中未识别的字段列表
+func (m *BusinessObjectAttributesTempModelSqlx) FindUnidentifiedFieldsLatest(ctx context.Context, formViewId string) ([]*UnidentifiedFieldInfo, error) {
+	var resp []*UnidentifiedFieldInfo
+	query := `SELECT boat.id, fvf.field_tech_name AS technical_name, fvf.field_type AS data_type,
+	           COALESCE(ffit.field_business_name, fvf.business_name) AS business_name,
+	           fvf.field_role, ffit.field_description AS description
+	           FROM t_business_object_attributes_temp boat
+	           INNER JOIN t_form_view_field fvf ON boat.form_view_field_id = fvf.id
+	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id = fvf.id
+	               AND ffit.form_view_id = ?
+	               AND ffit.version = (
+	                   SELECT MAX(version) FROM t_form_view_field_info_temp
+	                   WHERE form_view_field_id = fvf.id AND deleted_at IS NULL
+	               )
+	               AND ffit.deleted_at IS NULL
+	           WHERE boat.form_view_id = ? AND boat.version = (
+	               SELECT MAX(version) FROM t_business_object_attributes_temp
+	               WHERE form_view_id = ? AND deleted_at IS NULL
+	           ) AND (boat.business_object_id = '' OR boat.business_object_id IS NULL)
+	             AND (boat.attr_name = '' OR boat.attr_name IS NULL)
+	             AND boat.deleted_at IS NULL AND fvf.deleted_at IS NULL
+	           ORDER BY boat.id ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, formViewId, formViewId)
+	if err != nil {
+		return nil, fmt.Errorf("find unidentified fields latest failed: %w", err)
+	}
+	return resp, nil
+}

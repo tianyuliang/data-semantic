@@ -27,7 +27,8 @@ type GetBusinessObjectsReq struct {
 }
 
 type GetBusinessObjectsResp struct {
-	List []BusinessObject `json:"list"`
+	List               []BusinessObject    `json:"list"`
+	UnidentifiedFields []UnidentifiedField `json:"unidentified_fields"`
 }
 
 type GetFieldsReq struct {
@@ -97,4 +98,13 @@ type SubmitUnderstandingReq struct {
 
 type SubmitUnderstandingResp struct {
 	Success bool `json:"success"`
+}
+
+type UnidentifiedField struct {
+	Id            string  `json:"id"`
+	TechnicalName string  `json:"technical_name"`
+	DataType      string  `json:"data_type"`
+	BusinessName  *string `json:"business_name,optional"`
+	FieldRole     *int8   `json:"field_role,optional"`
+	Description   *string `json:"description,optional"`
 }

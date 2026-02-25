@@ -84,7 +84,18 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 	if err != nil {
 		return nil, err
 	}
-	return &types.GetBusinessObjectsResp{List: objects}, nil
+
+	// 查询未识别字段
+	unidentifiedFields, err := l.getUnidentifiedFields(req.Id, tempAttrModel)
+	if err != nil {
+		logx.WithContext(l.ctx).Infof("查询未识别字段失败: %v", err)
+		unidentifiedFields = []types.UnidentifiedField{} // 查询失败时返回空列表
+	}
+
+	return &types.GetBusinessObjectsResp{
+		List:               objects,
+		UnidentifiedFields: unidentifiedFields,
+	}, nil
 }
 
 // buildObjectFromTemp 构建单个业务对象（含融合）
@@ -223,6 +234,7 @@ func (l *GetBusinessObjectsLogic) buildAllObjectsFromTemp(
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
 	model := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
 	attrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
+	tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
 
@@ -264,7 +276,17 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 		}
 	}
 
-	return &types.GetBusinessObjectsResp{List: objects}, nil
+	// 查询未识别字段（从临时表查询）
+	unidentifiedFields, err := l.getUnidentifiedFields(req.Id, tempAttrModel)
+	if err != nil {
+		logx.WithContext(l.ctx).Infof("查询未识别字段失败: %v", err)
+		unidentifiedFields = []types.UnidentifiedField{} // 查询失败时返回空列表
+	}
+
+	return &types.GetBusinessObjectsResp{
+		List:               objects,
+		UnidentifiedFields: unidentifiedFields,
+	}, nil
 }
 
 // toAPIAttrs 转换临时表属性到API格式
@@ -378,4 +400,25 @@ func (l *GetBusinessObjectsLogic) mergeAttrs(attrsFormal []*business_object_attr
 	}
 
 	return result
+}
+
+// getUnidentifiedFields 查询未识别字段（attr_name 和 business_object_id 为空的字段）
+func (l *GetBusinessObjectsLogic) getUnidentifiedFields(formViewId string, tempAttrModel *business_object_attributes_temp.BusinessObjectAttributesTempModelSqlx) ([]types.UnidentifiedField, error) {
+	fields, err := tempAttrModel.FindUnidentifiedFieldsLatest(l.ctx, formViewId)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]types.UnidentifiedField, 0, len(fields))
+	for _, field := range fields {
+		result = append(result, types.UnidentifiedField{
+			Id:            field.Id,
+			TechnicalName: field.TechnicalName,
+			DataType:      field.DataType,
+			BusinessName:  field.BusinessName,
+			FieldRole:     field.FieldRole,
+			Description:   field.Description,
+		})
+	}
+	return result, nil
 }

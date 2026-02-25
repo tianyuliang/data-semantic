@@ -33,8 +33,8 @@ func TestGetBusinessObjectsLogic_GetBusinessObjects(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		// TODO: 添加具体的响应断言
-		// assert.Equal(t, 0, resp.CurrentVersion)
+		// 验证 UnidentifiedFields 字段存在（不为 nil）
+		assert.NotNil(t, resp.UnidentifiedFields)
 	})
 
 	// 测试用例 2: 按object_id过滤
