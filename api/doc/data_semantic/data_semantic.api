@@ -5,7 +5,6 @@ import "../base.api"
 // ============================================
 // 数据理解 (Data Understanding) 类型定义
 // ============================================
-
 type (
 	// ====== 接口1: 查询库表理解状态 ======
 	GetStatusReq {
@@ -13,9 +12,7 @@ type (
 	}
 	GetStatusResp {
 		UnderstandStatus int8 `json:"understand_status"`
-		CurrentVersion   int  `json:"current_version"`
 	}
-
 	// ====== 接口2: 一键生成理解数据 ======
 	// 字段选择参数（用于部分字段理解）
 	FieldSelection {
@@ -26,7 +23,6 @@ type (
 		FieldRole         *int8   `json:"field_role,omitempty"`
 		FieldDescription  *string `json:"field_description,omitempty"`
 	}
-
 	GenerateUnderstandingReq {
 		Id     string           `path:"id" validate:"required"`
 		Fields []FieldSelection `json:"fields,omitempty"`
@@ -34,7 +30,6 @@ type (
 	GenerateUnderstandingResp {
 		UnderstandStatus int8 `json:"understand_status"`
 	}
-
 	// ====== 接口3: 查询字段语义补全数据 ======
 	FieldSemanticInfo {
 		FormViewFieldId   string  `json:"form_view_field_id"`
@@ -56,7 +51,6 @@ type (
 		TableDescription  *string             `json:"table_description"`
 		Fields            []FieldSemanticInfo `json:"fields"`
 	}
-
 	// ====== 接口4: 保存库表信息补全数据 ======
 	SaveSemanticInfoTableData {
 		Id                *string `json:"id" validate:"required"` // t_form_view_info_temp.id，用于 upsert 操作
@@ -77,7 +71,6 @@ type (
 	SaveSemanticInfoResp {
 		Code int32 `json:"code"`
 	}
-
 	// ====== 接口5: 查询业务对象识别结果 ======
 	BusinessObjectAttribute {
 		Id                string  `json:"id"`
@@ -101,7 +94,6 @@ type (
 	GetBusinessObjectsResp {
 		List []BusinessObject `json:"list"`
 	}
-
 	// ====== 接口6: 保存业务对象及属性 ======
 	SaveBusinessObjectsReq {
 		Type string `json:"type" validate:"required,oneof=object attribute"`
@@ -111,7 +103,6 @@ type (
 	SaveBusinessObjectsResp {
 		Code int32 `json:"code"`
 	}
-
 	// ====== 接口7: 调整属性归属业务对象 ======
 	MoveAttributeReq {
 		Id               string `path:"id" validate:"required"`
@@ -122,7 +113,6 @@ type (
 		AttributeId      string `json:"attribute_id"`
 		BusinessObjectId string `json:"business_object_id"`
 	}
-
 	// ====== 接口8: 重新识别业务对象 ======
 	RegenerateBusinessObjectsReq {
 		Id string `path:"id" validate:"required"`
@@ -130,7 +120,6 @@ type (
 	RegenerateBusinessObjectsResp {
 		UnderstandStatus int8 `json:"understand_status"`
 	}
-
 	// ====== 接口9: 提交确认理解数据 ======
 	SubmitUnderstandingReq {
 		Id string `path:"id" validate:"required"`
@@ -138,7 +127,6 @@ type (
 	SubmitUnderstandingResp {
 		Success bool `json:"success"`
 	}
-
 	// ====== 接口10: 删除识别结果 ======
 	DeleteBusinessObjectsReq {
 		Id string `path:"id" validate:"required"`
@@ -196,3 +184,4 @@ service api {
 	@handler DeleteBusinessObjects
 	delete /:id/business-objects (DeleteBusinessObjectsReq) returns (DeleteBusinessObjectsResp)
 }
+

@@ -5,8 +5,8 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
@@ -36,12 +36,12 @@ func (l *GetStatusLogic) GetStatus(req *types.GetStatusReq) (resp *types.GetStat
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		logx.Errorf("Failed to query form_view: %v", err)
-		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表视图", err)
 	}
 
 	resp = &types.GetStatusResp{
 		UnderstandStatus: formViewData.UnderstandStatus,
+		CurrentVersion:   0,
 	}
 
 	logx.Infof("GetStatus success: form_view_id=%s, status=%d",
