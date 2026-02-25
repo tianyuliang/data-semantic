@@ -5,9 +5,9 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
@@ -42,13 +42,14 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表视图", err)
 	}
 	understandStatus := formViewData.UnderstandStatus
 
 	// 2. 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, fmt.Errorf("当前状态为理解中，请等待处理完成后再查询")
+		return nil, errorx.Newf(errorx.ErrCodeInvalidUnderstandStatus,
+			"当前状态为理解中，请等待处理完成后再查询")
 	}
 
 	// 3. 状态 2 (待确认) - 查询临时表最新版本数据
@@ -73,13 +74,13 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 		// 查询临时表对象
 		objDataTemp, err := businessObjectTempModel.FindOneById(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象", err)
 		}
 
 		// 查询临时表属性
 		attrsTemp, err := businessObjectAttrTempModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象属性失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象属性", err)
 		}
 
 		// 如果有关联的正式表ID，融合正式表数据
@@ -102,7 +103,7 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 	} else {
 		// 1. 查询正式表所有业务对象（作为基础）
 		formalObjList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
-		if err != nil && err.Error() != "sql: no rows in result set" {
+		if err != nil {
 			logx.WithContext(l.ctx).Infof("查询正式表业务对象失败: %v", err)
 		}
 
@@ -124,13 +125,13 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 		// 2. 查询临时表最新版本的所有业务对象
 		tempObjList, err := businessObjectTempModel.FindByFormViewIdLatest(l.ctx, req.Id)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象列表失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象列表", err)
 		}
 
 		// 3. 查询临时表最新版本的所有属性
 		allTempAttrs, err := businessObjectAttrTempModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, req.Id)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象属性列表失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象属性列表", err)
 		}
 
 		// 按业务对象ID分组临时表属性
@@ -149,7 +150,11 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 				if formalObj, exists := formalObjMap[*tempObj.FormalId]; exists {
 					// 融合属性：正式表为基础，临时表为更新
 					attrsFormal := l.convertAPItoAttrFormal(formalObj.Attributes)
-					attrsTemp := tempAttrMap[tempObj.Id]
+					attrsTemp, ok := tempAttrMap[tempObj.Id]
+					if !ok {
+						logx.WithContext(l.ctx).Infof("临时表业务对象 %s 没有找到属性数据", tempObj.Id)
+						attrsTemp = []*business_object_attributes_temp.FieldWithAttrInfoTemp{}
+					}
 					mergedAttrs := l.mergeAttributes(attrsFormal, attrsTemp)
 
 					// 使用正式表对象的ID和名称（保持稳定性）
@@ -167,7 +172,11 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 		// 添加未关联正式表的临时表新对象
 		for _, tempObj := range tempObjList {
 			if tempObj.FormalId == nil {
-				attrsTemp := tempAttrMap[tempObj.Id]
+				attrsTemp, ok := tempAttrMap[tempObj.Id]
+				if !ok {
+					logx.WithContext(l.ctx).Infof("临时表业务对象 %s 没有找到属性数据", tempObj.Id)
+					attrsTemp = []*business_object_attributes_temp.FieldWithAttrInfoTemp{}
+				}
 				objects = append(objects, types.BusinessObject{
 					Id:         tempObj.Id,
 					ObjectName: tempObj.ObjectName,
@@ -203,13 +212,13 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 	if req.ObjectId != nil {
 		objData, err := businessObjectModel.FindOneById(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象", err)
 		}
 
 		// 查询属性
 		attributes, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象属性失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象属性", err)
 		}
 
 		objects = []types.BusinessObject{{
@@ -221,7 +230,7 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 		// 查询所有业务对象
 		objList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
 		if err != nil {
-			return nil, fmt.Errorf("查询业务对象列表失败: %w", err)
+			return nil, errorx.NewQueryFailed("业务对象列表", err)
 		}
 
 		// 构建响应
@@ -291,12 +300,25 @@ func (l *GetBusinessObjectsLogic) convertAttrFormalToAPI(attrs []*business_objec
 	return result
 }
 
-// filterByKeyword 按名称过滤业务对象
+// filterByKeyword 按属性名称/字段业务名称过滤业务对象
 func (l *GetBusinessObjectsLogic) filterByKeyword(objects []types.BusinessObject, keyword string) []types.BusinessObject {
 	result := make([]types.BusinessObject, 0)
 	lowerKeyword := strings.ToLower(keyword)
+
 	for _, obj := range objects {
-		if strings.Contains(strings.ToLower(obj.ObjectName), lowerKeyword) {
+		// 检查对象名称、属性名称或字段业务名称是否匹配关键词
+		matched := strings.Contains(strings.ToLower(obj.ObjectName), lowerKeyword)
+		if !matched {
+			// 检查属性中是否匹配
+			for _, attr := range obj.Attributes {
+				if strings.Contains(strings.ToLower(attr.AttrName), lowerKeyword) ||
+					(attr.FieldBusinessName != nil && strings.Contains(strings.ToLower(*attr.FieldBusinessName), lowerKeyword)) {
+					matched = true
+					break
+				}
+			}
+		}
+		if matched {
 			result = append(result, obj)
 		}
 	}

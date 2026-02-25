@@ -22,8 +22,8 @@ type GenerateUnderstandingResp struct {
 
 type GetBusinessObjectsReq struct {
 	Id       string  `path:"id" validate:"required"`
-	ObjectId *string `form:"object_id"`
-	Keyword  *string `form:"keyword"`
+	ObjectId *string `form:"object_id,optional"`
+	Keyword  *string `form:"keyword,optional"`
 }
 
 type GetBusinessObjectsResp struct {

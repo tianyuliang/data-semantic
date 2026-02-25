@@ -94,9 +94,9 @@ type (
 		Attributes []BusinessObjectAttribute `json:"attributes"`
 	}
 	GetBusinessObjectsReq {
-		Id       string `path:"id" validate:"required"`
-		ObjectId string `form:"object_id,default="`
-		Keyword  string `form:"keyword,default="`
+		Id       string  `path:"id" validate:"required"`
+		ObjectId *string `form:"object_id,optional"`
+		Keyword  *string `form:"keyword,optional"`
 	}
 	GetBusinessObjectsResp {
 		List []BusinessObject `json:"list"`
