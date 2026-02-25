@@ -134,8 +134,8 @@ func (m *BusinessObjectTempModelSqlx) FindByFormViewIdLatest(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	// 如果版本号为初始值10，说明没有数据，返回空列表
-	if latestVersion == 10 {
+	// 如果版本号为初始值9，说明没有数据，返回空列表
+	if latestVersion == 9 {
 		return []*BusinessObjectTemp{}, nil
 	}
 	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)

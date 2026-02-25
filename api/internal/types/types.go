@@ -17,6 +17,7 @@ type BusinessObjectAttribute struct {
 	FieldBusinessName *string `json:"field_business_name"`
 	FieldRole         *int8   `json:"field_role"`
 	FieldType         string  `json:"field_type"`
+	Description       *string `json:"description,optional"`
 }
 
 type EmptyResp struct {
@@ -88,4 +89,13 @@ type SaveSemanticInfoTableData struct {
 	Id                *string `json:"id" validate:"required"` // t_form_view_info_temp.id，用于 upsert 操作
 	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
 	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
+}
+
+type UnidentifiedField struct {
+	Id            string  `json:"id"`
+	TechnicalName string  `json:"technical_name"`
+	DataType      string  `json:"data_type"`
+	BusinessName  *string `json:"business_name,optional"`
+	FieldRole     *int8   `json:"field_role,optional"`
+	Description   *string `json:"description,optional"`
 }

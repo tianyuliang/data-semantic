@@ -80,6 +80,7 @@ type (
 		FieldBusinessName *string `json:"field_business_name"`
 		FieldRole         *int8   `json:"field_role"`
 		FieldType         string  `json:"field_type"`
+		Description       *string `json:"description,optional"`
 	}
 	BusinessObject {
 		Id         string                    `json:"id"`
@@ -92,7 +93,16 @@ type (
 		Keyword  *string `form:"keyword,optional"`
 	}
 	GetBusinessObjectsResp {
-		List []BusinessObject `json:"list"`
+		List               []BusinessObject    `json:"list"`
+		UnidentifiedFields []UnidentifiedField `json:"unidentified_fields,optional"`
+	}
+	UnidentifiedField {
+		Id            string  `json:"id"`
+		TechnicalName string  `json:"technical_name"`
+		DataType      string  `json:"data_type"`
+		BusinessName  *string `json:"business_name,optional"`
+		FieldRole     *int8   `json:"field_role,optional"`
+		Description   *string `json:"description,optional"`
 	}
 	// ====== 接口6: 保存业务对象及属性 ======
 	SaveBusinessObjectsReq {

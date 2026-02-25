@@ -101,16 +101,18 @@ type FieldWithAttrInfo struct {
 	FieldBusinessName *string `db:"field_business_name"`
 	FieldRole         *int8   `db:"field_role"`
 	FieldType         string  `db:"field_type"`
+	Description       *string `db:"field_description"`
 }
 
 // FindByBusinessObjectIdWithFieldInfo 根据business_object_id查询属性列表（包含字段信息）
 func (m *BusinessObjectAttributesModelSqlx) FindByBusinessObjectIdWithFieldInfo(ctx context.Context, businessObjectId string) ([]*FieldWithAttrInfo, error) {
 	var resp []*FieldWithAttrInfo
 	query := `SELECT boa.id, boa.business_object_id, boa.form_view_field_id, boa.attr_name,
-	           fvf.field_tech_name, fvf.business_name AS field_business_name, fvf.field_role, fvf.field_type
+	           fvf.technical_name AS field_tech_name, fvf.business_name AS field_business_name,
+	           fvf.field_role, fvf.data_type AS field_type, fvf.field_description
 	           FROM t_business_object_attributes boa
-	           INNER JOIN t_form_view_field fvf ON boa.form_view_field_id = fvf.id
-	           WHERE boa.business_object_id = ? AND boa.deleted_at IS NULL AND fvf.deleted_at IS NULL
+	           INNER JOIN form_view_field fvf ON boa.form_view_field_id = fvf.id
+	           WHERE boa.business_object_id = ? AND boa.deleted_at IS NULL AND fvf.deleted_at = 0
 	           ORDER BY boa.id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, businessObjectId)
 	if err != nil {

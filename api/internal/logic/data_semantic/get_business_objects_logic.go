@@ -301,6 +301,7 @@ func (l *GetBusinessObjectsLogic) toAPIAttrs(attrs []*business_object_attributes
 			FieldBusinessName: attr.FieldBusinessName,
 			FieldRole:         attr.FieldRole,
 			FieldType:         attr.FieldType,
+			Description:       attr.Description,
 		})
 	}
 	return result
@@ -318,6 +319,7 @@ func (l *GetBusinessObjectsLogic) toAPIAttrsFormal(attrs []*business_object_attr
 			FieldBusinessName: attr.FieldBusinessName,
 			FieldRole:         attr.FieldRole,
 			FieldType:         attr.FieldType,
+			Description:       attr.Description,
 		})
 	}
 	return result
@@ -382,6 +384,7 @@ func (l *GetBusinessObjectsLogic) mergeAttrs(attrsFormal []*business_object_attr
 				FieldBusinessName: attrFormal.FieldBusinessName,
 				FieldRole:         attrFormal.FieldRole,
 				FieldType:         attrFormal.FieldType,
+				Description:       attrFormal.Description,
 			})
 		} else {
 			// 使用临时表数据
