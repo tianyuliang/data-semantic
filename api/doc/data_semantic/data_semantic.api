@@ -41,8 +41,8 @@ type (
 	}
 	GetFieldsReq {
 		Id             string  `path:"id" validate:"required"`
-		Keyword        *string `form:"keyword"`
-		OnlyIncomplete *bool   `form:"only_incomplete"`
+		Keyword        *string `form:"keyword,optional"`
+		OnlyIncomplete *bool   `form:"only_incomplete,optional"`
 	}
 	GetFieldsResp {
 		CurrentVersion    int                 `json:"current_version"`

@@ -33,8 +33,8 @@ type GetBusinessObjectsResp struct {
 
 type GetFieldsReq struct {
 	Id             string  `path:"id" validate:"required"`
-	Keyword        *string `form:"keyword"`
-	OnlyIncomplete *bool   `form:"only_incomplete"`
+	Keyword        *string `form:"keyword,optional"`
+	OnlyIncomplete *bool   `form:"only_incomplete,optional"`
 }
 
 type GetFieldsResp struct {
