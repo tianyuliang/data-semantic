@@ -115,13 +115,29 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			}
 		}
 	} else {
-		// 查询临时表最新版本的所有业务对象
+		// 获取正式表 Model（用于融合）
+		businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
+		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
+
+		// 1. 查询正式表所有业务对象（作为基础数据，用于临时表中没有的对象）
+		formalObjList, err := businessObjectModel.FindByFormViewId(l.ctx, req.Id)
+		if err != nil {
+			logx.WithContext(l.ctx).Infof("查询正式表业务对象失败: %v", err)
+		}
+
+		// 构建正式表对象映射（key: object_name）
+		formalObjMap := make(map[string]*business_object.BusinessObject)
+		for _, obj := range formalObjList {
+			formalObjMap[obj.ObjectName] = obj
+		}
+
+		// 2. 查询临时表最新版本的所有业务对象
 		tempObjList, err := businessObjectTempModel.FindByFormViewIdLatest(l.ctx, req.Id)
 		if err != nil {
 			return nil, errorx.NewQueryFailed("业务对象列表", err)
 		}
 
-		// 查询临时表最新版本的所有属性
+		// 3. 查询临时表最新版本的所有属性
 		allTempAttrs, err := businessObjectAttrTempModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, req.Id)
 		if err != nil {
 			return nil, errorx.NewQueryFailed("业务对象属性列表", err)
@@ -133,12 +149,10 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			tempAttrMap[attr.BusinessObjectId] = append(tempAttrMap[attr.BusinessObjectId], attr)
 		}
 
-		// 获取正式表 Model（用于融合）
-		businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
-		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
+		// 4. 构建响应
+		objects = make([]types.BusinessObject, 0)
 
-		// 构建响应
-		objects = make([]types.BusinessObject, 0, len(tempObjList))
+		// 4.1 处理临时表中的对象
 		for _, obj := range tempObjList {
 			attrsTemp, ok := tempAttrMap[obj.Id]
 			if !ok {
@@ -146,14 +160,16 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 			}
 
 			// 检查正式表是否存在该业务对象（通过 object_name 匹配）
-			objFormal, err := businessObjectModel.FindByFormViewIdAndObjectName(l.ctx, obj.FormViewId, obj.ObjectName)
-			if err != nil || objFormal == nil {
-				// 正式表不存在该对象，直接返回临时表数据（不涉及融合）
+			objFormal, exists := formalObjMap[obj.ObjectName]
+			if !exists || objFormal == nil {
+				// 正式表不存在该对象，直接返回临时表数据（新增对象）
 				objects = append(objects, types.BusinessObject{
 					Id:         obj.Id,
 					ObjectName: obj.ObjectName,
 					Attributes: l.convertAttrTempToAPI(attrsTemp),
 				})
+				// 从映射中移除，表示已处理
+				delete(formalObjMap, obj.ObjectName)
 			} else {
 				// 正式表存在该对象，查询正式表属性并进行融合
 				attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objFormal.Id)
@@ -164,6 +180,7 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 						ObjectName: obj.ObjectName,
 						Attributes: l.convertAttrTempToAPI(attrsTemp),
 					})
+					delete(formalObjMap, obj.ObjectName)
 				} else {
 					// 融合属性：正式表为基础，临时表中 form_view_field_id 不存在的属性作为新增
 					mergedAttrs := l.mergeAttributes(attrsFormal, attrsTemp)
@@ -173,11 +190,27 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromTemp(req *types.GetBusin
 						ObjectName: objFormal.ObjectName,
 						Attributes: l.convertAttrTempToAPI(mergedAttrs),
 					})
+					// 从映射中移除，表示已处理
+					delete(formalObjMap, obj.ObjectName)
 				}
 			}
 		}
 
-		// 如果提供了 keyword，按名称过滤
+		// 4.2 添加正式表中存在但临时表中不存在的对象（保留原数据）
+		for _, obj := range formalObjMap {
+			attrsFormal, err := businessObjectAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, obj.Id)
+			if err != nil {
+				logx.WithContext(l.ctx).Infof("查询正式表对象属性失败，跳过: %v", err)
+				continue
+			}
+			objects = append(objects, types.BusinessObject{
+				Id:         obj.Id,
+				ObjectName: obj.ObjectName,
+				Attributes: l.convertAttrFormalToAPI(attrsFormal),
+			})
+		}
+
+		// 5. 如果提供了 keyword，按名称过滤
 		if req.Keyword != nil && *req.Keyword != "" {
 			objects = l.filterByKeyword(objects, *req.Keyword)
 		}
