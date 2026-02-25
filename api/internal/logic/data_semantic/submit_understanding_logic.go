@@ -5,8 +5,8 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
@@ -41,21 +41,21 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表视图", err)
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, fmt.Errorf("当前状态不允许提交，当前状态: %d，仅状态 2 (待确认) 可提交", formViewData.UnderstandStatus)
+		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
 	}
 
 	// 2. 获取当前版本号
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询当前版本号失败: %w", err)
+		return nil, errorx.NewQueryFailed("当前版本号", err)
 	}
 	if latestVersion == 0 {
-		return nil, fmt.Errorf("没有可提交的数据，版本号为0")
+		return nil, errorx.Newf(errorx.ErrCodeInvalidParam, "没有可提交的数据，版本号为0")
 	}
 
 	// 3. 开启事务处理
@@ -65,34 +65,35 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		businessObjectAttrModel := business_object_attributes.NewBusinessObjectAttributesModelSession(session)
 		businessObjectTempModelSession := business_object_temp.NewBusinessObjectTempModelSession(session)
 		businessObjectAttrTempModelSession := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
+		formViewModelSession := form_view.NewFormViewModelSession(session)
 
 		// ========== 增量更新业务对象 ==========
 
 		// 3.1 更新已有记录（通过 formal_id 匹配）
 		updatedCount, err := businessObjectModel.UpdateByFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("更新业务对象失败: %w", err)
+			return errorx.NewUpdateFailed("业务对象", err)
 		}
 		logx.WithContext(ctx).Infof("Updated business objects: %d", updatedCount)
 
 		// 3.2 新增记录（formal_id 为 NULL 的记录）
 		insertedCount, err := businessObjectModel.InsertFromTempWithoutFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("新增业务对象失败: %w", err)
+			return errorx.NewUpdateFailed("业务对象", err)
 		}
 		logx.WithContext(ctx).Infof("Inserted business objects: %d", insertedCount)
 
 		// 3.3 删除不再需要的记录（正式表有但临时表没有的）
 		deletedCount, err := businessObjectModel.DeleteNotInFormalIdList(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("删除业务对象失败: %w", err)
+			return errorx.NewDeleteFailed("业务对象", err)
 		}
 		logx.WithContext(ctx).Infof("Deleted business objects: %d", deletedCount)
 
 		// 3.4 回写 formal_id 到临时表（为下次提交准备）
 		formalIdUpdatedCount, err := businessObjectTempModelSession.UpdateFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("回写业务对象 formal_id 失败: %w", err)
+			return errorx.NewUpdateFailed("业务对象formal_id", err)
 		}
 		logx.WithContext(ctx).Infof("Updated formal_id in temp table: %d", formalIdUpdatedCount)
 
@@ -101,41 +102,41 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		// 3.5 更新已有属性（通过 formal_id 匹配）
 		attrUpdatedCount, err := businessObjectAttrModel.UpdateByFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("更新属性失败: %w", err)
+			return errorx.NewUpdateFailed("属性", err)
 		}
 		logx.WithContext(ctx).Infof("Updated attributes: %d", attrUpdatedCount)
 
 		// 3.6 新增属性（formal_id 为 NULL 的记录）
 		attrInsertedCount, err := businessObjectAttrModel.InsertFromTempWithoutFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("新增属性失败: %w", err)
+			return errorx.NewUpdateFailed("属性", err)
 		}
 		logx.WithContext(ctx).Infof("Inserted attributes: %d", attrInsertedCount)
 
 		// 3.7 删除不再需要的属性（正式表有但临时表没有的）
 		attrDeletedCount, err := businessObjectAttrModel.DeleteNotInFormalIdList(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("删除属性失败: %w", err)
+			return errorx.NewDeleteFailed("属性", err)
 		}
 		logx.WithContext(ctx).Infof("Deleted attributes: %d", attrDeletedCount)
 
 		// 3.8 回写 formal_id 到属性临时表
 		attrFormalIdUpdatedCount, err := businessObjectAttrTempModelSession.UpdateFormalId(ctx, req.Id, latestVersion)
 		if err != nil {
-			return fmt.Errorf("回写属性 formal_id 失败: %w", err)
+			return errorx.NewUpdateFailed("属性formal_id", err)
 		}
 		logx.WithContext(ctx).Infof("Updated formal_id in attributes temp table: %d", attrFormalIdUpdatedCount)
+
+		// 3.9 更新 form_view 状态为 3 (已完成) - 在事务中保证原子性
+		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, form_view.StatusCompleted)
+		if err != nil {
+			return errorx.NewUpdateFailed("理解状态", err)
+		}
 
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("事务执行失败: %w", err)
-	}
-
-	// 4. 更新 form_view 状态为 3 (已完成)
-	err = formViewModel.UpdateUnderstandStatus(l.ctx, req.Id, form_view.StatusCompleted)
-	if err != nil {
-		return nil, fmt.Errorf("更新理解状态失败: %w", err)
+		return nil, err
 	}
 
 	logx.WithContext(l.ctx).Infof("Submit understanding successful: form_view_id=%s, version=%d", req.Id, latestVersion)
