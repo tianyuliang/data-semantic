@@ -5,8 +5,8 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
@@ -14,6 +14,7 @@ import (
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type SaveSemanticInfoLogic struct {
@@ -39,49 +40,57 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, fmt.Errorf("查询库表视图失败: %w", err)
+		return nil, errorx.NewQueryFailed("库表视图", err)
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, fmt.Errorf("当前状态不允许编辑，当前状态: %d，仅状态 2 (待确认) 可编辑", formViewData.UnderstandStatus)
+		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
 	}
 
-	// 2. 如果提供了 TableData，更新 t_form_view_info_temp
-	if req.TableData != nil {
-		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
+	// 2. 使用事务执行更新操作（保证原子性）
+	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+		// 2.1 如果提供了 TableData，更新 t_form_view_info_temp
+		if req.TableData != nil {
+			formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
 
-		// 构建更新数据
-		tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
-			Id:                *req.TableData.Id,
-			FormViewId:        req.Id,
-			TableBusinessName:  req.TableData.TableBusinessName,
-			TableDescription:   req.TableData.TableDescription,
+			// 构建更新数据
+			tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
+				Id:                *req.TableData.Id,
+				FormViewId:        req.Id,
+				TableBusinessName:  req.TableData.TableBusinessName,
+				TableDescription:   req.TableData.TableDescription,
+			}
+
+			err := formViewInfoTempModel.Update(ctx, tableInfoTemp)
+			if err != nil {
+				return errorx.NewUpdateFailed("库表信息", err)
+			}
+			logx.WithContext(ctx).Infof("Updated table info: id=%s", *req.TableData.Id)
 		}
 
-		err = formViewInfoTempModel.Update(l.ctx, tableInfoTemp)
-		if err != nil {
-			return nil, fmt.Errorf("更新库表信息失败: %w", err)
-		}
-		logx.WithContext(l.ctx).Infof("Updated table info: id=%s", *req.TableData.Id)
-	}
+		// 2.2 如果提供了 FieldData，更新 t_form_view_field_info_temp
+		if req.FieldData != nil {
+			formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSession(session)
 
-	// 3. 如果提供了 FieldData，更新 t_form_view_field_info_temp
-	if req.FieldData != nil {
-		formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
+			// 构建更新数据
+			fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
+				Id:                *req.FieldData.Id,
+				FieldBusinessName: req.FieldData.FieldBusinessName,
+				FieldRole:        req.FieldData.FieldRole,
+				FieldDescription:  req.FieldData.FieldDescription,
+			}
 
-		// 构建更新数据
-		fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
-			Id:                *req.FieldData.Id,
-			FieldBusinessName: req.FieldData.FieldBusinessName,
-			FieldRole:        req.FieldData.FieldRole,
-			FieldDescription:  req.FieldData.FieldDescription,
+			err := formViewFieldInfoTempModel.Update(ctx, fieldInfoTemp)
+			if err != nil {
+				return errorx.NewUpdateFailed("字段信息", err)
+			}
+			logx.WithContext(ctx).Infof("Updated field info: id=%s", *req.FieldData.Id)
 		}
 
-		err = formViewFieldInfoTempModel.Update(l.ctx, fieldInfoTemp)
-		if err != nil {
-			return nil, fmt.Errorf("更新字段信息失败: %w", err)
-		}
-		logx.WithContext(l.ctx).Infof("Updated field info: id=%s", *req.FieldData.Id)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	resp = &types.SaveSemanticInfoResp{
