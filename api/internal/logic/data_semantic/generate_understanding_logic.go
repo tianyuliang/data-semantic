@@ -48,8 +48,7 @@ func (l *GenerateUnderstandingLogic) GenerateUnderstanding(req *types.GenerateUn
 	}
 
 	// 2. 限流检查（1秒窗口，防止重复点击）
-	limiter := l.svcCtx.GetRateLimiter(req.Id)
-	if !limiter.Allow() {
+	if !l.svcCtx.AllowRequest(req.Id) {
 		return nil, fmt.Errorf("操作过于频繁，请稍后再试")
 	}
 
