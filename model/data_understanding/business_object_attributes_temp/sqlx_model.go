@@ -129,11 +129,11 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindByBusinessObjectIdWithFieldI
 	           fvf.data_type AS field_type,
 	           COALESCE(ffit.field_description, fvf.field_description) AS field_description
 	           FROM t_business_object_attributes_temp boat
-	           INNER JOIN form_view_field fvf ON boat.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
-	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
+	           INNER JOIN form_view_field fvf ON boat.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
+	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
 	               AND ffit.version = (
 	                   SELECT MAX(version) FROM t_form_view_field_info_temp
-	                   WHERE form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id AND deleted_at IS NULL
+	                   WHERE form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci AND deleted_at IS NULL
 	               )
 	               AND ffit.deleted_at IS NULL
 	           WHERE boat.business_object_id = ? AND boat.deleted_at IS NULL AND fvf.deleted_at = 0
@@ -155,8 +155,8 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewAndVersionWithFiel
 	           fvf.data_type AS field_type,
 	           COALESCE(ffit.field_description, fvf.field_description) AS field_description
 	           FROM t_business_object_attributes_temp boat
-	           INNER JOIN form_view_field fvf ON boat.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
-	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
+	           INNER JOIN form_view_field fvf ON boat.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
+	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
 	               AND ffit.version = ?
 	               AND ffit.deleted_at IS NULL
 	           WHERE boat.form_view_id = ? AND boat.version = ? AND boat.deleted_at IS NULL AND fvf.deleted_at = 0
@@ -178,11 +178,11 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewIdLatestWithFieldI
 	           fvf.data_type AS field_type,
 	           COALESCE(ffit.field_description, fvf.field_description) AS field_description
 	           FROM t_business_object_attributes_temp boat
-	           INNER JOIN form_view_field fvf ON boat.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
-	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
+	           INNER JOIN form_view_field fvf ON boat.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
+	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
 	               AND ffit.version = (
 	                   SELECT MAX(version) FROM t_form_view_field_info_temp
-	                   WHERE form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id AND deleted_at IS NULL
+	                   WHERE form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci AND deleted_at IS NULL
 	               )
 	               AND ffit.deleted_at IS NULL
 	           WHERE boat.form_view_id = ? AND boat.version = (
@@ -236,12 +236,12 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindUnidentifiedFieldsLatest(ctx
 	           COALESCE(ffit.field_role, fvf.field_role) AS field_role,
 	           COALESCE(ffit.field_description, fvf.field_description) AS description
 	           FROM t_business_object_attributes_temp boat
-	           INNER JOIN form_view_field fvf ON boat.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
-	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id
+	           INNER JOIN form_view_field fvf ON boat.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
+	           LEFT JOIN t_form_view_field_info_temp ffit ON ffit.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
 	               AND ffit.form_view_id = ?
 	               AND ffit.version = (
 	                   SELECT MAX(version) FROM t_form_view_field_info_temp
-	                   WHERE form_view_field_id COLLATE utf8mb4_unicode_ci = fvf.id AND deleted_at IS NULL
+	                   WHERE form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci AND deleted_at IS NULL
 	               )
 	               AND ffit.deleted_at IS NULL
 	           WHERE boat.form_view_id = ? AND boat.version = (

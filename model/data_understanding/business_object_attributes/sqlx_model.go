@@ -111,7 +111,7 @@ func (m *BusinessObjectAttributesModelSqlx) FindByBusinessObjectIdWithFieldInfo(
 	           fvf.technical_name AS field_tech_name, fvf.business_name AS field_business_name,
 	           fvf.field_role, fvf.data_type AS field_type, fvf.field_description
 	           FROM t_business_object_attributes boa
-	           INNER JOIN form_view_field fvf ON boa.form_view_field_id = fvf.id
+	           INNER JOIN form_view_field fvf ON boa.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
 	           WHERE boa.business_object_id = ? AND boa.deleted_at IS NULL AND fvf.deleted_at = 0
 	           ORDER BY boa.id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, businessObjectId)
