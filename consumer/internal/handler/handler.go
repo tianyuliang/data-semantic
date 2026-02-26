@@ -165,10 +165,10 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 	var err error
 
 	if isFullUnderstanding {
-		// 全量生成：使用行锁查询表信息临时表的版本号
-		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId, "table_info")
+		// 全量生成：使用行锁查询最新版本号
+		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId)
 		if err != nil {
-			return fmt.Errorf("获取表信息版本号失败: %w", err)
+			return fmt.Errorf("获取版本号失败: %w", err)
 		}
 
 		logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
@@ -187,10 +187,10 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 			}
 		}
 	} else {
-		// 部分生成（重新识别业务对象）：使用行锁查询业务对象临时表的版本号
-		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId, "business_object")
+		// 部分生成（重新识别业务对象）：使用行锁查询最新版本号
+		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId)
 		if err != nil {
-			return fmt.Errorf("获取业务对象版本号失败: %w", err)
+			return fmt.Errorf("获取版本号失败: %w", err)
 		}
 
 		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
@@ -253,18 +253,11 @@ func (h *DataUnderstandingHandler) isFullUnderstanding(aiResp *AIResponse) bool 
 }
 
 // getNextVersionWithLock 获取下一个版本号（使用行锁防止并发冲突）
-func (h *DataUnderstandingHandler) getNextVersionWithLock(ctx context.Context, session sqlx.Session, formViewId, versionType string) (int, error) {
-	var latestVersion int
-	var err error
-
-	if versionType == "table_info" {
-		formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
-		latestVersion, err = formViewInfoTempModel.FindLatestVersionWithLock(ctx, formViewId)
-	} else {
-		businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
-		latestVersion, err = businessObjectTempModel.FindLatestVersionWithLock(ctx, formViewId)
-	}
-
+// 统一从 t_business_object_temp 获取版本号，确保全量理解和重新识别使用统一的版本序列
+func (h *DataUnderstandingHandler) getNextVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
+	// 始终从业务对象临时表获取版本号（因为它记录了所有操作的最大版本号）
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
+	latestVersion, err := businessObjectTempModel.FindLatestVersionWithLock(ctx, formViewId)
 	if err != nil {
 		return 0, err
 	}
@@ -319,7 +312,23 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 
-	for _, obj := range objects {
+	// 对业务对象按 object_name 去重（防止 AI 返回重复对象导致唯一键冲突）
+	uniqueObjects := make(map[string]*BusinessObjectInfo) // key: object_name
+	for i := range objects {
+		obj := &objects[i]
+		// 合并属性：如果对象名相同，将属性合并到第一个对象
+		if existing, exists := uniqueObjects[obj.ObjectName]; exists {
+			// 追加属性到已存在的对象
+			existing.Attributes = append(existing.Attributes, obj.Attributes...)
+		} else {
+			// 新对象，直接添加
+			uniqueObjects[obj.ObjectName] = obj
+		}
+	}
+
+	logx.WithContext(ctx).Infof("业务对象去重: 原始数量=%d, 去重后=%d", len(objects), len(uniqueObjects))
+
+	for _, obj := range uniqueObjects {
 		// 1. 生成新的业务对象 ID
 		businessObjectId := uuid.New().String()
 
@@ -334,8 +343,21 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			return fmt.Errorf("插入业务对象失败: %w", err)
 		}
 
-		// 3. 处理属性
-		for _, attr := range obj.Attributes {
+		// 3. 处理属性（对属性也按 form_view_field_id 去重）
+		uniqueAttrs := make(map[string]*AttributeInfo) // key: form_view_field_id
+		for i := range obj.Attributes {
+			attr := &obj.Attributes[i]
+			if existing, exists := uniqueAttrs[attr.FormViewFieldId]; exists {
+				// 同一字段有多个属性，保留 attr_name 非空的
+				if attr.AttrName != "" && (existing.AttrName == "" || len(attr.AttrName) < len(existing.AttrName)) {
+					uniqueAttrs[attr.FormViewFieldId] = attr
+				}
+			} else {
+				uniqueAttrs[attr.FormViewFieldId] = attr
+			}
+		}
+
+		for _, attr := range uniqueAttrs {
 			// 生成新的属性 ID
 			attrId := uuid.New().String()
 
