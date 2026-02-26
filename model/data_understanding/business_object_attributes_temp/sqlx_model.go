@@ -207,6 +207,16 @@ func (m *BusinessObjectAttributesTempModelSqlx) DeleteByFormViewId(ctx context.C
 	return nil
 }
 
+// DeleteByFormViewIdAndVersion 根据form_view_id和version逻辑删除指定版本的属性
+func (m *BusinessObjectAttributesTempModelSqlx) DeleteByFormViewIdAndVersion(ctx context.Context, formViewId string, version int) error {
+	query := `UPDATE t_business_object_attributes_temp SET deleted_at = NOW(3) WHERE form_view_id = ? AND version = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId, version)
+	if err != nil {
+		return fmt.Errorf("delete business_object_attributes_temp by form_view_id and version failed: %w", err)
+	}
+	return nil
+}
+
 // DeleteById 根据id删除属性
 func (m *BusinessObjectAttributesTempModelSqlx) DeleteById(ctx context.Context, id string) error {
 	query := `UPDATE t_business_object_attributes_temp SET deleted_at = NOW(3) WHERE id = ?`

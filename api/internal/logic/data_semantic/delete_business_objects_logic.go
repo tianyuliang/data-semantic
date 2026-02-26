@@ -47,7 +47,17 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
 	}
 
-	// 2. 检查正式表是否有数据（在事务外查询，确定新状态）
+	// 2. 获取当前最新版本号
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
+	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("最新版本号", err)
+	}
+	if latestVersion == 0 {
+		return nil, errorx.Newf(errorx.ErrCodeInvalidParam, "没有可删除的数据，版本号为0")
+	}
+
+	// 3. 检查正式表是否有数据（在事务外查询，确定新状态）
 	businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
 	formalDataCount, err := businessObjectModel.CountByFormViewId(l.ctx, req.Id)
 	if err != nil {
@@ -63,21 +73,21 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 		newStatus = form_view.StatusNotUnderstanding
 	}
 
-	// 3. 使用事务执行删除和状态更新操作（保证原子性）
+	// 4. 使用事务执行删除和状态更新操作（保证原子性）
 	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
 		// 使用事务的 Session 创建 model 实例
-		businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
-		businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
+		tempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
+		tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 		formViewModelSession := form_view.NewFormViewModelSession(session)
 
-		// 逻辑删除业务对象临时数据
-		err := businessObjectTempModel.DeleteByFormViewId(ctx, req.Id)
+		// 逻辑删除最新版本的业务对象临时数据
+		err := tempModel.DeleteByFormViewIdAndVersion(ctx, req.Id, latestVersion)
 		if err != nil {
 			return errorx.NewDeleteFailed("临时表业务对象数据", err)
 		}
 
-		// 逻辑删除属性临时数据
-		err = businessObjectAttrTempModel.DeleteByFormViewId(ctx, req.Id)
+		// 逻辑删除最新版本的属性临时数据
+		err = tempAttrModel.DeleteByFormViewIdAndVersion(ctx, req.Id, latestVersion)
 		if err != nil {
 			return errorx.NewDeleteFailed("临时表属性数据", err)
 		}
@@ -94,8 +104,8 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 		return nil, err
 	}
 
-	logx.WithContext(l.ctx).Infof("Delete business objects successful: form_view_id=%s, new_status=%d, formal_data_count=%d",
-		req.Id, newStatus, formalDataCount)
+	logx.WithContext(l.ctx).Infof("Delete business objects successful: form_view_id=%s, version=%d, new_status=%d, formal_data_count=%d",
+		req.Id, latestVersion, newStatus, formalDataCount)
 
 	resp = &types.DeleteBusinessObjectsResp{
 		Success: true,
