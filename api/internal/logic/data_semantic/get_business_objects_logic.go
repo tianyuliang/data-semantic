@@ -234,7 +234,6 @@ func (l *GetBusinessObjectsLogic) buildAllObjectsFromTemp(
 func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBusinessObjectsReq) (*types.GetBusinessObjectsResp, error) {
 	model := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
 	attrModel := business_object_attributes.NewBusinessObjectAttributesModelSqlx(l.svcCtx.DB)
-	tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSqlx(l.svcCtx.DB)
 
 	var objects []types.BusinessObject
 
@@ -276,8 +275,8 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 		}
 	}
 
-	// 查询未识别字段（从临时表查询）
-	unidentifiedFields, err := l.getUnidentifiedFields(req.Id, tempAttrModel)
+	// 查询未识别字段（从正式表查询）
+	unidentifiedFields, err := l.getUnidentifiedFieldsFromFormal(req.Id, attrModel)
 	if err != nil {
 		logx.WithContext(l.ctx).Infof("查询未识别字段失败: %v", err)
 		unidentifiedFields = []types.UnidentifiedField{} // 查询失败时返回空列表
@@ -419,6 +418,27 @@ func (l *GetBusinessObjectsLogic) getUnidentifiedFields(formViewId string, tempA
 			TechnicalName: field.TechnicalName,
 			DataType:      field.DataType,
 			BusinessName:  field.BusinessName,
+			FieldRole:     field.FieldRole,
+			Description:   field.Description,
+		})
+	}
+	return result, nil
+}
+
+// getUnidentifiedFieldsFromFormal 从正式表查询未识别字段（business_object_id 和 attr_name 都为空的字段）
+func (l *GetBusinessObjectsLogic) getUnidentifiedFieldsFromFormal(formViewId string, formalAttrModel *business_object_attributes.BusinessObjectAttributesModelSqlx) ([]types.UnidentifiedField, error) {
+	fields, err := formalAttrModel.FindUnrecognizedFields(l.ctx, formViewId)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]types.UnidentifiedField, 0, len(fields))
+	for _, field := range fields {
+		result = append(result, types.UnidentifiedField{
+			Id:            field.Id,
+			TechnicalName: field.FieldTechName,
+			DataType:      field.FieldType,
+			BusinessName:  field.FieldBusinessName,
 			FieldRole:     field.FieldRole,
 			Description:   field.Description,
 		})

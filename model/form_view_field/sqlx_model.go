@@ -65,6 +65,79 @@ func (m *FormViewFieldModelSqlx) UpdateBusinessInfo(ctx context.Context, id stri
 	return nil
 }
 
+// FieldBusinessInfoUpdate 字段业务信息更新结构
+type FieldBusinessInfoUpdate struct {
+	Id               string
+	BusinessName     *string
+	FieldRole        *int8
+	FieldDescription *string
+}
+
+// BatchUpdateBusinessInfo 批量更新字段业务名称、角色和描述（使用 CASE WHEN 一次更新多条记录）
+func (m *FormViewFieldModelSqlx) BatchUpdateBusinessInfo(ctx context.Context, updates []FieldBusinessInfoUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// 构建 CASE WHEN 语句
+	var idParams []interface{}
+	var businessNameParams []interface{}
+	var fieldRoleParams []interface{}
+	var fieldDescParams []interface{}
+
+	for _, u := range updates {
+		idParams = append(idParams, u.Id)
+		businessNameParams = append(businessNameParams, u.BusinessName)
+		fieldRoleParams = append(fieldRoleParams, u.FieldRole)
+		fieldDescParams = append(fieldDescParams, u.FieldDescription)
+	}
+
+	// 构建批量更新的 SQL
+	query := `UPDATE form_view_field SET
+		business_name = CASE id `
+	for range updates {
+		query += `WHEN ? THEN ? `
+	}
+	query += `END,
+		field_role = CASE id `
+	for range updates {
+		query += `WHEN ? THEN ? `
+	}
+	query += `END,
+		field_description = CASE id `
+	for range updates {
+		query += `WHEN ? THEN ? `
+	}
+	query += `END
+	WHERE id IN (`
+	for i := range updates {
+		if i > 0 {
+			query += `,`
+		}
+		query += `?`
+	}
+	query += `)`
+
+	// 合并所有参数
+	var params []interface{}
+	for i := range updates {
+		params = append(params, idParams[i], businessNameParams[i])
+	}
+	for i := range updates {
+		params = append(params, idParams[i], fieldRoleParams[i])
+	}
+	for i := range updates {
+		params = append(params, idParams[i], fieldDescParams[i])
+	}
+	params = append(params, idParams...)
+
+	_, err := m.conn.ExecCtx(ctx, query, params...)
+	if err != nil {
+		return fmt.Errorf("batch update form_view_field business info failed: %w", err)
+	}
+	return nil
+}
+
 // FormViewFieldBase 字段基础信息结构
 type FormViewFieldBase struct {
 	Id            string `db:"id"`

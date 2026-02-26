@@ -144,3 +144,31 @@ func (m *BusinessObjectAttributesModelSqlx) BatchInsertFromTemp(ctx context.Cont
 	rowsAffected, err := result.RowsAffected()
 	return int(rowsAffected), nil
 }
+
+// FindUnrecognizedFields 查询未识别字段（business_object_id 和 attr_name 都为空的记录）
+func (m *BusinessObjectAttributesModelSqlx) FindUnrecognizedFields(ctx context.Context, formViewId string) ([]*UnrecognizedFieldInfo, error) {
+	var resp []*UnrecognizedFieldInfo
+	query := `SELECT boa.id, boa.form_view_field_id,
+	           fvf.technical_name AS field_tech_name, fvf.business_name AS field_business_name,
+	           fvf.field_role, fvf.data_type AS field_type, fvf.field_description
+	           FROM t_business_object_attributes boa
+	           INNER JOIN form_view_field fvf ON boa.form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci
+	           WHERE boa.form_view_id = ? AND boa.business_object_id = '' AND boa.attr_name = '' AND boa.deleted_at IS NULL
+	           ORDER BY boa.id ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
+	if err != nil {
+		return nil, fmt.Errorf("find unrecognized fields failed: %w", err)
+	}
+	return resp, nil
+}
+
+// UnrecognizedFieldInfo 未识别字段信息
+type UnrecognizedFieldInfo struct {
+	Id                string  `db:"id"`
+	FormViewFieldId   string  `db:"form_view_field_id"`
+	FieldTechName     string  `db:"field_tech_name"`
+	FieldBusinessName *string `db:"field_business_name"`
+	FieldRole         *int8   `db:"field_role"`
+	FieldType         string  `db:"field_type"`
+	Description       *string `db:"field_description"`
+}

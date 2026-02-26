@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"time"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -62,7 +63,11 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	}
 
 	// 3. 开启事务处理
-	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+	// 创建独立的 context，设置 120 秒超时，避免 HTTP 请求 context 的超时限制
+	txCtx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	err = l.svcCtx.DB.TransactCtx(txCtx, func(ctx context.Context, session sqlx.Session) error {
 		// 使用事务的 Session 创建 model 实例
 		tempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 		tempAttrModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
@@ -101,14 +106,18 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		logx.WithContext(ctx).Infof("Updated form view field info: updated=%d", fieldUpdated)
 
 		// ========== 更新 form_view 状态为 3 (已完成) ==========
+		logx.WithContext(ctx).Infof("=== 准备更新状态: id=%s, currentStatus=%d, newStatus=%d ===", req.Id, form_view.StatusPendingConfirm, form_view.StatusCompleted)
 		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, form_view.StatusCompleted)
 		if err != nil {
+			logx.WithContext(ctx).Errorf("=== 更新状态失败: %v ===", err)
 			return errorx.NewUpdateFailed("理解状态", err)
 		}
+		logx.WithContext(ctx).Infof("=== 状态更新成功 ===")
 
 		return nil
 	})
 	if err != nil {
+		logx.WithContext(l.ctx).Errorf("=== 事务失败: %v ===", err)
 		return nil, err
 	}
 
@@ -152,11 +161,13 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
 	for _, obj := range tempObjs {
 		objFormal, exists := formalObjMap[obj.ObjectName]
 		if !exists || objFormal == nil {
-			// 新增：使用临时表的 id
+			// 新增：使用临时表的 id，设置默认值
 			newObj := &business_object.BusinessObject{
 				Id:         obj.Id,
 				ObjectName: obj.ObjectName,
 				FormViewId: obj.FormViewId,
+				ObjectType: 1,           // 默认对象类型
+				Status:     1,           // 默认状态
 			}
 			if _, err := formalModel.Insert(ctx, newObj); err != nil {
 				return 0, 0, 0, err
@@ -221,28 +232,36 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 		return 0, 0, 0, err
 	}
 
-	// 5. 构建正式表属性映射（key: business_object_id + attr_name + form_view_field_id）
+	// 5. 构建正式表属性映射
+	// 5a. 已识别属性映射（key: business_object_id + attr_name + form_view_field_id）
 	formalAttrMap := make(map[string]*business_object_attributes.BusinessObjectAttributes)
+	// 5b. 未识别字段集合（key: form_view_field_id，用于快速查找）
+	formalUnrecognizedFields := make(map[string]bool)
 	for _, attr := range formalAttrs {
-		if formalObjIds[attr.BusinessObjectId] {
+		if attr.BusinessObjectId != "" && attr.AttrName != "" {
+			// 已识别属性
 			key := attr.BusinessObjectId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
 			formalAttrMap[key] = attr
+		} else if attr.BusinessObjectId == "" && attr.AttrName == "" {
+			// 未识别字段
+			formalUnrecognizedFields[attr.FormViewFieldId] = true
 		}
 	}
 
 	// 6. 处理临时表属性
 	for _, attr := range tempAttrs {
-		// 获取正式表的 business_object_id
-		formalObjId, ok := tempObjIdToFormalObjId[attr.BusinessObjectId]
-		if !ok {
-			continue // 跳过无法找到对应正式表对象的属性
-		}
+		// 6a. 处理已识别属性（attr_name 不为空）
+		if attr.AttrName != "" {
+			// 获取正式表的 business_object_id
+			formalObjId, ok := tempObjIdToFormalObjId[attr.BusinessObjectId]
+			if !ok {
+				continue // 跳过无法找到对应正式表对象的属性
+			}
 
-		key := formalObjId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
-		attrFormal, exists := formalAttrMap[key]
-		if !exists || attrFormal == nil {
-			// 新增：attr_name 不为空
-			if attr.AttrName != "" {
+			key := formalObjId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
+			attrFormal, exists := formalAttrMap[key]
+			if !exists || attrFormal == nil {
+				// 新增
 				newAttr := &business_object_attributes.BusinessObjectAttributes{
 					Id:               attr.Id,
 					FormViewId:       attr.FormViewId,
@@ -255,9 +274,27 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 				}
 				inserted++
 			}
+			// 已存在，无需更新
+			continue
 		}
-		// 已存在，无需更新（通过 attr_name + form_view_field_id 匹配，属性名已相同）
-		// 正式表独有的属性保留，不删除
+
+		// 6b. 处理未识别字段（attr_name 为空，business_object_id 为空）
+		// 根据 form_view_field_id 判断是否已存在
+		if _, exists := formalUnrecognizedFields[attr.FormViewFieldId]; !exists {
+			// 不存在则插入正式表
+			newAttr := &business_object_attributes.BusinessObjectAttributes{
+				Id:               attr.Id,
+				FormViewId:       attr.FormViewId,
+				BusinessObjectId: "", // 未识别字段，无归属对象
+				FormViewFieldId:  attr.FormViewFieldId,
+				AttrName:         "", // 未识别字段，属性名称为空
+			}
+			if _, err := formalAttrModel.Insert(ctx, newAttr); err != nil {
+				return 0, 0, 0, err
+			}
+			inserted++
+		}
+		// 已存在的未识别字段跳过
 	}
 
 	return inserted, updated, deleted, nil
@@ -282,7 +319,7 @@ func (l *SubmitUnderstandingLogic) updateFormViewInfo(
 	return formViewModel.UpdateBusinessInfo(ctx, formViewId, tempInfo.TableBusinessName, tempInfo.TableDescription)
 }
 
-// updateFormViewFieldInfo 更新字段业务名称、角色和描述
+// updateFormViewFieldInfo 更新字段业务名称、角色和描述（批量更新优化）
 func (l *SubmitUnderstandingLogic) updateFormViewFieldInfo(
 	ctx context.Context,
 	formViewId string,
@@ -297,14 +334,26 @@ func (l *SubmitUnderstandingLogic) updateFormViewFieldInfo(
 		return 0, nil
 	}
 
-	// 更新每个字段的信息
-	for _, field := range tempFields {
-		err := formViewFieldModel.UpdateBusinessInfo(ctx, field.FormViewFieldId, field.FieldBusinessName, field.FieldRole, field.FieldDescription)
-		if err != nil {
-			return 0, err
-		}
-		updated++
+	if len(tempFields) == 0 {
+		return 0, nil
 	}
 
-	return updated, nil
+	// 构建批量更新参数
+	updates := make([]form_view_field.FieldBusinessInfoUpdate, 0, len(tempFields))
+	for _, field := range tempFields {
+		updates = append(updates, form_view_field.FieldBusinessInfoUpdate{
+			Id:               field.FormViewFieldId,
+			BusinessName:     field.FieldBusinessName,
+			FieldRole:        field.FieldRole,
+			FieldDescription: field.FieldDescription,
+		})
+	}
+
+	// 使用批量更新，一次 SQL 语句完成所有字段更新
+	err = formViewFieldModel.BatchUpdateBusinessInfo(ctx, updates)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(updates), nil
 }

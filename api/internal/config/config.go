@@ -53,7 +53,7 @@ type DatabaseConfig struct {
 
 // DataSource 生成数据源连接字符串
 func (d DatabaseConfig) DataSource() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local",
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local&timeout=180s&readTimeout=180s&writeTimeout=180s",
 		d.Username,
 		d.Password,
 		d.Host,
