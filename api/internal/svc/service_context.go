@@ -35,14 +35,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化 Redis
 	redisClient := initRedis(c)
 
-	// 初始化 AI 服务客户端（URL 为空时使用 Mock 客户端用于测试）
+	// 初始化 AI 服务客户端
 	timeout := time.Duration(c.AIService.TimeoutSeconds) * time.Second
-	var aiClient aiservice.ClientInterface
-	if c.AIService.URL == "" {
-		aiClient = aiservice.NewMockClient()
-	} else {
-		aiClient = aiservice.NewClient(c.AIService.URL, timeout)
-	}
+	aiClient := aiservice.NewClient(c.AIService.URL, timeout)
 
 	return &ServiceContext{
 		Config:   c,
