@@ -93,8 +93,9 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	// 应用过滤条件
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
+	version := tableInfoTemp.Version
 	return &types.GetFieldsResp{
-		CurrentVersion:    tableInfoTemp.Version,
+		CurrentVersion:    &version,
 		TableBusinessName: tableInfoTemp.TableBusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  tableInfoTemp.TableDescription,
@@ -104,6 +105,13 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 
 // getFieldsFromFormal 从正式表查询数据
 func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechName string) (*types.GetFieldsResp, error) {
+	// 查询 form_view 获取完整的表信息（包含业务名称和描述）
+	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
+	if err != nil {
+		return nil, errorx.NewQueryFailed("库表视图信息", err)
+	}
+
 	// 查询正式表的字段完整信息 (从 form_view_field 获取包含语义信息的完整数据)
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
 	fullFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
@@ -128,10 +136,10 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
 	return &types.GetFieldsResp{
-		CurrentVersion:    0, // 正式表无版本号概念
-		TableBusinessName: nil,
+		CurrentVersion:    nil,  // 正式表无版本号概念
+		TableBusinessName: formViewData.BusinessName,
 		TableTechName:     tableTechName,
-		TableDescription:  nil,
+		TableDescription:  formViewData.Description,
 		Fields:            fields,
 	}, nil
 }

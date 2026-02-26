@@ -122,7 +122,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 }
 
 // mergeBusinessObjects 合并业务对象（代码层面实现）
-// 按 object_name 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的删除
+// 按 object_name 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的保留
 func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
 	ctx context.Context,
 	formViewId string,
@@ -162,25 +162,16 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
 				return 0, 0, 0, err
 			}
 			inserted++
-		} else {
-			// 已存在，无需更新（通过 object_name 匹配，名字已相同）
-			delete(formalObjMap, obj.ObjectName)
 		}
-	}
-
-	// 5. 删除正式表中独有的对象
-	for _, obj := range formalObjMap {
-		if err := formalModel.Delete(ctx, obj.Id); err != nil {
-			return 0, 0, 0, err
-		}
-		deleted++
+		// 已存在，无需更新（通过 object_name 匹配，名字已相同）
+		// 正式表独有的对象保留，不删除
 	}
 
 	return inserted, updated, deleted, nil
 }
 
 // mergeBusinessObjectAttributes 合并业务对象属性（代码层面实现）
-// 按 business_object_id + attr_name + form_view_field_id 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的删除
+// 按 business_object_id + attr_name + form_view_field_id 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的保留
 func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 	ctx context.Context,
 	formViewId string,
@@ -233,16 +224,9 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 	// 5. 构建正式表属性映射（key: business_object_id + attr_name + form_view_field_id）
 	formalAttrMap := make(map[string]*business_object_attributes.BusinessObjectAttributes)
 	for _, attr := range formalAttrs {
-		// 只保留属于有效业务对象的属性
 		if formalObjIds[attr.BusinessObjectId] {
 			key := attr.BusinessObjectId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
 			formalAttrMap[key] = attr
-		} else {
-			// 属于已删除业务对象的属性，直接删除
-			if err := formalAttrModel.Delete(ctx, attr.Id); err != nil {
-				return 0, 0, 0, err
-			}
-			deleted++
 		}
 	}
 
@@ -271,18 +255,9 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 				}
 				inserted++
 			}
-		} else {
-			// 已存在，无需更新（通过 attr_name + form_view_field_id 匹配，属性名已相同）
-			delete(formalAttrMap, key)
 		}
-	}
-
-	// 7. 删除正式表中独有的属性（属于有效业务对象的）
-	for _, attr := range formalAttrMap {
-		if err := formalAttrModel.Delete(ctx, attr.Id); err != nil {
-			return 0, 0, 0, err
-		}
-		deleted++
+		// 已存在，无需更新（通过 attr_name + form_view_field_id 匹配，属性名已相同）
+		// 正式表独有的属性保留，不删除
 	}
 
 	return inserted, updated, deleted, nil
