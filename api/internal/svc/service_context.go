@@ -9,8 +9,15 @@ import (
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
+	"github.com/kweaver-ai/idrm-go-common/middleware/v2"
+	_ "github.com/kweaver-ai/idrm-go-common/rest/base"
+	"github.com/kweaver-ai/idrm-go-common/rest/hydra"
+	"github.com/kweaver-ai/idrm-go-common/rest/hydra/impl"
+	"github.com/kweaver-ai/idrm-go-common/rest/user_management"
+	"github.com/kweaver-ai/idrm-go-frame/core/telemetry/trace"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/rest"
 	"golang.org/x/time/rate"
 )
 
@@ -26,6 +33,12 @@ type ServiceContext struct {
 	Redis        *redis.Redis              // Redis 客户端
 	AIClient     aiservice.ClientInterface // AI 服务客户端
 	rateLimiters sync.Map                  // formViewId -> *rateLimitEntry (限流器缓存)
+
+	// 认证相关
+	Hydra            hydra.Hydra                      // Hydra OAuth2 服务
+	UserMgm          user_management.DrivenUserMgnt   // 用户管理服务
+	AuthMiddleware   *v2.Middleware                   // 认证中间件
+	TokenInterception rest.Middleware                 // Token 验证中间件 (供 goctl 生成的 routes.go 使用)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -39,11 +52,27 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	timeout := time.Duration(c.AIService.TimeoutSeconds) * time.Second
 	aiClient := aiservice.NewClient(c.AIService.URL, timeout)
 
+	// 初始化带有链路追踪的 HTTP 客户端
+	httpClient := trace.NewOtelHttpClient()
+
+	// 初始化 Hydra 客户端（使用 base.Service 获取地址）
+	hydraClient := impl.NewHydraByService(httpClient)
+
+	// 初始化用户管理客户端（使用 base.Service 获取地址）
+	userMgmClient := user_management.NewUserMgntByService(httpClient)
+
+	// 创建认证中间件
+	authMiddleware := v2.NewMiddleware(hydraClient, userMgmClient)
+
 	return &ServiceContext{
-		Config:   c,
-		DB:       db,
-		Redis:    redisClient,
-		AIClient: aiClient,
+		Config:           c,
+		DB:               db,
+		Redis:            redisClient,
+		AIClient:         aiClient,
+		Hydra:            hydraClient,
+		UserMgm:          userMgmClient,
+		AuthMiddleware:   authMiddleware,
+		TokenInterception: authMiddleware.TokenInterception(),
 	}
 }
 

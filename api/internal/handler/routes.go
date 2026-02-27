@@ -26,68 +26,71 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 查询业务对象识别结果
-				Method:  http.MethodGet,
-				Path:    "/:id/business-objects",
-				Handler: data_semantic.GetBusinessObjectsHandler(serverCtx),
-			},
-			{
-				// 保存业务对象及属性
-				Method:  http.MethodPut,
-				Path:    "/:id/business-objects",
-				Handler: data_semantic.SaveBusinessObjectsHandler(serverCtx),
-			},
-			{
-				// 删除识别结果
-				Method:  http.MethodDelete,
-				Path:    "/:id/business-objects",
-				Handler: data_semantic.DeleteBusinessObjectsHandler(serverCtx),
-			},
-			{
-				// 调整属性归属业务对象
-				Method:  http.MethodPut,
-				Path:    "/:id/business-objects/attributes/move",
-				Handler: data_semantic.MoveAttributeHandler(serverCtx),
-			},
-			{
-				// 重新识别业务对象
-				Method:  http.MethodPost,
-				Path:    "/:id/business-objects/regenerate",
-				Handler: data_semantic.RegenerateBusinessObjectsHandler(serverCtx),
-			},
-			{
-				// 查询字段语义补全数据
-				Method:  http.MethodGet,
-				Path:    "/:id/fields",
-				Handler: data_semantic.GetFieldsHandler(serverCtx),
-			},
-			{
-				// 一键生成理解数据
-				Method:  http.MethodPost,
-				Path:    "/:id/generate",
-				Handler: data_semantic.GenerateUnderstandingHandler(serverCtx),
-			},
-			{
-				// 保存库表信息补全数据
-				Method:  http.MethodPut,
-				Path:    "/:id/semantic-info",
-				Handler: data_semantic.SaveSemanticInfoHandler(serverCtx),
-			},
-			{
-				// 查询库表理解状态
-				Method:  http.MethodGet,
-				Path:    "/:id/status",
-				Handler: data_semantic.GetStatusHandler(serverCtx),
-			},
-			{
-				// 提交确认理解数据
-				Method:  http.MethodPost,
-				Path:    "/:id/submit",
-				Handler: data_semantic.SubmitUnderstandingHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.TokenInterception},
+			[]rest.Route{
+				{
+					// 查询业务对象识别结果
+					Method:  http.MethodGet,
+					Path:    "/:id/business-objects",
+					Handler: data_semantic.GetBusinessObjectsHandler(serverCtx),
+				},
+				{
+					// 保存业务对象及属性
+					Method:  http.MethodPut,
+					Path:    "/:id/business-objects",
+					Handler: data_semantic.SaveBusinessObjectsHandler(serverCtx),
+				},
+				{
+					// 删除识别结果
+					Method:  http.MethodDelete,
+					Path:    "/:id/business-objects",
+					Handler: data_semantic.DeleteBusinessObjectsHandler(serverCtx),
+				},
+				{
+					// 调整属性归属业务对象
+					Method:  http.MethodPut,
+					Path:    "/:id/business-objects/attributes/move",
+					Handler: data_semantic.MoveAttributeHandler(serverCtx),
+				},
+				{
+					// 重新识别业务对象
+					Method:  http.MethodPost,
+					Path:    "/:id/business-objects/regenerate",
+					Handler: data_semantic.RegenerateBusinessObjectsHandler(serverCtx),
+				},
+				{
+					// 查询字段语义补全数据
+					Method:  http.MethodGet,
+					Path:    "/:id/fields",
+					Handler: data_semantic.GetFieldsHandler(serverCtx),
+				},
+				{
+					// 一键生成理解数据
+					Method:  http.MethodPost,
+					Path:    "/:id/generate",
+					Handler: data_semantic.GenerateUnderstandingHandler(serverCtx),
+				},
+				{
+					// 保存库表信息补全数据
+					Method:  http.MethodPut,
+					Path:    "/:id/semantic-info",
+					Handler: data_semantic.SaveSemanticInfoHandler(serverCtx),
+				},
+				{
+					// 查询库表理解状态
+					Method:  http.MethodGet,
+					Path:    "/:id/status",
+					Handler: data_semantic.GetStatusHandler(serverCtx),
+				},
+				{
+					// 提交确认理解数据
+					Method:  http.MethodPost,
+					Path:    "/:id/submit",
+					Handler: data_semantic.SubmitUnderstandingHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithPrefix("/api/v1/data-semantic"),
 	)
 }

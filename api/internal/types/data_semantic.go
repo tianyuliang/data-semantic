@@ -38,7 +38,7 @@ type GetFieldsReq struct {
 }
 
 type GetFieldsResp struct {
-	CurrentVersion    *int                `json:"current_version,omitempty"`
+	CurrentVersion    *int                `json:"current_version"`
 	TableBusinessName *string             `json:"table_business_name"`
 	TableTechName     string              `json:"table_tech_name"`
 	TableDescription  *string             `json:"table_description"`
