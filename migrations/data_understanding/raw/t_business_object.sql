@@ -10,5 +10,6 @@ CREATE TABLE IF NOT EXISTS t_business_object (
     updated_at     DATETIME(3)          DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     deleted_at     DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (`id`),
-    KEY idx_form_view_id (form_view_id, deleted_at)
+    KEY idx_form_view_id (form_view_id, deleted_at),
+    UNIQUE KEY uk_form_view_object_name (form_view_id, object_name, deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务对象表';

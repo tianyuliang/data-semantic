@@ -14,5 +14,6 @@ CREATE TABLE IF NOT EXISTS t_form_view_field_info_temp (
     deleted_at           DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
     KEY idx_form_view_version (form_view_id, version, deleted_at),
-    KEY idx_form_view_field (form_view_field_id, deleted_at)
+    KEY idx_form_view_field (form_view_field_id, deleted_at),
+    UNIQUE KEY uk_form_view_field_version (form_view_field_id, version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库表字段信息临时表';

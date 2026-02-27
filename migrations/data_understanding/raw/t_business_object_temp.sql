@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS t_business_object_temp (
     user_id        CHAR(36)                                         COMMENT '为空代表模型操作，不为空代表某用户操作',
     version        INT          NOT NULL DEFAULT 10            COMMENT '版本号（存储格式：10=1.0，11=1.1，每次递增1表示0.1版本）',
     object_name    VARCHAR(100) NOT NULL                       COMMENT '业务对象名称',
-    formal_id      CHAR(36)                                         COMMENT '关联正式表ID（用于增量更新匹配）',
     created_at     DATETIME(3)          DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     updated_at     DATETIME(3)          DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     deleted_at     DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
-    KEY idx_form_view_version (form_view_id, version, deleted_at)
+    KEY idx_form_view_version (form_view_id, version, deleted_at),
+    UNIQUE KEY uk_form_view_object_version (form_view_id, object_name, version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务对象临时表';

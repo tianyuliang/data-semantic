@@ -11,5 +11,6 @@ CREATE TABLE IF NOT EXISTS t_form_view_info_temp (
     updated_at           DATETIME(3)          DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     deleted_at           DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
-    KEY idx_form_view_version (form_view_id, version, deleted_at)
+    KEY idx_form_view_version (form_view_id, version, deleted_at),
+    UNIQUE KEY uk_form_view_version (form_view_id, version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库表信息临时表';
