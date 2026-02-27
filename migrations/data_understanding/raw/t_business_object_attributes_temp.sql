@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS t_business_object_attributes_temp (
     deleted_at                  DATETIME(3)          DEFAULT NULL           COMMENT '删除时间(逻辑删除)',
     PRIMARY KEY (id),
     KEY idx_form_view_object (form_view_id, business_object_id, deleted_at),
-    KEY idx_form_view_version (form_view_id, version, deleted_at)
+    KEY idx_form_view_version (form_view_id, version, deleted_at),
+    UNIQUE KEY uk_object_attr_version (business_object_id, attr_name, form_view_field_id, version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='业务对象属性临时表';
