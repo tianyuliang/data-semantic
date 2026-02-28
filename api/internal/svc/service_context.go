@@ -37,7 +37,6 @@ type ServiceContext struct {
 	// 认证相关
 	Hydra            hydra.Hydra                      // Hydra OAuth2 服务
 	UserMgm          user_management.DrivenUserMgnt   // 用户管理服务
-	AuthMiddleware   *v2.Middleware                   // 认证中间件
 	TokenInterception rest.Middleware                 // Token 验证中间件 (供 goctl 生成的 routes.go 使用)
 }
 
@@ -55,14 +54,13 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化带有链路追踪的 HTTP 客户端
 	httpClient := trace.NewOtelHttpClient()
 
-	// 初始化 Hydra 客户端（使用 base.Service 获取地址）
+	// 初始化 Hydra OAuth2 服务（使用环境变量配置的地址）
 	hydraClient := impl.NewHydraByService(httpClient)
-
-	// 初始化用户管理客户端（使用 base.Service 获取地址）
 	userMgmClient := user_management.NewUserMgntByService(httpClient)
 
 	// 创建认证中间件
 	authMiddleware := v2.NewMiddleware(hydraClient, userMgmClient)
+	tokenInterception := authMiddleware.TokenInterception()
 
 	return &ServiceContext{
 		Config:           c,
@@ -71,8 +69,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		AIClient:         aiClient,
 		Hydra:            hydraClient,
 		UserMgm:          userMgmClient,
-		AuthMiddleware:   authMiddleware,
-		TokenInterception: authMiddleware.TokenInterception(),
+		TokenInterception: tokenInterception,
 	}
 }
 

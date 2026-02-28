@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+  # Hydra 数据库迁移
+  hydra-migrate:
+    image: oryd/hydra:v2.2.0
+    container_name: hydra-migrate
+    command:
+      - migrate
+      - sql
+      - --read-from-env
+      - --yes
+    environment:
+      DSN: postgres://hydra:password@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # PostgreSQL 数据库 (Hydra 需要)
+  postgres:
+    image: postgres:15-alpine
+    container_name: hydra-postgres
+    environment:
+      POSTGRES_DB: hydra
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Hydra OAuth2 服务
+  hydra:
+    image: oryd/hydra:v2.2.0
+    container_name: hydra
+    ports:
+      - "4444:4444"  # Public port
+      - "4445:4445"  # Admin port
+    command:
+      - serve
+      - all
+      - --dev
+    environment:
+      DSN: postgres://hydra:password@postgres:5432/hydra?sslmode=disable&max_conns=20&max_idle_conns=4
+      URLS_SELF_ISSUER: http://localhost:4444
+      URLS_CONSENT: http://localhost:9020/consent
+      URLS_LOGIN: http://localhost:9020/login
+      SECRETS_SYSTEM: youReallyNeedToChangeThisKeyForProductionToBeSecure
+      STRATEGIES_ACCESS_TOKEN: jwt
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4445/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Hydra Maual (用于登录/授权的简单界面)
+  hydra-login-consent:
+    image: oryd/hydra-login-consent-node:v1.10.6
+    container_name: hydra-login-consent
+    ports:
+      - "9020:9020"
+    environment:
+      HYDRA_ADMIN_URL: http://hydra:4445
+    depends_on:
+      hydra:
+        condition: service_healthy
+
+  # OpenTelemetry Collector (用于接收链路追踪数据)
+  otel-collector:
+    image: otel/opentelemetry-collector:0.111.0
+    container_name: otel-collector
+    command: --config=/etc/otelcol-contrib/config.yaml
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "9100:8888"   # Prometheus metrics (避免与API服务8888冲突)
+    depends_on:
+      - hydra
