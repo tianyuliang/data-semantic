@@ -54,8 +54,8 @@ func (e *CodeError) Unwrap() error {
 	return e.Err
 }
 
-// New 创建带错误码的错误
-func New(code int, message string) *CodeError {
+// NewCode 创建带错误码的错误
+func NewCode(code int, message string) *CodeError {
 	return &CodeError{
 		Code:    code,
 		Message: message,
@@ -91,26 +91,26 @@ func Wrapf(code int, err error, format string, args ...interface{}) *CodeError {
 // Predefined errors
 var (
 	// 通用错误
-	ErrInvalidParam = New(ErrCodeInvalidParam, "请求参数错误")
+	ErrInvalidParam = NewCode(ErrCodeInvalidParam, "请求参数错误")
 
 	// 数据查询错误
-	ErrFormViewNotFound       = New(ErrCodeFormViewNotFound, "库表视图不存在")
-	ErrFormFieldNotFound       = New(ErrCodeFormFieldNotFound, "字段信息不存在")
-	ErrBusinessObjectNotFound  = New(ErrCodeBusinessObjectNotFound, "业务对象不存在")
+	ErrFormViewNotFound       = NewCode(ErrCodeFormViewNotFound, "库表视图不存在")
+	ErrFormFieldNotFound       = NewCode(ErrCodeFormFieldNotFound, "字段信息不存在")
+	ErrBusinessObjectNotFound  = NewCode(ErrCodeBusinessObjectNotFound, "业务对象不存在")
 
 	// 状态校验错误
-	ErrInvalidUnderstandStatus = New(ErrCodeInvalidUnderstandStatus, "无效的理解状态")
-	ErrDuplicateName            = New(ErrCodeDuplicateName, "名称重复")
+	ErrInvalidUnderstandStatus = NewCode(ErrCodeInvalidUnderstandStatus, "无效的理解状态")
+	ErrDuplicateName            = NewCode(ErrCodeDuplicateName, "名称重复")
 
 	// 数据操作错误
-	ErrQueryFailed    = New(ErrCodeQueryFailed, "查询失败")
-	ErrInsertFailed   = New(ErrCodeInsertFailed, "插入失败")
-	ErrUpdateFailed   = New(ErrCodeUpdateFailed, "更新失败")
-	ErrDeleteFailed   = New(ErrCodeDeleteFailed, "删除失败")
-	ErrOperationFailed = New(ErrCodeOperationFailed, "操作失败")
+	ErrQueryFailed    = NewCode(ErrCodeQueryFailed, "查询失败")
+	ErrInsertFailed   = NewCode(ErrCodeInsertFailed, "插入失败")
+	ErrUpdateFailed   = NewCode(ErrCodeUpdateFailed, "更新失败")
+	ErrDeleteFailed   = NewCode(ErrCodeDeleteFailed, "删除失败")
+	ErrOperationFailed = NewCode(ErrCodeOperationFailed, "操作失败")
 
 	// AI 服务相关错误
-	ErrAIServiceError = New(ErrCodeAIServiceError, "AI 服务调用失败")
+	ErrAIServiceError = NewCode(ErrCodeAIServiceError, "AI 服务调用失败")
 )
 
 // NewFormViewNotFound 创建库表视图不存在错误

@@ -27,7 +27,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		rest.WithMiddlewares(
-			[]rest.Middleware{serverCtx.TokenInterception},
+			[]rest.Middleware{serverCtx.JWTAuth},
 			[]rest.Route{
 				{
 					// 查询业务对象识别结果

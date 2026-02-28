@@ -55,6 +55,8 @@ Redis:
 Auth:
   AccessSecret: "your-secret-key-change-in-production-please-use-32-chars"
   AccessExpire: 7200
+  HydraAdminURL: "http://localhost:4445"
+  HydraTimeoutSec: 10
 
 # Swagger 配置
 Swagger:
@@ -68,5 +70,10 @@ Kafka:
 
 # AI 服务配置
 AIService:
+  URL: ""
+  TimeoutSeconds: 10
+
+# UserManagement 服务配置
+UserManagement:
   URL: ""
   TimeoutSeconds: 10

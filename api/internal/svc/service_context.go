@@ -8,13 +8,10 @@ import (
 	"time"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
-	"github.com/kweaver-ai/idrm-go-common/middleware/v2"
-	_ "github.com/kweaver-ai/idrm-go-common/rest/base"
-	"github.com/kweaver-ai/idrm-go-common/rest/hydra"
-	"github.com/kweaver-ai/idrm-go-common/rest/hydra/impl"
-	"github.com/kweaver-ai/idrm-go-common/rest/user_management"
-	"github.com/kweaver-ai/idrm-go-frame/core/telemetry/trace"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/hydra"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/usermgm"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/rest"
@@ -28,16 +25,16 @@ type rateLimitEntry struct {
 }
 
 type ServiceContext struct {
-	Config       config.Config
-	DB           sqlx.SqlConn              // 数据库连接
-	Redis        *redis.Redis              // Redis 客户端
-	AIClient     aiservice.ClientInterface // AI 服务客户端
-	rateLimiters sync.Map                  // formViewId -> *rateLimitEntry (限流器缓存)
+	Config    config.Config
+	DB        sqlx.SqlConn              // 数据库连接
+	Redis     *redis.Redis              // Redis 客户端
+	AIClient  aiservice.ClientInterface // AI 服务客户端
+	Hydra     *hydra.Client             // Hydra 客户端
+	UserMgm   *usermgm.Client           // UserManagement 客户端
+	rateLimiters sync.Map               // formViewId -> *rateLimitEntry (限流器缓存)
 
-	// 认证相关
-	Hydra            hydra.Hydra                      // Hydra OAuth2 服务
-	UserMgm          user_management.DrivenUserMgnt   // 用户管理服务
-	TokenInterception rest.Middleware                 // Token 验证中间件 (供 goctl 生成的 routes.go 使用)
+	// 认证中间件
+	JWTAuth rest.Middleware // JWT 验证中间件 (供 goctl 生成的 routes.go 使用)
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -48,28 +45,28 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	redisClient := initRedis(c)
 
 	// 初始化 AI 服务客户端
-	timeout := time.Duration(c.AIService.TimeoutSeconds) * time.Second
-	aiClient := aiservice.NewClient(c.AIService.URL, timeout)
+	aiTimeout := time.Duration(c.AIService.TimeoutSeconds) * time.Second
+	aiClient := aiservice.NewClient(c.AIService.URL, aiTimeout)
 
-	// 初始化带有链路追踪的 HTTP 客户端
-	httpClient := trace.NewOtelHttpClient()
+	// 初始化 Hydra 客户端
+	hydraTimeout := time.Duration(c.Auth.HydraTimeoutSec) * time.Second
+	hydraClient := hydra.NewClient(c.Auth.HydraAdminURL, hydraTimeout)
 
-	// 初始化 Hydra OAuth2 服务（使用环境变量配置的地址）
-	hydraClient := impl.NewHydraByService(httpClient)
-	userMgmClient := user_management.NewUserMgntByService(httpClient)
+	// 初始化 UserManagement 客户端
+	userMgmTimeout := time.Duration(c.UserManagement.TimeoutSeconds) * time.Second
+	userMgmClient := usermgm.NewClient(c.UserManagement.URL, userMgmTimeout)
 
-	// 创建认证中间件
-	authMiddleware := v2.NewMiddleware(hydraClient, userMgmClient)
-	tokenInterception := authMiddleware.TokenInterception()
+	// 创建 JWT 认证中间件 (传入 Hydra 和 UserMgm 客户端)
+	jwtAuth := middleware.JWTAuth(hydraClient, userMgmClient)
 
 	return &ServiceContext{
-		Config:           c,
-		DB:               db,
-		Redis:            redisClient,
-		AIClient:         aiClient,
-		Hydra:            hydraClient,
-		UserMgm:          userMgmClient,
-		TokenInterception: tokenInterception,
+		Config:    c,
+		DB:        db,
+		Redis:     redisClient,
+		AIClient:  aiClient,
+		Hydra:     hydraClient,
+		UserMgm:   userMgmClient,
+		JWTAuth:   jwtAuth,
 	}
 }
 

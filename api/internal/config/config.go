@@ -30,6 +30,9 @@ type Config struct {
 
 	// AI 服务配置
 	AIService AIServiceConfig
+
+	// UserManagement 服务配置
+	UserManagement UserManagementConfig
 }
 
 // DBConfig 数据库配置
@@ -65,8 +68,10 @@ func (d DatabaseConfig) DataSource() string {
 
 // AuthConfig JWT 认证配置
 type AuthConfig struct {
-	AccessSecret string `json:",optional"`     // JWT 签名密钥
-	AccessExpire int64  `json:",default=7200"` // Token 过期时间(秒)
+	AccessSecret     string `json:",optional"`     // JWT 签名密钥
+	AccessExpire     int64  `json:",default=7200"` // Token 过期时间(秒)
+	HydraAdminURL    string `json:",default=http://localhost:4445"` // Hydra Admin URL
+	HydraTimeoutSec  int    `json:",default=10"`   // Hydra 请求超时时间(秒)
 }
 
 // SwaggerConfig Swagger 文档配置
@@ -91,5 +96,11 @@ func (r RedisConfig) Addr() string {
 // AIServiceConfig AI 服务配置
 type AIServiceConfig struct {
 	URL            string `json:",optional"` // AI 服务地址，如 http://ai-service:8080
+	TimeoutSeconds int    `json:",default=10"` // HTTP 请求超时时间（秒）
+}
+
+// UserManagementConfig 用户管理服务配置
+type UserManagementConfig struct {
+	URL            string `json:",optional"` // UserManagement 服务地址
 	TimeoutSeconds int    `json:",default=10"` // HTTP 请求超时时间（秒）
 }
