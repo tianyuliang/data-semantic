@@ -20,7 +20,7 @@ type HttpError struct {
 }
 
 type Response struct {
-	Code    int    `json:"code"`
+	Code    string `json:"code"`
 	Message string `json:"message"`
 	Data    any    `json:"data"`
 }
@@ -82,7 +82,7 @@ func ResponseWrapper() func(next http.HandlerFunc) http.HandlerFunc {
 			}
 
 			// 成功响应包装
-			ResOKJson(w, Response{Code: 0, Message: "success", Data: data})
+			ResOKJson(w, Response{Code: "", Message: "success", Data: data})
 		}
 	}
 }
