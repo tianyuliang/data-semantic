@@ -7,9 +7,10 @@ import (
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/handler"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 
-	"github.com/jinguoxing/idrm-go-base/middleware"
+	base_middleware "github.com/jinguoxing/idrm-go-base/middleware"
 	"github.com/jinguoxing/idrm-go-base/telemetry"
 	"github.com/jinguoxing/idrm-go-base/validator"
 
@@ -39,11 +40,12 @@ func main() {
 	defer server.Stop()
 
 	// 注册全局中间件 (顺序重要!)
-	server.Use(middleware.Recovery())  // 1. Panic 恢复
-	server.Use(middleware.RequestID()) // 2. 请求 ID 生成
-	server.Use(middleware.Trace())     // 3. OpenTelemetry 链路追踪
-	server.Use(middleware.CORS())      // 4. CORS 跨域处理
-	server.Use(middleware.Logger())    // 5. 请求日志
+	server.Use(base_middleware.Recovery())       // 1. Panic 恢复
+	server.Use(base_middleware.RequestID())      // 2. 请求 ID 生成
+	server.Use(base_middleware.Trace())          // 3. OpenTelemetry 链路追踪
+	server.Use(base_middleware.CORS())           // 4. CORS 跨域处理
+	server.Use(base_middleware.Logger())         // 5. 请求日志
+	server.Use(middleware.ResponseWrapper())     // 6. 统一响应格式包装
 
 	// 初始化服务上下文
 	ctx := svc.NewServiceContext(c)
