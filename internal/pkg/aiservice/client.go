@@ -69,8 +69,8 @@ func (c *Client) Call(requestType RequestType, messageID string, formView *FormV
 	}
 	defer resp.Body.Close()
 
-	// Check status code
-	if resp.StatusCode != http.StatusOK {
+	// Check status code (200 OK or 202 Accepted for async processing)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("AI service returned error status: %d, body: %s", resp.StatusCode, string(body))
 	}
