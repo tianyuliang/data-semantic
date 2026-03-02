@@ -38,11 +38,11 @@ func (c *Client) Call(requestType RequestType, messageID string, formView *FormV
 		"message_id":   messageID,
 		"request_type": string(requestType),
 		"form_view": map[string]interface{}{
-			"form_view_id":               formView.ID,
-			"form_view_technical_name":   formView.TechnicalName,
-			"form_view_business_name":    formView.BusinessName,
-			"form_view_desc":             formView.Description,
-			"form_view_fields":           formView.Fields,
+			"form_view_id":             formView.ID,
+			"form_view_technical_name": formView.TechnicalName,
+			"form_view_business_name":  formView.BusinessName,
+			"form_view_desc":           formView.Description,
+			"form_view_fields":         formView.Fields,
 		},
 	}
 
@@ -53,7 +53,7 @@ func (c *Client) Call(requestType RequestType, messageID string, formView *FormV
 	}
 
 	// Create HTTP request
-	url := fmt.Sprintf("%s/api/af-sailor-agent/v1/data_understand/view_semantic_and_business_analysis", c.baseURL)
+	url := fmt.Sprintf("%s/api/af-sailor-agent/v1/assistant/data_understand/view_semantic_and_business_analysis", c.baseURL)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBytes))
 	if err != nil {
 		return nil, fmt.Errorf("create HTTP request failed: %w", err)

@@ -114,29 +114,21 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 	// 判断消息类型：失败消息或成功消息
 	isFailedMessage := aiResp.Status == "failed"
 
-	// 在事务中处理：去重检查 + 数据保存 + 状态更新
+	// 在事务中处理：数据保存 + 状态更新 + 消息日志（使用 INSERT IGNORE 避免并发问题）
 	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
-		// 1. 去重检查（只检查成功处理的消息，允许失败消息重试）
-		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
-		if exists, err := kafkaMessageLogModel.ExistsSuccessByMessageId(ctx, aiResp.MessageId); err != nil {
-			return fmt.Errorf("检查消息去重失败: %w", err)
-		} else if exists {
-			logx.Infof("消息已成功处理，跳过: message_id=%s", aiResp.MessageId)
-			return nil
-		}
-
-		// 2. 根据消息状态处理
+		// 1. 根据消息状态处理
 		if isFailedMessage {
 			// 处理失败消息：记录失败日志 + 更新状态为 5（理解失败）
 			return h.processFailedResponseInTx(ctx, session, &aiResp)
 		}
 
-		// 3. 处理成功响应（包括数据保存和状态更新）
+		// 2. 处理成功响应（包括数据保存和状态更新）
 		if err := h.processSuccessResponseInTx(ctx, session, &aiResp); err != nil {
 			return err
 		}
 
-		// 4. 记录消息处理日志
+		// 3. 记录消息处理日志（使用 INSERT IGNORE 避免并发问题）
+		kafkaMessageLogModel := kafka_message_log.NewKafkaMessageLogModelSession(session)
 		if _, err := kafkaMessageLogModel.InsertSuccess(ctx, aiResp.MessageId, aiResp.FormViewId); err != nil {
 			return fmt.Errorf("记录Kafka消息日志失败: %w", err)
 		}

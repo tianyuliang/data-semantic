@@ -92,7 +92,7 @@ func (m *KafkaMessageLogModelSqlx) ExistsSuccessByMessageId(ctx context.Context,
 	return count > 0, nil
 }
 
-// InsertSuccess 插入成功处理记录
+// InsertSuccess 插入成功处理记录（使用 INSERT IGNORE 避免并发问题）
 func (m *KafkaMessageLogModelSqlx) InsertSuccess(ctx context.Context, messageId, formViewId string) (*KafkaMessageLog, error) {
 	data := &KafkaMessageLog{
 		Id:          uuid.New().String(),
@@ -101,7 +101,14 @@ func (m *KafkaMessageLogModelSqlx) InsertSuccess(ctx context.Context, messageId,
 		ProcessedAt: time.Now(),
 		Status:      1, // 处理成功
 	}
-	return m.Insert(ctx, data)
+	// 使用 INSERT IGNORE，如果 message_id 已存在则忽略
+	query := `INSERT IGNORE INTO t_kafka_message_log (id, message_id, form_view_id, processed_at, status, error_msg)
+	           VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.MessageId, data.FormViewId, data.ProcessedAt, data.Status, data.ErrorMsg)
+	if err != nil {
+		return nil, fmt.Errorf("insert ignore kafka message log failed: %w", err)
+	}
+	return data, nil
 }
 
 // InsertFailure 插入失败处理记录
