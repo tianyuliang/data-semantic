@@ -25,7 +25,7 @@ type (
 	}
 	GenerateUnderstandingReq {
 		Id     string           `path:"id" validate:"required"`
-		Fields []FieldSelection `json:"fields,omitempty"`
+		Fields []FieldSelection `json:"fields,optional"`
 	}
 	GenerateUnderstandingResp {
 		UnderstandStatus int8 `json:"understand_status"`
@@ -45,7 +45,6 @@ type (
 		OnlyIncomplete *bool   `form:"only_incomplete,optional"`
 	}
 	GetFieldsResp {
-		CurrentVersion    int                 `json:"current_version"`
 		TableBusinessName *string             `json:"table_business_name"`
 		TableTechName     string              `json:"table_tech_name"`
 		TableDescription  *string             `json:"table_description"`
@@ -153,7 +152,7 @@ type (
 @server (
 	prefix: /api/v1/data-semantic
 	group:  data_semantic
-	middleware: TokenInterception
+	middleware: JWTAuth
 )
 service api {
 	@doc "查询库表理解状态"

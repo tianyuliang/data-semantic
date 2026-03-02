@@ -56,8 +56,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	userMgmTimeout := time.Duration(c.UserManagement.TimeoutSeconds) * time.Second
 	userMgmClient := usermgm.NewClient(c.UserManagement.URL, userMgmTimeout)
 
-	// 创建 JWT 认证中间件 (传入 Hydra 和 UserMgm 客户端)
-	jwtAuth := middleware.JWTAuth(hydraClient, userMgmClient)
+	// 创建 JWT 认证中间件 (使用 goctl 生成的中间件结构体)
+	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(hydraClient, userMgmClient)
+	jwtAuth := jwtAuthMiddleware.Handle
 
 	return &ServiceContext{
 		Config:    c,

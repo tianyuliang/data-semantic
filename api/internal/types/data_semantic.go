@@ -13,7 +13,7 @@ type DeleteBusinessObjectsResp struct {
 
 type GenerateUnderstandingReq struct {
 	Id     string           `path:"id" validate:"required"`
-	Fields []FieldSelection `json:"fields,omitempty"`
+	Fields []FieldSelection `json:"fields,optional"`
 }
 
 type GenerateUnderstandingResp struct {
@@ -38,7 +38,6 @@ type GetFieldsReq struct {
 }
 
 type GetFieldsResp struct {
-	CurrentVersion    *int                `json:"current_version"`
 	TableBusinessName *string             `json:"table_business_name"`
 	TableTechName     string              `json:"table_tech_name"`
 	TableDescription  *string             `json:"table_description"`

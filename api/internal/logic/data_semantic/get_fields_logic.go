@@ -93,9 +93,7 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	// 应用过滤条件
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
-	version := tableInfoTemp.Version
 	return &types.GetFieldsResp{
-		CurrentVersion:    &version,
 		TableBusinessName: tableInfoTemp.TableBusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  tableInfoTemp.TableDescription,
@@ -136,7 +134,6 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
 	return &types.GetFieldsResp{
-		CurrentVersion:    nil, // 正式表无版本号概念
 		TableBusinessName: formViewData.BusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  formViewData.Description,
