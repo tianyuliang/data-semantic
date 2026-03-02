@@ -31,9 +31,11 @@ type Config struct {
 		Type string
 		// Kafka 配置
 		Kafka struct {
-			Brokers []string
-			Topic   string
-			Group   string
+			Brokers  []string
+			Topic    string
+			Group    string
+			Username string `json:",optional"` // SASL 用户名
+			Password string `json:",optional"` // SASL 密码
 		}
 		// Redis 配置 (当 Type=redis 时使用)
 		Redis struct {

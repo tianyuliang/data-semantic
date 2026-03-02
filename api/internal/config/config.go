@@ -33,6 +33,9 @@ type Config struct {
 
 	// UserManagement 服务配置
 	UserManagement UserManagementConfig
+
+	// Kafka 配置
+	Kafka KafkaConfig
 }
 
 // DBConfig 数据库配置
@@ -103,4 +106,11 @@ type AIServiceConfig struct {
 type UserManagementConfig struct {
 	URL            string `json:",optional"` // UserManagement 服务地址
 	TimeoutSeconds int    `json:",default=10"` // HTTP 请求超时时间（秒）
+}
+
+// KafkaConfig Kafka 配置
+type KafkaConfig struct {
+	Brokers  []string `json:",optional"` // Kafka broker 地址列表
+	Username string   `json:",optional"` // SASL 用户名
+	Password string   `json:",optional"` // SASL 密码
 }

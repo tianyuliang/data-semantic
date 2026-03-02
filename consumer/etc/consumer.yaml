@@ -25,6 +25,8 @@ MQ:
       - localhost:9092
     Topic: data-understanding-responses
     Group: data-semantic-consumer-group
+    Username: ""  # SASL 用户名（可选）
+    Password: ""  # SASL 密码（可选）
 
   # Redis 配置 (当 Type=redis 时使用)
   Redis:

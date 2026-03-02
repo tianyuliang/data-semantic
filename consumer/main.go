@@ -41,8 +41,10 @@ func main() {
 	brokers := c.MQ.Kafka.Brokers
 	groupID := c.MQ.Kafka.Group
 	topic := c.MQ.Kafka.Topic
+	username := c.MQ.Kafka.Username
+	password := c.MQ.Kafka.Password
 
-	consumer, err := logic.NewKafkaConsumer(brokers, groupID, []string{topic})
+	consumer, err := logic.NewKafkaConsumerWithAuth(brokers, groupID, []string{topic}, username, password)
 	if err != nil {
 		logx.Errorf("创建Kafka消费者失败: %v", err)
 		os.Exit(1)

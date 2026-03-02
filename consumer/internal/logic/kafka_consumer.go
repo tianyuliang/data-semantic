@@ -22,11 +22,24 @@ type MessageHandler interface {
 
 // NewKafkaConsumer 创建Kafka消费者
 func NewKafkaConsumer(brokers []string, groupID string, topics []string) (*KafkaConsumer, error) {
+	return NewKafkaConsumerWithAuth(brokers, groupID, topics, "", "")
+}
+
+// NewKafkaConsumerWithAuth 创建带认证的Kafka消费者
+func NewKafkaConsumerWithAuth(brokers []string, groupID string, topics []string, username, password string) (*KafkaConsumer, error) {
 	// Kafka 配置
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+	// SASL 认证配置
+	if username != "" && password != "" {
+		config.Net.SASL.Enable = true
+		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
+		config.Net.SASL.User = username
+		config.Net.SASL.Password = password
+	}
 
 	// 创建消费者组
 	consumer, err := sarama.NewConsumerGroup(brokers, groupID, config)

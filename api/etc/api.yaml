@@ -67,6 +67,8 @@ Swagger:
 Kafka:
   Brokers:
     - localhost:9092
+  Username: ""  # SASL 用户名（可选）
+  Password: ""  # SASL 密码（可选）
 
 # AI 服务配置
 AIService:
