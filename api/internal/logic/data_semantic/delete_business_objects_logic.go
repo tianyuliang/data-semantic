@@ -5,7 +5,6 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -45,7 +44,7 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 2. 获取当前最新版本号

@@ -5,7 +5,6 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
@@ -50,7 +49,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 2. 获取当前版本号
@@ -167,8 +166,8 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
 				Id:         obj.Id,
 				ObjectName: obj.ObjectName,
 				FormViewId: obj.FormViewId,
-				ObjectType: 1,           // 默认对象类型
-				Status:     1,           // 默认状态
+				ObjectType: 1, // 默认对象类型
+				Status:     1, // 默认状态
 			}
 			if _, err := formalModel.Insert(ctx, newObj); err != nil {
 				return 0, 0, 0, err

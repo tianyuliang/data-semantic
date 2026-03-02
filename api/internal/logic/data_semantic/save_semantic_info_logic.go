@@ -5,7 +5,6 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -45,7 +44,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 2. 使用事务执行更新操作（保证原子性）
@@ -56,10 +55,10 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
-				Id:               *req.TableData.Id,
-				FormViewId:       req.Id,
+				Id:                *req.TableData.Id,
+				FormViewId:        req.Id,
 				TableBusinessName: req.TableData.TableBusinessName,
-				TableDescription: req.TableData.TableDescription,
+				TableDescription:  req.TableData.TableDescription,
 			}
 
 			err := formViewInfoTempModel.Update(ctx, tableInfoTemp)
@@ -75,10 +74,10 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
-				Id:               *req.FieldData.Id,
+				Id:                *req.FieldData.Id,
 				FieldBusinessName: req.FieldData.FieldBusinessName,
-				FieldRole:        req.FieldData.FieldRole,
-				FieldDescription: req.FieldData.FieldDescription,
+				FieldRole:         req.FieldData.FieldRole,
+				FieldDescription:  req.FieldData.FieldDescription,
 			}
 
 			err := formViewFieldInfoTempModel.Update(ctx, fieldInfoTemp)

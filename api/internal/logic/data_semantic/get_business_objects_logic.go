@@ -48,7 +48,7 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 
 	// 2. 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, "当前状态为理解中，请等待处理完成后再查询")
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 3. 状态 2 (待确认) - 查询临时表最新版本数据

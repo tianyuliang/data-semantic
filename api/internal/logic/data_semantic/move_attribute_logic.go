@@ -45,7 +45,7 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 2. 使用事务执行调整操作（保证原子性）

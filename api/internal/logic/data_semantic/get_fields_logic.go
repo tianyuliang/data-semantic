@@ -5,7 +5,6 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
@@ -51,7 +50,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 
 	// 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", understandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 状态 2 (待确认) - 查询临时表
@@ -137,7 +136,7 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
 	return &types.GetFieldsResp{
-		CurrentVersion:    nil,  // 正式表无版本号概念
+		CurrentVersion:    nil, // 正式表无版本号概念
 		TableBusinessName: formViewData.BusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  formViewData.Description,

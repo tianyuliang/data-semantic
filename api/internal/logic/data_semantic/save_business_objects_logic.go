@@ -44,7 +44,7 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
 	}
 
 	// 2. 根据 type 决定更新业务对象还是属性
