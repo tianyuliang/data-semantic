@@ -32,7 +32,7 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 }
 
 // Call sends a request to the AI service
-func (c *Client) Call(requestType RequestType, messageID string, formView *FormView) (*AIServiceResponse, error) {
+func (c *Client) Call(requestType RequestType, messageID string, formView *FormView, token string) (*AIServiceResponse, error) {
 	// Build request body
 	requestBody := map[string]interface{}{
 		"message_id":   messageID,
@@ -61,6 +61,9 @@ func (c *Client) Call(requestType RequestType, messageID string, formView *FormV
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", token)
+	}
 
 	// Send request
 	resp, err := c.httpClient.Do(req)

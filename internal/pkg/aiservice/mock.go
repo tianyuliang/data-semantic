@@ -17,7 +17,7 @@ func NewMockClient() *MockClient {
 
 // Call 模拟调用 AI 服务
 // 在测试环境中返回成功的模拟响应
-func (c *MockClient) Call(requestType RequestType, messageID string, formView *FormView) (*AIServiceResponse, error) {
+func (c *MockClient) Call(requestType RequestType, messageID string, formView *FormView, token string) (*AIServiceResponse, error) {
 	return &AIServiceResponse{
 		TaskID:    "mock-task-" + messageID,
 		Status:    "success",

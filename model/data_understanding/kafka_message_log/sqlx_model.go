@@ -27,7 +27,7 @@ type KafkaMessageLogModelSqlx struct {
 
 // Insert 插入Kafka消息处理记录
 func (m *KafkaMessageLogModelSqlx) Insert(ctx context.Context, data *KafkaMessageLog) (*KafkaMessageLog, error) {
-	query := `INSERT INTO t_kafka_message_log (id, message_id, form_view_id, processed_at, status, error_msg)
+	query := `INSERT IGNORE INTO t_kafka_message_log (id, message_id, form_view_id, processed_at, status, error_msg)
 	           VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.MessageId, data.FormViewId, data.ProcessedAt, data.Status, data.ErrorMsg)
 	if err != nil {

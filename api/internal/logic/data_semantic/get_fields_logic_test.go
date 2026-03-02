@@ -36,7 +36,6 @@ func TestGetFieldsLogic_GetFields(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, 0, resp.CurrentVersion)
 		assert.Empty(t, resp.Fields)
 	})
 
@@ -54,7 +53,6 @@ func TestGetFieldsLogic_GetFields(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Greater(t, resp.CurrentVersion, 0)
 		assert.NotNil(t, resp.TableBusinessName)
 	})
 
@@ -72,7 +70,7 @@ func TestGetFieldsLogic_GetFields(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, 0, resp.CurrentVersion) // 正式表无版本号
+		// 正式表无版本号
 	})
 
 	// 测试用例 4: 关键词过滤

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
@@ -124,7 +125,15 @@ func (l *GenerateUnderstandingLogic) callAIService(formViewId string, formViewDa
 	logx.WithContext(l.ctx).Infof("调用 AI 服务: request_type=%s, field_count=%d", requestType, len(fields))
 
 	// 调用 AI 服务
-	aiResponse, err := l.svcCtx.AIClient.Call(requestType, messageID, aiFormView)
+	// 从 context 获取 token
+	token := ""
+	if t := l.ctx.Value(middleware.Token); t != nil {
+		token = t.(string)
+	}
+	if token == "" {
+		return fmt.Errorf("调用 AI 服务失败: token 为空")
+	}
+	aiResponse, err := l.svcCtx.AIClient.Call(requestType, messageID, aiFormView, token)
 	if err != nil {
 		return fmt.Errorf("调用 AI 服务失败: %w", err)
 	}
