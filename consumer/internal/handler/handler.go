@@ -37,11 +37,9 @@ type AIResponse struct {
 	ResponseType string `json:"response_type,omitempty"` // 消息类型: full_understanding, regenerate_business_objects
 	Status       string `json:"status,omitempty"`        // 消息状态: success, failed
 	// 表信息（全量生成时有值）
-	TableInfo       *TableInfo  `json:"table_info,omitempty"`
-	TableSemantic   *TableInfo  `json:"table_semantic,omitempty"` // 兼容字段
+	TableSemantic *TableInfo `json:"table_semantic,omitempty"` // 兼容字段
 	// 字段列表（全量生成时有值）
-	Fields          []FieldInfo `json:"fields,omitempty"`
-	FieldsSemantic  []FieldInfo `json:"fields_semantic,omitempty"` // 兼容字段
+	FieldsSemantic []FieldInfo `json:"fields_semantic,omitempty"` // 兼容字段
 	// 业务对象列表（全量生成和部分生成都有值）
 	BusinessObjects []BusinessObjectInfo `json:"business_objects,omitempty"`
 	// 未识别出属性的字段列表（AI未归入任何业务对象的字段）
@@ -73,8 +71,8 @@ type FieldInfo struct {
 
 // BusinessObjectInfo 业务对象信息
 type BusinessObjectInfo struct {
-	Id         string         `json:"id"`
-	ObjectName string         `json:"object_name"`
+	Id         string          `json:"id"`
+	ObjectName string          `json:"object_name"`
 	Attributes []AttributeInfo `json:"attributes,omitempty"`
 }
 
@@ -166,15 +164,15 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 		logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
 
 		// 1.1 保存表信息到临时表（如果有）
-		if aiResp.TableInfo != nil {
-			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableInfo); err != nil {
+		if aiResp.TableSemantic != nil {
+			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableSemantic); err != nil {
 				return fmt.Errorf("保存表信息失败: %w", err)
 			}
 		}
 
 		// 1.2 保存字段信息到临时表（如果有）
-		if len(aiResp.Fields) > 0 {
-			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.Fields); err != nil {
+		if len(aiResp.FieldsSemantic) > 0 {
+			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.FieldsSemantic); err != nil {
 				return fmt.Errorf("保存字段信息失败: %w", err)
 			}
 		}
@@ -241,7 +239,7 @@ func (h *DataUnderstandingHandler) isFullUnderstanding(aiResp *AIResponse) bool 
 	}
 
 	// 兼容旧逻辑：如果有表信息或字段信息，则认为是全量生成
-	return aiResp.TableInfo != nil || len(aiResp.Fields) > 0
+	return aiResp.TableSemantic != nil || len(aiResp.FieldsSemantic) > 0
 }
 
 // getNextVersionWithLock 获取下一个版本号（使用行锁防止并发冲突）
