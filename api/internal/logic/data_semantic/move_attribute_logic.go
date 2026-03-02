@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -40,11 +41,11 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
 	}
 
 	// 2. 使用事务执行调整操作（保证原子性）
@@ -55,28 +56,28 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 		// 3. 验证目标业务对象是否存在
 		targetObject, err := businessObjectTempModel.FindOneById(ctx, req.TargetObjectUuid)
 		if err != nil {
-			return errorx.NewQueryFailed("目标业务对象", err)
+			return errorx.Detail(errorx.QueryFailed, err, "目标业务对象")
 		}
 		logx.WithContext(ctx).Infof("Found target business object: id=%s, name=%s", targetObject.Id, targetObject.ObjectName)
 
 		// 4. 验证属性是否存在
 		attribute, err := businessObjectAttrTempModel.FindOneById(ctx, req.AttributeId)
 		if err != nil {
-			return errorx.NewQueryFailed("属性", err)
+			return errorx.Detail(errorx.QueryFailed, err, "属性")
 		}
 		logx.WithContext(ctx).Infof("Found attribute: id=%s, name=%s, currentObjectId=%s", attribute.Id, attribute.AttrName, attribute.BusinessObjectId)
 
 		// 5. 校验 form_view_id：属性和目标业务对象必须属于同一库表
 		if attribute.FormViewId != req.Id {
-			return errorx.Newf(errorx.ErrCodeInvalidParam, "属性不属于当前库表: %s", attribute.FormViewId)
+			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("属性不属于当前库表: %s", attribute.FormViewId))
 		}
 		if targetObject.FormViewId != req.Id {
-			return errorx.Newf(errorx.ErrCodeInvalidParam, "目标业务对象不属于当前库表: %s", targetObject.FormViewId)
+			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("目标业务对象不属于当前库表: %s", targetObject.FormViewId))
 		}
 
 		// 6. 检查是否自移动（将属性移动到当前归属的业务对象）
 		if attribute.BusinessObjectId == req.TargetObjectUuid {
-			return errorx.Newf(errorx.ErrCodeInvalidParam, "属性已归属到该业务对象，无需移动")
+			return errorx.Desc(errorx.PublicInvalidParameter, "属性已归属到该业务对象，无需移动")
 		}
 
 		// 7. 检查目标业务对象下，同一字段是否已存在同名属性
@@ -88,7 +89,7 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 		// 8. 更新属性的 business_object_id
 		err = businessObjectAttrTempModel.UpdateBusinessObjectId(ctx, req.AttributeId, req.TargetObjectUuid)
 		if err != nil {
-			return errorx.NewUpdateFailed("属性归属", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "属性归属")
 		}
 
 		logx.WithContext(ctx).Infof("Moved attribute %s from object %s to object %s",
@@ -112,7 +113,7 @@ func (l *MoveAttributeLogic) MoveAttribute(req *types.MoveAttributeReq) (resp *t
 func (l *MoveAttributeLogic) checkDuplicateAttrInTarget(model business_object_attributes_temp.BusinessObjectAttributesTempModel, businessObjectId, formViewFieldId, attrName, excludeAttrId string) error {
 	targetAttrs, err := model.FindByBusinessObjectId(l.ctx, businessObjectId)
 	if err != nil {
-		return errorx.NewQueryFailed("目标业务对象的属性列表", err)
+		return errorx.Detail(errorx.QueryFailed, err, "目标业务对象的属性列表")
 	}
 
 	for _, targetAttr := range targetAttrs {
@@ -122,7 +123,7 @@ func (l *MoveAttributeLogic) checkDuplicateAttrInTarget(model business_object_at
 		}
 		// 同一业务对象下，同一字段的属性名称不能重复
 		if targetAttr.FormViewFieldId == formViewFieldId && targetAttr.AttrName == attrName {
-			return errorx.NewDuplicateName("目标业务对象下该字段的属性", attrName)
+			return errorx.Desc(errorx.DuplicateName, "目标业务对象下该字段的属性", attrName)
 		}
 	}
 	return nil

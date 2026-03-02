@@ -36,7 +36,7 @@ func (l *GetStatusLogic) GetStatus(req *types.GetStatusReq) (resp *types.GetStat
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	resp = &types.GetStatusResp{

@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -40,28 +41,28 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
 	}
 
 	// 2. 获取当前最新版本号
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("最新版本号", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "最新版本号")
 	}
 	if latestVersion == 0 {
-		return nil, errorx.Newf(errorx.ErrCodeInvalidParam, "没有可删除的数据，版本号为0")
+		return nil, errorx.Desc(errorx.PublicInvalidParameter, "没有可删除的数据，版本号为0")
 	}
 
 	// 3. 检查正式表是否有数据（在事务外查询，确定新状态）
 	businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
 	formalDataCount, err := businessObjectModel.CountByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("正式表数据", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "正式表数据")
 	}
 
 	var newStatus int8
@@ -83,19 +84,19 @@ func (l *DeleteBusinessObjectsLogic) DeleteBusinessObjects(req *types.DeleteBusi
 		// 逻辑删除最新版本的业务对象临时数据
 		err := tempModel.DeleteByFormViewIdAndVersion(ctx, req.Id, latestVersion)
 		if err != nil {
-			return errorx.NewDeleteFailed("临时表业务对象数据", err)
+			return errorx.Detail(errorx.DeleteFailed, err, "临时表业务对象数据")
 		}
 
 		// 逻辑删除最新版本的属性临时数据
 		err = tempAttrModel.DeleteByFormViewIdAndVersion(ctx, req.Id, latestVersion)
 		if err != nil {
-			return errorx.NewDeleteFailed("临时表属性数据", err)
+			return errorx.Detail(errorx.DeleteFailed, err, "临时表属性数据")
 		}
 
 		// 更新理解状态
 		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, newStatus)
 		if err != nil {
-			return errorx.NewUpdateFailed("理解状态", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "理解状态")
 		}
 
 		return nil

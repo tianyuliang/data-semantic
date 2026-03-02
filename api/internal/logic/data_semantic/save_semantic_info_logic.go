@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -40,11 +41,11 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
 	}
 
 	// 2. 使用事务执行更新操作（保证原子性）
@@ -55,15 +56,15 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
-				Id:                *req.TableData.Id,
-				FormViewId:        req.Id,
-				TableBusinessName:  req.TableData.TableBusinessName,
-				TableDescription:   req.TableData.TableDescription,
+				Id:               *req.TableData.Id,
+				FormViewId:       req.Id,
+				TableBusinessName: req.TableData.TableBusinessName,
+				TableDescription: req.TableData.TableDescription,
 			}
 
 			err := formViewInfoTempModel.Update(ctx, tableInfoTemp)
 			if err != nil {
-				return errorx.NewUpdateFailed("库表信息", err)
+				return errorx.Detail(errorx.UpdateFailed, err, "库表信息")
 			}
 			logx.WithContext(ctx).Infof("Updated table info: id=%s", *req.TableData.Id)
 		}
@@ -74,15 +75,15 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
-				Id:                *req.FieldData.Id,
+				Id:               *req.FieldData.Id,
 				FieldBusinessName: req.FieldData.FieldBusinessName,
 				FieldRole:        req.FieldData.FieldRole,
-				FieldDescription:  req.FieldData.FieldDescription,
+				FieldDescription: req.FieldData.FieldDescription,
 			}
 
 			err := formViewFieldInfoTempModel.Update(ctx, fieldInfoTemp)
 			if err != nil {
-				return errorx.NewUpdateFailed("字段信息", err)
+				return errorx.Detail(errorx.UpdateFailed, err, "字段信息")
 			}
 			logx.WithContext(ctx).Infof("Updated field info: id=%s", *req.FieldData.Id)
 		}

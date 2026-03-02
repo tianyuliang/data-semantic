@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
@@ -41,7 +42,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	tableInfo, err := formViewModel.GetTableInfo(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图信息", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图信息")
 	}
 
 	// 2. 根据状态返回不同数据源
@@ -50,7 +51,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 
 	// 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, errorx.NewInvalidUnderstandStatus(understandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", understandStatus))
 	}
 
 	// 状态 2 (待确认) - 查询临时表
@@ -68,14 +69,14 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
 	tableInfoTemp, err := formViewInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表信息临时表", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表信息临时表")
 	}
 
 	// 查询字段信息临时表
 	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
 	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("字段信息临时表", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "字段信息临时表")
 	}
 
 	// 查询正式表的完整字段信息（包含语义信息）作为基础
@@ -109,14 +110,14 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图信息", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图信息")
 	}
 
 	// 查询正式表的字段完整信息 (从 form_view_field 获取包含语义信息的完整数据)
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
 	fullFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("字段完整信息", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "字段完整信息")
 	}
 
 	// 构建字段信息

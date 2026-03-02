@@ -23,31 +23,15 @@ var Success = map[string]string{
 const (
 	publicPreCoder = publicModelName + "."
 
-	PublicInternalError         = publicPreCoder + "InternalError"
-	PublicInvalidParameter      = publicPreCoder + "InvalidParameter"
-	PublicInvalidParameterJson  = publicPreCoder + "InvalidParameterJson"
-	PublicInvalidParameterValue = publicPreCoder + "InvalidParameterValue"
-	PublicDatabaseError         = publicPreCoder + "DatabaseError"
-	PublicRequestParameterError = publicPreCoder + "RequestParameterError"
-	PublicUniqueIDError         = publicPreCoder + "PublicUniqueIDError"
+	// 通用错误
+	PublicInternalError    = publicPreCoder + "InternalError"
+	PublicInvalidParameter = publicPreCoder + "InvalidParameter"
 
-	NotAuthentication                     = publicPreCoder + "NotAuthentication"
-	HydraException                        = publicPreCoder + "HydraException"
-	AuthServiceException                  = publicPreCoder + "AuthServiceException"
-	AuthenticationFailure                 = publicPreCoder + "AuthenticationFailure"
-	GetUserInfoFailure                    = publicPreCoder + "GetUserInfoFailure"
-	GetAppInfoFailure                     = publicPreCoder + "GetAppInfoFailure"
-	GetProtonAppInfoFailure               = publicPreCoder + "GetProtonAppInfoFailure"
-	AuthorizationFailure                  = publicPreCoder + "AuthorizationFailure"
-	PermissionCheckFailure                = publicPreCoder + "PermissionCheckFailure"
-	AccessTypeNotSupport                  = publicPreCoder + "AccessTypeNotSupport"
-	AccessControlClientTokenMustHasUserId = publicPreCoder + "AccessControlClientTokenMustHasUserId"
-
-	ContextNotHaveToken    = publicPreCoder + "ContextNotHaveToken"
-	ContextNotHaveUserInfo = publicPreCoder + "ContextNotHaveUserInfo"
-	CallAfSailorError      = publicPreCoder + "CallAfSailorError"
-
-	PublicResourceNotFoundError = publicPreCoder + "ResourceNotFoundError"
+	// 认证相关错误（auth.go 使用）
+	NotAuthentication      = publicPreCoder + "NotAuthentication"
+	HydraException         = publicPreCoder + "HydraException"
+	AuthenticationFailure  = publicPreCoder + "AuthenticationFailure"
+	GetUserInfoFailure     = publicPreCoder + "GetUserInfoFailure"
 )
 
 var publicErrorMap = ErrorCode{
@@ -61,30 +45,6 @@ var publicErrorMap = ErrorCode{
 		Cause:       "",
 		Solution:    "请使用请求参数构造规范化的请求字符串。详细信息参见产品 API 文档",
 	},
-	PublicInvalidParameterJson: {
-		Description: "参数值校验不通过：json格式错误",
-		Solution:    "请使用请求参数构造规范化的请求字符串，详细信息参见产品 API 文档",
-	},
-	PublicInvalidParameterValue: {
-		Description: "参数值[param]校验不通过",
-		Cause:       "",
-		Solution:    "请使用请求参数构造规范化的请求字符串。详细信息参见产品 API 文档",
-	},
-	PublicDatabaseError: {
-		Description: "数据库异常",
-		Cause:       "",
-		Solution:    "请检查数据库状态",
-	},
-	PublicRequestParameterError: {
-		Description: "请求参数格式错误",
-		Cause:       "输入请求参数格式或内容有问题",
-		Solution:    "请输入正确格式的请求参数",
-	},
-	PublicUniqueIDError: {
-		Description: "ID生成失败",
-		Cause:       "",
-		Solution:    "",
-	},
 	NotAuthentication: {
 		Description: "无用户登录信息",
 		Cause:       "",
@@ -94,9 +54,6 @@ var publicErrorMap = ErrorCode{
 		Description: "授权服务异常",
 		Cause:       "",
 		Solution:    "",
-	},
-	AuthServiceException: {
-		Description: "授权服务异常",
 	},
 	AuthenticationFailure: {
 		Description: "用户登录已过期",
@@ -108,51 +65,47 @@ var publicErrorMap = ErrorCode{
 		Cause:       "",
 		Solution:    "",
 	},
-	GetAppInfoFailure: {
-		Description: "获取应用信息失败",
-		Cause:       "",
-		Solution:    "",
+}
+
+// ========== 数据理解相关错误码 ==========
+const (
+	dataUnderstandingPreCoder = "DataUnderstanding."
+
+	// 状态校验错误
+	InvalidUnderstandStatus = dataUnderstandingPreCoder + "InvalidUnderstandStatus"
+	DuplicateName            = dataUnderstandingPreCoder + "DuplicateName"
+
+	// 数据操作错误
+	QueryFailed  = dataUnderstandingPreCoder + "QueryFailed"
+	UpdateFailed = dataUnderstandingPreCoder + "UpdateFailed"
+	DeleteFailed = dataUnderstandingPreCoder + "DeleteFailed"
+)
+
+var dataUnderstandingErrorMap = ErrorCode{
+	InvalidUnderstandStatus: {
+		Description: "当前理解状态不允许此操作",
+		Cause:       "请检查当前理解状态",
+		Solution:    "等待数据处理完成后再操作",
 	},
-	GetProtonAppInfoFailure: {
-		Description: "获取部署控制台应用信息失败",
-		Cause:       "",
-		Solution:    "",
+	DuplicateName: {
+		Description: "[name_type]名称已存在: [name]",
+		Cause:       "名称冲突",
+		Solution:    "请使用不同的名称",
 	},
-	AuthorizationFailure: {
-		Description: "暂无权限，您可联系系统管理员配置",
-		Cause:       "",
-		Solution:    "",
+	QueryFailed: {
+		Description: "查询[operation]失败",
+		Cause:       "数据库查询异常",
+		Solution:    "请检查数据库状态和数据",
 	},
-	PermissionCheckFailure: {
-		Description: "暂无[permission_name]权限，您可联系管理员配置",
+	UpdateFailed: {
+		Description: "更新[operation]失败",
+		Cause:       "数据库更新异常",
+		Solution:    "请检查数据格式和数据库状态",
 	},
-	AccessTypeNotSupport: {
-		Description: "暂不支持的访问类型",
-		Cause:       "",
-		Solution:    "",
-	},
-	AccessControlClientTokenMustHasUserId: {
-		Description: "客户端token必须携带userId",
-		Cause:       "",
-		Solution:    "请重试",
-	},
-	ContextNotHaveToken: {
-		Description: "上下文中没有令牌",
-		Cause:       "",
-		Solution:    "请重试",
-	},
-	ContextNotHaveUserInfo: {
-		Description: "上下文中没有用户信息",
-		Cause:       "",
-		Solution:    "请重试",
-	},
-	CallAfSailorError: {
-		Description: "请求认知助手服务失败",
-		Solution:    "请检查配置及服务",
-	},
-	PublicResourceNotFoundError: {
-		Description: "资源不存在",
-		Solution:    "请检查参数和数据",
+	DeleteFailed: {
+		Description: "删除[operation]失败",
+		Cause:       "数据库删除异常",
+		Solution:    "请检查数据库状态",
 	},
 }
 
@@ -198,7 +151,7 @@ func RegisterErrorCode(errCodes ...ErrorCode) {
 }
 
 func init() {
-	RegisterErrorCode(publicErrorMap)
+	RegisterErrorCode(publicErrorMap, dataUnderstandingErrorMap)
 }
 
 func Desc(errCode string, args ...any) error {

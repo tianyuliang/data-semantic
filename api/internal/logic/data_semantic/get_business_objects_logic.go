@@ -42,14 +42,13 @@ func (l *GetBusinessObjectsLogic) GetBusinessObjects(req *types.GetBusinessObjec
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 	understandStatus := formViewData.UnderstandStatus
 
 	// 2. 状态 1 (理解中) - 返回错误，不允许查询
 	if understandStatus == form_view.StatusUnderstanding {
-		return nil, errorx.Newf(errorx.ErrCodeInvalidUnderstandStatus,
-			"当前状态为理解中，请等待处理完成后再查询")
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, "当前状态为理解中，请等待处理完成后再查询")
 	}
 
 	// 3. 状态 2 (待确认) - 查询临时表最新版本数据
@@ -108,12 +107,12 @@ func (l *GetBusinessObjectsLogic) buildObjectFromTemp(
 ) ([]types.BusinessObject, error) {
 	objTemp, err := tempModel.FindOneById(l.ctx, objectId)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("业务对象", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象")
 	}
 
 	attrsTemp, err := tempAttrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, objectId)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("业务对象属性", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象属性")
 	}
 
 	// 检查正式表是否存在同名对象
@@ -165,12 +164,12 @@ func (l *GetBusinessObjectsLogic) buildAllObjectsFromTemp(
 	// 查询临时表对象和属性
 	tempObjs, err := tempModel.FindByFormViewIdLatest(l.ctx, formViewId)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("业务对象列表", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象列表")
 	}
 
 	allTempAttrs, err := tempAttrModel.FindByFormViewIdLatestWithFieldInfo(l.ctx, formViewId)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("业务对象属性列表", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象属性列表")
 	}
 
 	// 按对象ID分组临时表属性
@@ -241,11 +240,11 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 		// 查询单个对象
 		obj, err := model.FindOneById(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象", err)
+			return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象")
 		}
 		attrs, err := attrModel.FindByBusinessObjectIdWithFieldInfo(l.ctx, *req.ObjectId)
 		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象属性", err)
+			return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象属性")
 		}
 		objects = []types.BusinessObject{{
 			Id:         obj.Id,
@@ -256,7 +255,7 @@ func (l *GetBusinessObjectsLogic) getBusinessObjectsFromFormal(req *types.GetBus
 		// 查询所有对象
 		objs, err := model.FindByFormViewId(l.ctx, req.Id)
 		if err != nil {
-			return nil, errorx.NewQueryFailed("业务对象列表", err)
+			return nil, errorx.Detail(errorx.QueryFailed, err, "业务对象列表")
 		}
 		objects = make([]types.BusinessObject, 0, len(objs))
 		for _, obj := range objs {

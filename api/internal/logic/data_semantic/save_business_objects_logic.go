@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -39,11 +40,11 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
 	}
 
 	// 2. 根据 type 决定更新业务对象还是属性
@@ -59,7 +60,7 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 			return nil, err
 		}
 	} else {
-		return nil, errorx.Newf(errorx.ErrCodeInvalidParam, "无效的 type 参数: %s，必须是 'object' 或 'attribute'", req.Type)
+		return nil, errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("无效的 type 参数: %s，必须是 'object' 或 'attribute'", req.Type))
 	}
 
 	// 注意：此操作不递增版本号，仅更新当前版本的临时数据
@@ -78,7 +79,7 @@ func (l *SaveBusinessObjectsLogic) saveBusinessObjectName(id, name string) error
 	// 先查询记录是否存在
 	objData, err := businessObjectTempModel.FindOneById(l.ctx, id)
 	if err != nil {
-		return errorx.NewQueryFailed("业务对象", err)
+		return errorx.Detail(errorx.QueryFailed, err, "业务对象")
 	}
 
 	// 名称重复校验：同一库表下不能有重复的业务对象名称
@@ -91,7 +92,7 @@ func (l *SaveBusinessObjectsLogic) saveBusinessObjectName(id, name string) error
 	objData.ObjectName = name
 	err = businessObjectTempModel.Update(l.ctx, objData)
 	if err != nil {
-		return errorx.NewUpdateFailed("业务对象名称", err)
+		return errorx.Detail(errorx.UpdateFailed, err, "业务对象名称")
 	}
 
 	logx.WithContext(l.ctx).Infof("Updated business object name: id=%s, name=%s", id, name)
@@ -105,7 +106,7 @@ func (l *SaveBusinessObjectsLogic) saveAttributeName(id, name string) error {
 	// 先查询记录是否存在
 	attrData, err := businessObjectAttrTempModel.FindOneById(l.ctx, id)
 	if err != nil {
-		return errorx.NewQueryFailed("业务对象属性", err)
+		return errorx.Detail(errorx.QueryFailed, err, "业务对象属性")
 	}
 
 	// 名称重复校验：同一业务对象下，同一字段的属性名称不能重复
@@ -118,7 +119,7 @@ func (l *SaveBusinessObjectsLogic) saveAttributeName(id, name string) error {
 	attrData.AttrName = name
 	err = businessObjectAttrTempModel.Update(l.ctx, attrData)
 	if err != nil {
-		return errorx.NewUpdateFailed("属性名称", err)
+		return errorx.Detail(errorx.UpdateFailed, err, "属性名称")
 	}
 
 	logx.WithContext(l.ctx).Infof("Updated attribute name: id=%s, name=%s", id, name)
@@ -131,10 +132,10 @@ func (l *SaveBusinessObjectsLogic) checkDuplicateObjectName(formViewId, name, ex
 	query := `SELECT COUNT(*) FROM t_business_object_temp WHERE form_view_id = ? AND object_name = ? AND id != ? AND deleted_at IS NULL`
 	err := l.svcCtx.DB.QueryRowCtx(l.ctx, &count, query, formViewId, name, excludeId)
 	if err != nil {
-		return errorx.NewQueryFailed("业务对象名称重复校验", err)
+		return errorx.Detail(errorx.QueryFailed, err, "业务对象名称重复校验")
 	}
 	if count > 0 {
-		return errorx.NewDuplicateName("业务对象", name)
+		return errorx.Desc(errorx.DuplicateName, "业务对象", name)
 	}
 	return nil
 }
@@ -145,10 +146,10 @@ func (l *SaveBusinessObjectsLogic) checkDuplicateAttrName(businessObjectId, form
 	query := `SELECT COUNT(*) FROM t_business_object_attributes_temp WHERE business_object_id = ? AND form_view_field_id = ? AND attr_name = ? AND id != ? AND deleted_at IS NULL`
 	err := l.svcCtx.DB.QueryRowCtx(l.ctx, &count, query, businessObjectId, formViewFieldId, name, excludeId)
 	if err != nil {
-		return errorx.NewQueryFailed("属性名称重复校验", err)
+		return errorx.Detail(errorx.QueryFailed, err, "属性名称重复校验")
 	}
 	if count > 0 {
-		return errorx.NewDuplicateName("属性", name)
+		return errorx.Desc(errorx.DuplicateName, "属性", name)
 	}
 	return nil
 }

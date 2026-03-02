@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
@@ -45,21 +46,21 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
 	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("库表视图", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
 	}
 
 	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.NewInvalidUnderstandStatus(formViewData.UnderstandStatus)
+		return nil, errorx.Desc(errorx.InvalidUnderstandStatus, fmt.Sprintf("%d", formViewData.UnderstandStatus))
 	}
 
 	// 2. 获取当前版本号
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSqlx(l.svcCtx.DB)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		return nil, errorx.NewQueryFailed("当前版本号", err)
+		return nil, errorx.Detail(errorx.QueryFailed, err, "当前版本号")
 	}
 	if latestVersion == 0 {
-		return nil, errorx.Newf(errorx.ErrCodeInvalidParam, "没有可提交的数据，版本号为0")
+		return nil, errorx.Desc(errorx.PublicInvalidParameter, "没有可提交的数据，版本号为0")
 	}
 
 	// 3. 开启事务处理
@@ -81,27 +82,27 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		// ========== 合并业务对象（基于业务主键：form_view_id + object_name）==========
 		objInserted, objUpdated, objDeleted, err := l.mergeBusinessObjects(ctx, req.Id, latestVersion, tempModel, formalModel)
 		if err != nil {
-			return errorx.NewUpdateFailed("业务对象", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "业务对象")
 		}
 		logx.WithContext(ctx).Infof("Merged business objects: inserted=%d, updated=%d, deleted=%d", objInserted, objUpdated, objDeleted)
 
 		// ========== 合并业务对象属性（基于业务对象匹配 + attr_name + form_view_field_id）==========
 		attrInserted, attrUpdated, attrDeleted, err := l.mergeBusinessObjectAttributes(ctx, req.Id, latestVersion, tempModel, tempAttrModel, formalModel, formalAttrModel)
 		if err != nil {
-			return errorx.NewUpdateFailed("属性", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "属性")
 		}
 		logx.WithContext(ctx).Infof("Merged attributes: inserted=%d, updated=%d, deleted=%d", attrInserted, attrUpdated, attrDeleted)
 
 		// ========== 更新库表业务名称和描述 ==========
 		if err := l.updateFormViewInfo(ctx, req.Id, latestVersion, tempFormViewInfoModel, formViewModelSession); err != nil {
-			return errorx.NewUpdateFailed("库表信息", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "库表信息")
 		}
 		logx.WithContext(ctx).Infof("Updated form view info")
 
 		// ========== 更新字段业务名称、角色和描述 ==========
 		fieldUpdated, err := l.updateFormViewFieldInfo(ctx, req.Id, latestVersion, tempFormViewFieldInfoModel, formViewFieldModel)
 		if err != nil {
-			return errorx.NewUpdateFailed("字段信息", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "字段信息")
 		}
 		logx.WithContext(ctx).Infof("Updated form view field info: updated=%d", fieldUpdated)
 
@@ -110,7 +111,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		err = formViewModelSession.UpdateUnderstandStatus(ctx, req.Id, form_view.StatusCompleted)
 		if err != nil {
 			logx.WithContext(ctx).Errorf("=== 更新状态失败: %v ===", err)
-			return errorx.NewUpdateFailed("理解状态", err)
+			return errorx.Detail(errorx.UpdateFailed, err, "理解状态")
 		}
 		logx.WithContext(ctx).Infof("=== 状态更新成功 ===")
 
