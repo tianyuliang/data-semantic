@@ -46,7 +46,7 @@ func (m *FormViewFieldModelSqlx) FindByFormViewId(ctx context.Context, formViewI
 // FindFullByFormViewId 根据form_view_id查询字段完整信息 (包含语义信息)
 func (m *FormViewFieldModelSqlx) FindFullByFormViewId(ctx context.Context, formViewId string) ([]*FormViewField, error) {
 	var resp []*FormViewField
-	query := `SELECT id, form_view_id, technical_name, data_type, business_name, field_role, field_description
+	query := `SELECT id, form_view_id, technical_name, data_type, business_name, field_role, field_description, comment
 	          FROM form_view_field WHERE form_view_id = ? AND deleted_at = 0 ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
 	if err != nil {

@@ -774,18 +774,18 @@ service data-semantic-api {
             {
                 "form_view_field_id": "field-uuid-1",
                 "form_view_field_technical_name": "id",
-                "form_view_field_business_name": "ID",
                 "form_view_field_type": "BIGINT",
                 "form_view_field_role": "1",
-                "form_view_field_desc": "主键ID"
+                "form_view_field_desc": "主键ID",
+                "form_view_field_comment": "自增主键"
             },
             {
                 "form_view_field_id": "field-uuid-2",
                 "form_view_field_technical_name": "name",
-                "form_view_field_business_name": "姓名",
                 "form_view_field_type": "VARCHAR",
                 "form_view_field_role": "2",
-                "form_view_field_desc": "员工姓名"
+                "form_view_field_desc": "员工姓名",
+                "form_view_field_comment": "员工姓名字段"
             }
         ]
     }
@@ -806,14 +806,18 @@ service data-semantic-api {
             {
                 "form_view_field_id": "field-uuid-3",
                 "form_view_field_technical_name": "email",
-                "form_view_field_business_name": "邮箱",
-                "form_view_field_type": "VARCHAR"
+                "form_view_field_type": "VARCHAR",
+                "form_view_field_role": "",
+                "form_view_field_desc": "",
+                "form_view_field_comment": "员工邮箱地址"
             },
             {
                 "form_view_field_id": "field-uuid-4",
                 "form_view_field_technical_name": "phone",
-                "form_view_field_business_name": "电话",
-                "form_view_field_type": "VARCHAR"
+                "form_view_field_type": "VARCHAR",
+                "form_view_field_role": "",
+                "form_view_field_desc": "",
+                "form_view_field_comment": "联系电话"
             }
         ]
     }
@@ -834,10 +838,10 @@ service data-semantic-api {
             {
                 "form_view_field_id": "field-uuid-1",
                 "form_view_field_technical_name": "name",
-                "form_view_field_business_name": "姓名",
                 "form_view_field_type": "VARCHAR",
                 "form_view_field_role": "2",
-                "form_view_field_desc": "人员姓名"
+                "form_view_field_desc": "人员姓名",
+                "form_view_field_comment": "员工姓名字段"
             }
         ]
     }

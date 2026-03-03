@@ -32,12 +32,12 @@ type FormView struct {
 
 // FormViewField represents a field in the form view
 type FormViewField struct {
-	ID               string  `json:"form_view_field_id"`
-	TechnicalName    string  `json:"form_view_field_technical_name"`
-	BusinessName     string  `json:"form_view_field_business_name"`
-	Type             string  `json:"form_view_field_type"`
-	Role             string  `json:"form_view_field_role"`
-	Description      string  `json:"form_view_field_desc"`
+	ID            string `json:"form_view_field_id"`
+	TechnicalName string `json:"form_view_field_technical_name"`
+	Type          string `json:"form_view_field_type"`
+	Role          string `json:"form_view_field_role"`
+	Description   string `json:"form_view_field_desc"`
+	Comment       string `json:"form_view_field_comment"`
 }
 
 // ClientInterface AI 服务客户端接口

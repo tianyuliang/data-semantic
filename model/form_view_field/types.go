@@ -10,4 +10,5 @@ type FormViewField struct {
 	FieldBusinessName *string `db:"business_name"`
 	FieldRole        *int8  `db:"field_role"`
 	FieldDescription *string `db:"field_description"`
+	FieldComment     *string `db:"comment"`
 }

@@ -45,17 +45,17 @@ func FormViewFieldFromModel(f *form_view_field.FormViewField) FormViewField {
 		fieldDesc = *f.FieldDescription
 	}
 
-	fieldBusinessName := ""
-	if f.FieldBusinessName != nil {
-		fieldBusinessName = *f.FieldBusinessName
+	fieldComment := ""
+	if f.FieldComment != nil {
+		fieldComment = *f.FieldComment
 	}
 
 	return FormViewField{
 		ID:            f.Id,
 		TechnicalName: f.FieldTechName,
-		BusinessName:  fieldBusinessName,
 		Type:          f.FieldType,
 		Role:          fieldRole,
 		Description:   fieldDesc,
+		Comment:       fieldComment,
 	}
 }

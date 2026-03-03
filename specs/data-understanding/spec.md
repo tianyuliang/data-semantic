@@ -181,9 +181,9 @@ SO THAT 重新开始识别或放弃当前识别结果
 | form_view_field_id | 字段 UUID | 关联 form_view_field.id |
 | field_tech_name | 字段技术名称 | 来自 form_view_field.technical_name |
 | field_type | 字段类型 | 来自 form_view_field.data_type |
-| field_business_name | 字段业务名称 | 可选，最大 255 字符 |
 | field_role | 字段角色 | 枚举 1-8，可选 |
 | field_description | 字段描述 | 可选，最大 300 字符 |
+| field_comment | 字段注释 | 可选，来自 form_view_field.comment |
 
 ### 字段选择参数 (FieldSelection)
 
@@ -194,9 +194,9 @@ SO THAT 重新开始识别或放弃当前识别结果
 | form_view_field_id | 字段 UUID | 必填 |
 | field_tech_name | 字段技术名称 | 必填 |
 | field_type | 字段数据类型 | 必填 |
-| field_business_name | 字段业务名称 | 可选，用于增强 AI 分析效果 |
 | field_role | 字段角色 | 可选，用于增强 AI 分析效果 |
 | field_description | 字段描述 | 可选，用于增强 AI 分析效果 |
+| field_comment | 字段注释 | 可选，来自 form_view_field.comment |
 
 ### 业务对象数据
 
