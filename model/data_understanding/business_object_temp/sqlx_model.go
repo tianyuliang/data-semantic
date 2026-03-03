@@ -25,7 +25,7 @@ type BusinessObjectTempModelSqlx struct {
 
 // Insert 插入业务对象记录
 func (m *BusinessObjectTempModelSqlx) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
-	query := `INSERT INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
+	query := `INSERT IGNORE INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
 	           VALUES (?, ?, ?, ?, ?)`
 	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName)
 	if err != nil {
