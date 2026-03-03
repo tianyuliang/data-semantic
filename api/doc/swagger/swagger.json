@@ -36,13 +36,13 @@
             "type": "string",
             "name": "object_id",
             "in": "query",
-            "required": true
+            "allowEmptyValue": true
           },
           {
             "type": "string",
             "name": "keyword",
             "in": "query",
-            "required": true
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -78,6 +78,9 @@
                             "attr_name": {
                               "type": "string"
                             },
+                            "description": {
+                              "type": "string"
+                            },
                             "field_business_name": {
                               "type": "string"
                             },
@@ -107,6 +110,37 @@
                       }
                     }
                   }
+                },
+                "unidentified_fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "technical_name",
+                      "data_type"
+                    ],
+                    "properties": {
+                      "business_name": {
+                        "type": "string"
+                      },
+                      "data_type": {
+                        "type": "string"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "field_role": {
+                        "type": "integer"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "technical_name": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -126,6 +160,12 @@
         "summary": "保存业务对象及属性",
         "operationId": "dataSemanticSaveBusinessObjects",
         "parameters": [
+          {
+            "type": "string",
+            "name": "id",
+            "in": "path",
+            "required": true
+          },
           {
             "name": "body",
             "in": "body",
@@ -286,10 +326,7 @@
             "schema": {
               "type": "object",
               "properties": {
-                "attribute_count": {
-                  "type": "integer"
-                },
-                "object_count": {
+                "understand_status": {
                   "type": "integer"
                 }
               }
@@ -319,13 +356,13 @@
             "type": "string",
             "name": "keyword",
             "in": "query",
-            "required": true
+            "allowEmptyValue": true
           },
           {
             "type": "boolean",
             "name": "only_incomplete",
             "in": "query",
-            "required": true
+            "allowEmptyValue": true
           }
         ],
         "responses": {
@@ -334,9 +371,6 @@
             "schema": {
               "type": "object",
               "properties": {
-                "current_version": {
-                  "type": "integer"
-                },
                 "fields": {
                   "type": "array",
                   "items": {
@@ -367,6 +401,9 @@
                       },
                       "form_view_field_id": {
                         "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
                       }
                     }
                   }
@@ -375,6 +412,9 @@
                   "type": "string"
                 },
                 "table_description": {
+                  "type": "string"
+                },
+                "table_info_id": {
                   "type": "string"
                 },
                 "table_tech_name": {
@@ -412,9 +452,6 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [
-                "fields"
-              ],
               "properties": {
                 "fields": {
                   "type": "array",
@@ -495,20 +532,20 @@
             "required": true,
             "schema": {
               "type": "object",
-              "required": [
-                "tableData",
-                "fieldData"
-              ],
               "properties": {
                 "fieldData": {
                   "type": "object",
                   "required": [
-                    "id",
+                    "data_source",
                     "field_business_name",
                     "field_role",
                     "field_description"
                   ],
                   "properties": {
+                    "data_source": {
+                      "description": "数据来源: formal=正式表, temp=临时表",
+                      "type": "string"
+                    },
                     "field_business_name": {
                       "type": "string"
                     },
@@ -519,7 +556,7 @@
                       "type": "integer"
                     },
                     "id": {
-                      "description": "t_form_view_field_info_temp.id，用于 upsert 操作",
+                      "description": "数据 id (formal表id或temp表id)",
                       "type": "string"
                     }
                   }
@@ -527,13 +564,17 @@
                 "tableData": {
                   "type": "object",
                   "required": [
-                    "id",
+                    "data_source",
                     "table_business_name",
                     "table_description"
                   ],
                   "properties": {
+                    "data_source": {
+                      "description": "数据来源: formal=正式表, temp=临时表",
+                      "type": "string"
+                    },
                     "id": {
-                      "description": "t_form_view_info_temp.id，用于 upsert 操作",
+                      "description": "数据 id (formal表id或temp表id)",
                       "type": "string"
                     },
                     "table_business_name": {
@@ -587,9 +628,6 @@
             "schema": {
               "type": "object",
               "properties": {
-                "current_version": {
-                  "type": "integer"
-                },
                 "understand_status": {
                   "type": "integer"
                 }
@@ -661,7 +699,7 @@
       }
     }
   },
-  "x-date": "2026-02-10 10:53:00",
+  "x-date": "2026-03-03 09:46:25",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",
