@@ -96,17 +96,18 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 	// 解析消息为固定结构
 	var aiResp AIResponse
 	if err := json.Unmarshal(message.Value, &aiResp); err != nil {
-		logx.Errorf("解析消息失败: %v", err)
-		// 无法解析时记录失败（message_id 为空）
+		logx.Errorf("解析消息失败（跳过）: %v", err)
+		// 不可重试错误：记录失败日志后返回 nil（跳过消息）
 		_ = h.recordFailure(ctx, "", "", fmt.Sprintf("解析消息失败: %v", err))
-		return fmt.Errorf("解析消息失败: %w", err)
+		return nil // 格式错误不会恢复，跳过消息
 	}
 
 	// 验证必填字段
 	if aiResp.MessageId == "" {
-		err := fmt.Errorf("消息缺少 message_id 字段")
-		_ = h.recordFailure(ctx, "", aiResp.FormViewId, err.Error())
-		return err
+		logx.Errorf("消息缺少 message_id 字段（跳过）")
+		// 不可重试错误：记录失败日志后返回 nil（跳过消息）
+		_ = h.recordFailure(ctx, "", aiResp.FormViewId, "消息缺少 message_id 字段")
+		return nil // 格式错误不会恢复，跳过消息
 	}
 
 	// 判断消息类型：失败消息或成功消息
@@ -137,6 +138,7 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 	if err != nil {
 		// 记录失败日志
 		_ = h.recordFailure(ctx, aiResp.MessageId, aiResp.FormViewId, err.Error())
+		// 可重试错误（数据库/业务逻辑）：返回 error 让 Kafka 重投递
 		return err
 	}
 
