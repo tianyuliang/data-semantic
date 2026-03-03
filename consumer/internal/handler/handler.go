@@ -153,44 +153,47 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 	// 判断消息类型：优先使用 response_type 字段判断
 	isFullUnderstanding := h.isFullUnderstanding(aiResp)
 
-	var newVersion int
-	var err error
-
 	if isFullUnderstanding {
-		// 全量生成：使用行锁查询最新版本号
-		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId)
-		if err != nil {
-			return fmt.Errorf("获取版本号失败: %w", err)
-		}
-
-		logx.WithContext(ctx).Infof("全量生成: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
-
-		// 1.1 保存表信息到临时表（如果有）
+		// 1.1 获取表信息临时表版本号并保存表信息
 		if aiResp.TableSemantic != nil {
-			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.TableSemantic); err != nil {
+			tableVersion, err := h.getTableVersionWithLock(ctx, session, aiResp.FormViewId)
+			if err != nil {
+				return fmt.Errorf("获取表信息版本号失败: %w", err)
+			}
+			logx.WithContext(ctx).Infof("全量生成表信息: form_view_id=%s, 新版本=%d", aiResp.FormViewId, tableVersion)
+			if err := h.saveTableInfo(ctx, session, aiResp.FormViewId, tableVersion, aiResp.TableSemantic); err != nil {
 				return fmt.Errorf("保存表信息失败: %w", err)
 			}
 		}
 
-		// 1.2 保存字段信息到临时表（如果有）
+		// 1.2 获取字段信息临时表版本号并保存字段信息
 		if len(aiResp.FieldsSemantic) > 0 {
-			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, newVersion, aiResp.FieldsSemantic); err != nil {
+			fieldVersion, err := h.getFieldVersionWithLock(ctx, session, aiResp.FormViewId)
+			if err != nil {
+				return fmt.Errorf("获取字段信息版本号失败: %w", err)
+			}
+			logx.WithContext(ctx).Infof("全量生成字段信息: form_view_id=%s, 新版本=%d", aiResp.FormViewId, fieldVersion)
+			if err := h.saveFieldInfo(ctx, session, aiResp.FormViewId, fieldVersion, aiResp.FieldsSemantic); err != nil {
 				return fmt.Errorf("保存字段信息失败: %w", err)
 			}
 		}
-	} else {
-		// 部分生成（重新识别业务对象）：使用行锁查询最新版本号
-		newVersion, err = h.getNextVersionWithLock(ctx, session, aiResp.FormViewId)
-		if err != nil {
-			return fmt.Errorf("获取版本号失败: %w", err)
-		}
+	}
 
-		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, newVersion)
+	// 1.3 获取业务对象临时表版本号并保存业务对象（全量生成和部分生成都有）
+	businessObjectVersion, err := h.getBusinessObjectVersionWithLock(ctx, session, aiResp.FormViewId)
+	if err != nil {
+		return fmt.Errorf("获取业务对象版本号失败: %w", err)
+	}
+
+	if isFullUnderstanding {
+		logx.WithContext(ctx).Infof("全量生成业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, businessObjectVersion)
+	} else {
+		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, businessObjectVersion)
 	}
 
 	// 1.4 保存业务对象到临时表（包括未识别出属性的字段）
 	if len(aiResp.BusinessObjects) > 0 || len(aiResp.NoPatternFields) > 0 {
-		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, newVersion, aiResp.BusinessObjects, aiResp.NoPatternFields); err != nil {
+		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, businessObjectVersion, aiResp.BusinessObjects, aiResp.NoPatternFields); err != nil {
 			return fmt.Errorf("保存业务对象失败: %w", err)
 		}
 	}
@@ -244,16 +247,33 @@ func (h *DataUnderstandingHandler) isFullUnderstanding(aiResp *AIResponse) bool 
 	return aiResp.TableSemantic != nil || len(aiResp.FieldsSemantic) > 0
 }
 
-// getNextVersionWithLock 获取下一个版本号（使用行锁防止并发冲突）
-// 统一从 t_business_object_temp 获取版本号，确保全量理解和重新识别使用统一的版本序列
-func (h *DataUnderstandingHandler) getNextVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
-	// 始终从业务对象临时表获取版本号（因为它记录了所有操作的最大版本号）
+// getTableVersionWithLock 获取表信息临时表的下一个版本号（使用行锁防止并发冲突）
+func (h *DataUnderstandingHandler) getTableVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
+	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
+	latestVersion, err := formViewInfoTempModel.FindLatestVersionWithLock(ctx, formViewId)
+	if err != nil {
+		return 0, err
+	}
+	return latestVersion + 1, nil
+}
+
+// getFieldVersionWithLock 获取字段信息临时表的下一个版本号（使用行锁防止并发冲突）
+func (h *DataUnderstandingHandler) getFieldVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
+	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSession(session)
+	latestVersion, err := formViewFieldInfoTempModel.FindLatestVersionWithLock(ctx, formViewId)
+	if err != nil {
+		return 0, err
+	}
+	return latestVersion + 1, nil
+}
+
+// getBusinessObjectVersionWithLock 获取业务对象临时表的下一个版本号（使用行锁防止并发冲突）
+func (h *DataUnderstandingHandler) getBusinessObjectVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	latestVersion, err := businessObjectTempModel.FindLatestVersionWithLock(ctx, formViewId)
 	if err != nil {
 		return 0, err
 	}
-
 	return latestVersion + 1, nil
 }
 

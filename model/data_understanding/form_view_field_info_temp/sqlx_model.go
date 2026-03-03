@@ -129,3 +129,19 @@ func (m *FormViewFieldInfoTempModelSqlx) DeleteByFormFieldId(ctx context.Context
 	}
 	return nil
 }
+
+// FindLatestVersionWithLock 查询指定form_view_id的最新版本号（带行锁，用于防止并发冲突）
+func (m *FormViewFieldInfoTempModelSqlx) FindLatestVersionWithLock(ctx context.Context, formViewId string) (int, error) {
+	var result struct {
+		LatestVersion int `db:"latest_version"`
+	}
+	query := `SELECT COALESCE(MAX(version), 0) AS latest_version
+	           FROM t_form_view_field_info_temp
+	           WHERE form_view_id = ? AND deleted_at IS NULL
+	           FOR UPDATE`
+	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
+	if err != nil {
+		return 0, fmt.Errorf("find latest version with lock by form_view_id failed: %w", err)
+	}
+	return result.LatestVersion, nil
+}

@@ -25,7 +25,7 @@ type FormViewInfoTempModelSqlx struct {
 
 // Insert 插入库表信息临时记录
 func (m *FormViewInfoTempModelSqlx) Insert(ctx context.Context, data *FormViewInfoTemp) (*FormViewInfoTemp, error) {
-	query := `INSERT INTO t_form_view_info_temp (id, form_view_id, user_id, version, table_business_name, table_description)
+	query := `INSERT IGNORE INTO t_form_view_info_temp (id, form_view_id, user_id, version, table_business_name, table_description)
 	           VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.TableBusinessName, data.TableDescription)
 	if err != nil {
