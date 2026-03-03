@@ -55,7 +55,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
-				Id:                *req.TableData.Id,
+				Id:                req.TableData.Id,
 				FormViewId:        req.Id,
 				TableBusinessName: req.TableData.TableBusinessName,
 				TableDescription:  req.TableData.TableDescription,
@@ -65,7 +65,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			if err != nil {
 				return errorx.Detail(errorx.UpdateFailed, err, "库表信息")
 			}
-			logx.WithContext(ctx).Infof("Updated table info: id=%s", *req.TableData.Id)
+			logx.WithContext(ctx).Infof("Updated table info: id=%s", req.TableData.Id)
 		}
 
 		// 2.2 如果提供了 FieldData，更新 t_form_view_field_info_temp
@@ -74,7 +74,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 			// 构建更新数据
 			fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
-				Id:                *req.FieldData.Id,
+				Id:                req.FieldData.Id,
 				FieldBusinessName: req.FieldData.FieldBusinessName,
 				FieldRole:         req.FieldData.FieldRole,
 				FieldDescription:  req.FieldData.FieldDescription,
@@ -84,7 +84,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			if err != nil {
 				return errorx.Detail(errorx.UpdateFailed, err, "字段信息")
 			}
-			logx.WithContext(ctx).Infof("Updated field info: id=%s", *req.FieldData.Id)
+			logx.WithContext(ctx).Infof("Updated field info: id=%s", req.FieldData.Id)
 		}
 
 		return nil
