@@ -136,6 +136,7 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
 	return &types.GetFieldsResp{
+		TableInfoId:       &formViewData.Id,
 		TableBusinessName: formViewData.BusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  formViewData.Description,
