@@ -26,14 +26,13 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	t.Run("保存库表信息", func(t *testing.T) {
 		t.Skip("需要数据库连接")
 
-		tableId := "test-table-info-id"
 		tableBusinessName := "测试业务表"
 		tableDescription := "测试表描述"
 
 		req := &types.SaveSemanticInfoReq{
 			Id: "test-form-view-id-status2",
 			TableData: &types.SaveSemanticInfoTableData{
-				Id:                &tableId,
+				Id:                "test-table-info-id",
 				TableBusinessName: &tableBusinessName,
 				TableDescription:  &tableDescription,
 			},
@@ -51,7 +50,6 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	t.Run("保存字段信息", func(t *testing.T) {
 		t.Skip("需要数据库连接")
 
-		fieldId := "test-field-info-id"
 		fieldBusinessName := "测试字段"
 		fieldRole := int8(1) // 业务主键
 		fieldDescription := "测试字段描述"
@@ -60,7 +58,7 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 			Id:        "test-form-view-id-status2",
 			TableData: nil,
 			FieldData: &types.SaveSemanticInfoFieldData{
-				Id:                &fieldId,
+				Id:                "test-field-info-id",
 				FieldBusinessName: &fieldBusinessName,
 				FieldRole:         &fieldRole,
 				FieldDescription:  &fieldDescription,
@@ -78,21 +76,19 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	t.Run("同时保存库表和字段信息", func(t *testing.T) {
 		t.Skip("需要数据库连接")
 
-		tableId := "test-table-info-id-2"
 		tableBusinessName := "测试业务表2"
-		fieldId := "test-field-info-id-2"
 		fieldBusinessName := "测试字段2"
 		fieldRole := int8(2) // 关联标识
 
 		req := &types.SaveSemanticInfoReq{
 			Id: "test-form-view-id-status2",
 			TableData: &types.SaveSemanticInfoTableData{
-				Id:                &tableId,
+				Id:                "test-table-info-id-2",
 				TableBusinessName: &tableBusinessName,
 				TableDescription:  nil,
 			},
 			FieldData: &types.SaveSemanticInfoFieldData{
-				Id:                &fieldId,
+				Id:                "test-field-info-id-2",
 				FieldBusinessName: &fieldBusinessName,
 				FieldRole:         &fieldRole,
 				FieldDescription:  nil,
@@ -127,13 +123,12 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	t.Run("状态不是待确认返回错误", func(t *testing.T) {
 		t.Skip("需要数据库连接")
 
-		tableId := "test-table-info-id"
 		tableBusinessName := "测试业务表"
 
 		req := &types.SaveSemanticInfoReq{
 			Id: "test-form-view-id-status0", // 状态 0 未理解
 			TableData: &types.SaveSemanticInfoTableData{
-				Id:                &tableId,
+				Id:                "test-table-info-id",
 				TableBusinessName: &tableBusinessName,
 			},
 		}
@@ -150,13 +145,12 @@ func TestSaveSemanticInfoLogic_SaveSemanticInfo(t *testing.T) {
 	t.Run("字段角色超出范围", func(t *testing.T) {
 		t.Skip("需要数据库连接")
 
-		fieldId := "test-field-info-id"
 		fieldRole := int8(9) // 超出范围 (1-8)
 
 		req := &types.SaveSemanticInfoReq{
 			Id: "test-form-view-id-status2",
 			FieldData: &types.SaveSemanticInfoFieldData{
-				Id:        &fieldId,
+				Id:        "test-field-info-id",
 				FieldRole: &fieldRole,
 			},
 		}
