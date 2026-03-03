@@ -166,7 +166,7 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
 				Id:         obj.Id,
 				ObjectName: obj.ObjectName,
 				FormViewId: obj.FormViewId,
-				ObjectType: 1, // 默认对象类型
+				ObjectType: 0, // 默认对象类型
 				Status:     1, // 默认状态
 			}
 			if _, err := formalModel.Insert(ctx, newObj); err != nil {
