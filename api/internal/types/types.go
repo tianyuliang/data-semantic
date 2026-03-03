@@ -33,7 +33,7 @@ type FieldSelection struct {
 }
 
 type FieldSemanticInfo struct {
-	Id                *string `json:"id,optional"`
+	Id                *string `json:"id"`
 	FormViewFieldId   string  `json:"form_view_field_id"`
 	FieldBusinessName *string `json:"field_business_name"`
 	FieldTechName     string  `json:"field_tech_name"`
