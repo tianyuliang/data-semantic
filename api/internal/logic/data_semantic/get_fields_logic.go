@@ -62,7 +62,7 @@ func (l *GetFieldsLogic) GetFields(req *types.GetFieldsReq) (resp *types.GetFiel
 	return l.getFieldsFromFormal(req, tableTechName)
 }
 
-// getFieldsFromTemp 从临时表查询数据，并与正式表融合
+// getFieldsFromTemp 从临时表查询数据（不融合）
 func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechName string) (*types.GetFieldsResp, error) {
 	// 查询临时表信息
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSqlx(l.svcCtx.DB)
@@ -71,24 +71,43 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 		return nil, errorx.Detail(errorx.QueryFailed, err, "库表信息临时表")
 	}
 
-	// 查询字段信息临时表
+	// 查询字段信息临时表（语义信息）
 	formViewFieldInfoTempModel := form_view_field_info_temp.NewFormViewFieldInfoTempModelSqlx(l.svcCtx.DB)
 	fieldsTemp, err := formViewFieldInfoTempModel.FindLatestByFormViewId(l.ctx, req.Id)
 	if err != nil {
 		return nil, errorx.Detail(errorx.QueryFailed, err, "字段信息临时表")
 	}
 
-	// 查询正式表的完整字段信息（包含语义信息）作为基础
+	// 查询 form_view_field 获取基础字段信息（技术名称、数据类型）
 	formViewFieldModel := form_view_field.NewFormViewFieldModel(l.svcCtx.DB)
-	formalFields, err := formViewFieldModel.FindFullByFormViewId(l.ctx, req.Id)
+	baseFields, err := formViewFieldModel.FindByFormViewId(l.ctx, req.Id)
 	if err != nil {
-		// 正式表无数据时继续执行，仅返回临时表数据
-		logx.WithContext(l.ctx).Infof("查询正式表完整字段信息失败: %v", err)
-		formalFields = []*form_view_field.FormViewField{}
+		return nil, errorx.Detail(errorx.QueryFailed, err, "基础字段信息")
 	}
 
-	// 构建字段信息：正式表为基础，临时表为更新
-	fields := l.mergeFieldInfo(formalFields, fieldsTemp)
+	// 构建 baseFields 映射
+	baseFieldMap := make(map[string]*form_view_field.FormViewFieldBase)
+	for _, f := range baseFields {
+		baseFieldMap[f.Id] = f
+	}
+
+	// 构建字段信息：临时表语义信息 + form_view_field 基础字段信息
+	fields := make([]types.FieldSemanticInfo, 0, len(fieldsTemp))
+	for _, f := range fieldsTemp {
+		baseField := baseFieldMap[f.FormViewFieldId]
+		if baseField == nil {
+			continue
+		}
+		fields = append(fields, types.FieldSemanticInfo{
+			Id:                &f.Id,
+			FormViewFieldId:   f.FormViewFieldId,
+			FieldBusinessName: f.FieldBusinessName,
+			FieldTechName:     baseField.FieldTechName,
+			FieldType:         baseField.FieldType,
+			FieldRole:         f.FieldRole,
+			FieldDescription:  f.FieldDescription,
+		})
+	}
 
 	// 应用过滤条件
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
@@ -170,48 +189,6 @@ func (l *GetFieldsLogic) applyFilters(fields []types.FieldSemanticInfo, keyword 
 			}
 		}
 		result = filtered
-	}
-
-	return result
-}
-
-// mergeFieldInfo 融合正式表和临时表的字段信息
-// 规则：正式表为基础，临时表中存在的字段用临时表数据覆盖（作为更新）
-func (l *GetFieldsLogic) mergeFieldInfo(formalFields []*form_view_field.FormViewField, fieldsTemp []*form_view_field_info_temp.FormViewFieldInfoTemp) []types.FieldSemanticInfo {
-	// 构建临时表字段的映射 (key: form_view_field_id)
-	tempFieldMap := make(map[string]*form_view_field_info_temp.FormViewFieldInfoTemp)
-	for _, ft := range fieldsTemp {
-		tempFieldMap[ft.FormViewFieldId] = ft
-	}
-
-	// 融合结果
-	result := make([]types.FieldSemanticInfo, 0, len(formalFields))
-
-	// 遍历正式表字段，如果临时表存在则用临时表数据，否则用正式表数据
-	for _, ff := range formalFields {
-		if tempData, exists := tempFieldMap[ff.Id]; exists {
-			// 使用临时表数据（更新）
-			result = append(result, types.FieldSemanticInfo{
-				Id:                &tempData.Id,
-				FormViewFieldId:   ff.Id,
-				FieldBusinessName: tempData.FieldBusinessName,
-				FieldTechName:     ff.FieldTechName,
-				FieldType:         ff.FieldType,
-				FieldRole:         tempData.FieldRole,
-				FieldDescription:  tempData.FieldDescription,
-			})
-		} else {
-			// 使用正式表数据
-			result = append(result, types.FieldSemanticInfo{
-				Id:                &ff.Id,
-				FormViewFieldId:   ff.Id,
-				FieldBusinessName: ff.FieldBusinessName,
-				FieldTechName:     ff.FieldTechName,
-				FieldType:         ff.FieldType,
-				FieldRole:         ff.FieldRole,
-				FieldDescription:  ff.FieldDescription,
-			})
-		}
 	}
 
 	return result

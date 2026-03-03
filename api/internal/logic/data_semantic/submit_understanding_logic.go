@@ -78,19 +78,19 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		formViewModelSession := form_view.NewFormViewModelSession(session)
 		formViewFieldModel := form_view_field.NewFormViewFieldModelSession(session)
 
-		// ========== 合并业务对象（基于业务主键：form_view_id + object_name）==========
-		objInserted, objUpdated, objDeleted, err := l.mergeBusinessObjects(ctx, req.Id, latestVersion, tempModel, formalModel)
+		// ========== 处理业务对象（按 object_name 匹配：存在则忽略，不存在则新增）==========
+		objInserted, err := l.processBusinessObjects(ctx, req.Id, latestVersion, tempModel, formalModel)
 		if err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "业务对象")
 		}
-		logx.WithContext(ctx).Infof("Merged business objects: inserted=%d, updated=%d, deleted=%d", objInserted, objUpdated, objDeleted)
+		logx.WithContext(ctx).Infof("Business objects: inserted=%d", objInserted)
 
-		// ========== 合并业务对象属性（基于业务对象匹配 + attr_name + form_view_field_id）==========
-		attrInserted, attrUpdated, attrDeleted, err := l.mergeBusinessObjectAttributes(ctx, req.Id, latestVersion, tempModel, tempAttrModel, formalModel, formalAttrModel)
+		// ========== 处理业务对象属性 ==========
+		attrInserted, attrUpdated, err := l.processBusinessObjectAttributes(ctx, req.Id, latestVersion, tempModel, tempAttrModel, formalModel, formalAttrModel)
 		if err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "属性")
 		}
-		logx.WithContext(ctx).Infof("Merged attributes: inserted=%d, updated=%d, deleted=%d", attrInserted, attrUpdated, attrDeleted)
+		logx.WithContext(ctx).Infof("Attributes: inserted=%d, updated=%d", attrInserted, attrUpdated)
 
 		// ========== 更新库表业务名称和描述 ==========
 		if err := l.updateFormViewInfo(ctx, req.Id, latestVersion, tempFormViewInfoModel, formViewModelSession); err != nil {
@@ -130,60 +130,61 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 	return resp, nil
 }
 
-// mergeBusinessObjects 合并业务对象（代码层面实现）
-// 按 object_name 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的保留
-func (l *SubmitUnderstandingLogic) mergeBusinessObjects(
+// processBusinessObjects 处理业务对象
+// 规则：按 object_name 匹配，存在则忽略（使用正式表id），不存在则新增
+func (l *SubmitUnderstandingLogic) processBusinessObjects(
 	ctx context.Context,
 	formViewId string,
 	version int,
 	tempModel *business_object_temp.BusinessObjectTempModelSqlx,
 	formalModel *business_object.BusinessObjectModelSqlx,
-) (inserted, updated, deleted int, err error) {
+) (inserted int, err error) {
 	// 1. 查询临时表数据
 	tempObjs, err := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, err
 	}
 
-	// 2. 查询正式表数据
+	// 2. 查询正式表数据，构建 object_name -> id 映射
 	formalObjs, err := formalModel.FindByFormViewId(ctx, formViewId)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, err
 	}
 
-	// 3. 构建正式表对象映射（key: object_name）
-	formalObjMap := make(map[string]*business_object.BusinessObject)
+	formalObjMap := make(map[string]string) // object_name -> id
 	for _, obj := range formalObjs {
-		formalObjMap[obj.ObjectName] = obj
+		formalObjMap[obj.ObjectName] = obj.Id
 	}
 
-	// 4. 处理临时表对象
+	// 3. 处理临时表对象：不存在则新增，存在则忽略
 	for _, obj := range tempObjs {
-		objFormal, exists := formalObjMap[obj.ObjectName]
-		if !exists || objFormal == nil {
-			// 新增：使用临时表的 id，设置默认值
-			newObj := &business_object.BusinessObject{
-				Id:         obj.Id,
-				ObjectName: obj.ObjectName,
-				FormViewId: obj.FormViewId,
-				ObjectType: 0, // 默认对象类型
-				Status:     1, // 默认状态
-			}
-			if _, err := formalModel.Insert(ctx, newObj); err != nil {
-				return 0, 0, 0, err
-			}
-			inserted++
+		if _, exists := formalObjMap[obj.ObjectName]; exists {
+			// 已存在，忽略
+			continue
 		}
-		// 已存在，无需更新（通过 object_name 匹配，名字已相同）
-		// 正式表独有的对象保留，不删除
+
+		// 不存在，新增
+		newObj := &business_object.BusinessObject{
+			Id:         obj.Id,
+			ObjectName: obj.ObjectName,
+			FormViewId: obj.FormViewId,
+			ObjectType: 0, // 默认对象类型
+			Status:     1, // 默认状态
+		}
+		if _, err := formalModel.Insert(ctx, newObj); err != nil {
+			return 0, err
+		}
+		inserted++
 	}
 
-	return inserted, updated, deleted, nil
+	return inserted, nil
 }
 
-// mergeBusinessObjectAttributes 合并业务对象属性（代码层面实现）
-// 按 business_object_id + attr_name + form_view_field_id 匹配：存在则跳过（无需更新），不存在则新增，正式表独有的保留
-func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
+// processBusinessObjectAttributes 处理业务对象属性
+// 规则：保证一个字段只能绑定一个属性
+// 1. 新增的业务对象：更新原来字段的属性名以及业务对象所属为当前业务对象
+// 2. 已存在的业务对象：检查字段是否存在属性，存在→更新，不存在→新增
+func (l *SubmitUnderstandingLogic) processBusinessObjectAttributes(
 	ctx context.Context,
 	formViewId string,
 	version int,
@@ -191,113 +192,74 @@ func (l *SubmitUnderstandingLogic) mergeBusinessObjectAttributes(
 	tempAttrModel *business_object_attributes_temp.BusinessObjectAttributesTempModelSqlx,
 	formalModel *business_object.BusinessObjectModelSqlx,
 	formalAttrModel *business_object_attributes.BusinessObjectAttributesModelSqlx,
-) (inserted, updated, deleted int, err error) {
-	// 1. 查询临时表对象
-	tempObjs, err := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
-	if err != nil {
-		return 0, 0, 0, err
-	}
+) (inserted, updated int, err error) {
+	// 1. 查询数据
+	tempAttrs, _ := tempAttrModel.FindByFormViewAndVersion(ctx, formViewId, version)
+	tempObjs, _ := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
+	formalAttrs, _ := formalAttrModel.FindByFormViewId(ctx, formViewId)
+	formalObjs, _ := formalModel.FindByFormViewId(ctx, formViewId)
 
-	// 构建正式表对象 ID 集合（用于判断哪些对象还存在）
-	formalObjIds := make(map[string]bool)
-	formalObjIdByName := make(map[string]string) // object_name -> obj_id
-
-	// 先查询所有正式表对象
-	allFormalObjs, err := formalModel.FindByFormViewId(ctx, formViewId)
-	if err != nil {
-		return 0, 0, 0, err
+	// 2. 构建映射
+	tempObjIdToName := make(map[string]string)
+	for _, obj := range tempObjs {
+		tempObjIdToName[obj.Id] = obj.ObjectName
 	}
-	for _, obj := range allFormalObjs {
-		formalObjIds[obj.Id] = true
+	formalObjIdByName := make(map[string]string)
+	for _, obj := range formalObjs {
 		formalObjIdByName[obj.ObjectName] = obj.Id
 	}
-
-	// 2. 构建临时表对象 ID -> 正式表对象 ID 映射
-	tempObjIdToFormalObjId := make(map[string]string)
-	for _, obj := range tempObjs {
-		if formalId, exists := formalObjIdByName[obj.ObjectName]; exists {
-			tempObjIdToFormalObjId[obj.Id] = formalId
-		}
+	// 字段 -> 现有属性
+	fieldToExistingAttr := make(map[string]*business_object_attributes.BusinessObjectAttributes)
+	for _, fa := range formalAttrs {
+		fieldToExistingAttr[fa.FormViewFieldId] = fa
 	}
 
-	// 3. 查询临时表属性
-	tempAttrs, err := tempAttrModel.FindByFormViewAndVersion(ctx, formViewId, version)
-	if err != nil {
-		return 0, 0, 0, err
-	}
+	// 3. 分类：需要更新的、需要新增的
+	var toUpdate []*business_object_attributes.BusinessObjectAttributes
+	var toInsert []*business_object_attributes.BusinessObjectAttributes
 
-	// 4. 查询正式表所有属性
-	formalAttrs, err := formalAttrModel.FindByFormViewId(ctx, formViewId)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-
-	// 5. 构建正式表属性映射
-	// 5a. 已识别属性映射（key: business_object_id + attr_name + form_view_field_id）
-	formalAttrMap := make(map[string]*business_object_attributes.BusinessObjectAttributes)
-	// 5b. 未识别字段集合（key: form_view_field_id，用于快速查找）
-	formalUnrecognizedFields := make(map[string]bool)
-	for _, attr := range formalAttrs {
-		if attr.BusinessObjectId != "" && attr.AttrName != "" {
-			// 已识别属性
-			key := attr.BusinessObjectId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
-			formalAttrMap[key] = attr
-		} else if attr.BusinessObjectId == "" && attr.AttrName == "" {
-			// 未识别字段
-			formalUnrecognizedFields[attr.FormViewFieldId] = true
-		}
-	}
-
-	// 6. 处理临时表属性
 	for _, attr := range tempAttrs {
-		// 6a. 处理已识别属性（attr_name 不为空）
-		if attr.AttrName != "" {
-			// 获取正式表的 business_object_id
-			formalObjId, ok := tempObjIdToFormalObjId[attr.BusinessObjectId]
-			if !ok {
-				continue // 跳过无法找到对应正式表对象的属性
-			}
-
-			key := formalObjId + ":" + attr.AttrName + ":" + attr.FormViewFieldId
-			attrFormal, exists := formalAttrMap[key]
-			if !exists || attrFormal == nil {
-				// 新增
-				newAttr := &business_object_attributes.BusinessObjectAttributes{
-					Id:               attr.Id,
-					FormViewId:       attr.FormViewId,
-					BusinessObjectId: formalObjId,
-					FormViewFieldId:  attr.FormViewFieldId,
-					AttrName:         attr.AttrName,
-				}
-				if _, err := formalAttrModel.Insert(ctx, newAttr); err != nil {
-					return 0, 0, 0, err
-				}
-				inserted++
-			}
-			// 已存在，无需更新
-			continue
+		// 处理未识别字段：BusinessObjectId 为空的情况
+		var formalObjId string
+		if attr.BusinessObjectId != "" {
+			objName := tempObjIdToName[attr.BusinessObjectId]
+			formalObjId = formalObjIdByName[objName]
 		}
 
-		// 6b. 处理未识别字段（attr_name 为空，business_object_id 为空）
-		// 根据 form_view_field_id 判断是否已存在
-		if _, exists := formalUnrecognizedFields[attr.FormViewFieldId]; !exists {
-			// 不存在则插入正式表
-			newAttr := &business_object_attributes.BusinessObjectAttributes{
+		if existing, ok := fieldToExistingAttr[attr.FormViewFieldId]; ok {
+			// 字段已有属性，更新
+			existing.BusinessObjectId = formalObjId
+			existing.AttrName = attr.AttrName
+			toUpdate = append(toUpdate, existing)
+			updated++
+		} else {
+			// 字段无属性，新增
+			toInsert = append(toInsert, &business_object_attributes.BusinessObjectAttributes{
 				Id:               attr.Id,
 				FormViewId:       attr.FormViewId,
-				BusinessObjectId: "", // 未识别字段，无归属对象
+				BusinessObjectId: formalObjId,
 				FormViewFieldId:  attr.FormViewFieldId,
-				AttrName:         "", // 未识别字段，属性名称为空
-			}
-			if _, err := formalAttrModel.Insert(ctx, newAttr); err != nil {
-				return 0, 0, 0, err
-			}
+				AttrName:         attr.AttrName,
+			})
 			inserted++
 		}
-		// 已存在的未识别字段跳过
 	}
 
-	return inserted, updated, deleted, nil
+	// 4. 批量执行更新和新增
+	if len(toUpdate) > 0 {
+		if err := formalAttrModel.BatchUpdate(ctx, toUpdate); err != nil {
+			return 0, 0, err
+		}
+	}
+	if len(toInsert) > 0 {
+		if cnt, err := formalAttrModel.BatchInsert(ctx, toInsert); err != nil {
+			return 0, 0, err
+		} else {
+			inserted = cnt
+		}
+	}
+
+	return inserted, updated, nil
 }
 
 // updateFormViewInfo 更新库表业务名称和描述

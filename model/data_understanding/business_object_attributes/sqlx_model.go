@@ -25,7 +25,7 @@ type BusinessObjectAttributesModelSqlx struct {
 
 // Insert 插入业务对象属性记录
 func (m *BusinessObjectAttributesModelSqlx) Insert(ctx context.Context, data *BusinessObjectAttributes) (*BusinessObjectAttributes, error) {
-	query := `INSERT INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
+	query := `INSERT IGNORE INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
 	           VALUES (?, ?, ?, ?, ?)`
 	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.BusinessObjectId, data.FormViewFieldId, data.AttrName)
 	if err != nil {
@@ -42,6 +42,77 @@ func (m *BusinessObjectAttributesModelSqlx) Update(ctx context.Context, data *Bu
 	_, err := m.conn.ExecCtx(ctx, query, data.AttrName, data.Id)
 	if err != nil {
 		return fmt.Errorf("update business_object_attributes failed: %w", err)
+	}
+	return nil
+}
+
+// BatchInsert 批量插入属性
+func (m *BusinessObjectAttributesModelSqlx) BatchInsert(ctx context.Context, data []*BusinessObjectAttributes) (int, error) {
+	if len(data) == 0 {
+		return 0, nil
+	}
+
+	query := `INSERT IGNORE INTO t_business_object_attributes (id, form_view_id, business_object_id, form_view_field_id, attr_name)
+	           VALUES `
+	args := make([]interface{}, 0, len(data)*5)
+	placeholders := make([]string, 0, len(data))
+
+	for _, item := range data {
+		placeholders = append(placeholders, "(?, ?, ?, ?, ?)")
+		args = append(args, item.Id, item.FormViewId, item.BusinessObjectId, item.FormViewFieldId, item.AttrName)
+	}
+
+	query += fmt.Sprintf("%s", placeholders[0])
+	for i := 1; i < len(placeholders); i++ {
+		query += ", " + placeholders[i]
+	}
+
+	result, err := m.conn.ExecCtx(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("batch insert business_object_attributes failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	return int(rowsAffected), nil
+}
+
+// BatchUpdate 批量更新属性
+func (m *BusinessObjectAttributesModelSqlx) BatchUpdate(ctx context.Context, data []*BusinessObjectAttributes) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	// 使用 CASE WHEN 批量更新
+	query := `UPDATE t_business_object_attributes
+	           SET business_object_id = CASE id `
+	args := make([]interface{}, 0)
+	ids := make([]string, 0, len(data))
+
+	for _, item := range data {
+		query += "WHEN ? THEN ? "
+		args = append(args, item.Id, item.BusinessObjectId)
+		ids = append(ids, item.Id)
+	}
+
+	query += `END,
+	           attr_name = CASE id `
+	for _, item := range data {
+		query += "WHEN ? THEN ? "
+		args = append(args, item.Id, item.AttrName)
+	}
+
+	query += `END WHERE id IN (`
+	for i, id := range ids {
+		if i > 0 {
+			query += ", "
+		}
+		query += "?"
+		args = append(args, id)
+	}
+	query += `)`
+
+	_, err := m.conn.ExecCtx(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("batch update business_object_attributes failed: %w", err)
 	}
 	return nil
 }
@@ -127,6 +198,16 @@ func (m *BusinessObjectAttributesModelSqlx) DeleteByFormViewId(ctx context.Conte
 	_, err := m.conn.ExecCtx(ctx, query, formViewId)
 	if err != nil {
 		return fmt.Errorf("delete business_object_attributes by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// DeleteByFormViewAndField 根据form_view_id和form_view_field_id删除属性（保证一个字段只能绑定一个属性）
+func (m *BusinessObjectAttributesModelSqlx) DeleteByFormViewAndField(ctx context.Context, formViewId string, formViewFieldId string) error {
+	query := `UPDATE t_business_object_attributes SET deleted_at = NOW(3) WHERE form_view_id = ? AND form_view_field_id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId, formViewFieldId)
+	if err != nil {
+		return fmt.Errorf("delete business_object_attributes by form_view and field failed: %w", err)
 	}
 	return nil
 }
