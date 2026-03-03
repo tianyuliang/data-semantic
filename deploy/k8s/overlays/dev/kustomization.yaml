@@ -9,7 +9,7 @@ nameSuffix: -dev
 commonLabels:
   environment: dev
 
-# Dev environment specific configurations
+# Dev environment specific patches
 patches:
   - target:
       kind: Deployment
@@ -19,11 +19,25 @@ patches:
         path: /spec/replicas
         value: 1
       - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "50m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "64Mi"
+      - op: replace
         path: /spec/template/spec/containers/0/resources/limits/cpu
         value: "200m"
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
         value: "256Mi"
+
+  - target:
+      kind: Deployment
+      name: data-semantic-consumer
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
 
   - target:
       kind: HorizontalPodAutoscaler
@@ -34,10 +48,4 @@ patches:
         value: 1
       - op: replace
         path: /spec/maxReplicas
-        value: 2
-
-configMapGenerator:
-  - name: data-semantic-config
-    behavior: merge
-    literals:
-      - DB_HOST=dev-db.local
+        value: 3

@@ -4,9 +4,6 @@ kind: Kustomization
 resources:
   - ../../base
 
-# Prod suffix is usually empty or specific like -v1
-# nameSuffix: -prod
-
 commonLabels:
   environment: prod
 
@@ -30,6 +27,14 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
         value: "1Gi"
+
+  - target:
+      kind: Deployment
+      name: data-semantic-consumer
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 2
 
   - target:
       kind: HorizontalPodAutoscaler
