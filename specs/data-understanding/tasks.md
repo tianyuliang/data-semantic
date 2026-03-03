@@ -170,7 +170,7 @@
 
 **API**: `GET /api/v1/data-semantic/:id/fields`
 
-**独立测试**: 状态 0 返回空，状态 2/3 返回临时表或正式表数据
+**独立测试**: 状态 0 返回空，状态 2 返回临时表，状态 3 返回正式表
 
 ### Step 1: API 定义
 
@@ -185,7 +185,7 @@
 
 ### Step 3: Logic 层实现
 
-- [X] T045 [IF3] 实现 `get_fields_logic.go` (根据状态 0/2/3 返回不同数据源)
+- [X] T045 [IF3] 实现 `get_fields_logic.go` (状态 2 查临时表，其他状态查正式表)
 - [X] T046 [IF3] **[TEST]** 创建 `get_fields_logic_test.go`
 
 **Checkpoint**: ✅ 接口3 完成 - 可验证不同状态的数据返回
@@ -235,7 +235,7 @@
 
 ### Step 3: Logic 层实现
 
-- [X] T056 [IF5] 实现 `get_business_objects_logic.go` (状态 0 返回空，状态 2/3 查询临时表或正式表)
+- [X] T056 [IF5] 实现 `get_business_objects_logic.go` (状态 2 查临时表，其他状态查正式表)
 - [X] T057 [IF5] **[TEST]** 创建 `get_business_objects_logic_test.go`
 
 **Checkpoint**: ✅ 接口5 完成 - 可验证业务对象查询

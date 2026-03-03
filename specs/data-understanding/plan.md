@@ -1021,15 +1021,29 @@ AI 服务异步处理完成后，将结果写入 Kafka 消息到 `data-understan
 
 **消费者处理逻辑**：
 1. **解析消息**：获取 message_id、form_view_id、request_type、status、data/error
-2. **校验 message_id**：检查是否已处理，防止重复消费
+2. **错误分类处理**（防止消息丢失和无限重试）：
+   - **不可重试错误**（跳过消息）：
+     - JSON 解析失败 → 记录日志到 `t_kafka_message_log`，返回 nil（跳过）
+     - 缺少 message_id 字段 → 记录日志到 `t_kafka_message_log`，返回 nil（跳过）
+     - 未知 topic → 记录日志，MarkMessage（跳过）
+   - **可重试错误**（让 Kafka 重投递）：
+     - 数据库连接失败 → 返回 error，等待 Kafka 重试
+     - 业务逻辑错误 → 返回 error，等待 Kafka 重试
 3. **校验库表理解状态**：检查当前 understand_status 是否为 `1-理解中`，否则跳过处理
 4. **根据 status 处理**：
    - `status = "success"` → 保存数据到临时表，更新 `understand_status` 为 `2-待确认`
-     - 保存 `table_semantic` → `t_form_view_info_temp`
-     - 保存 `fields_semantic` → `t_form_view_field_info_temp`
+     - 保存 `table_semantic` → `t_form_view_info_temp`（使用各自表的版本号）
+     - 保存 `fields_semantic` → `t_form_view_field_info_temp`（使用各自表的版本号）
      - 保存 `no_pattern_fields` → `t_business_object_attributes_temp`（business_object_id=NULL, attr_name=NULL）
      - 保存 `business_objects` → `t_business_object_temp` + `t_business_object_attributes_temp`
    - `status = "failed"` → 记录错误日志到 `t_kafka_message_log`，更新 `understand_status` 为 `5-理解失败`
+
+**版本号管理**：
+- 各临时表使用各自的版本号序列（不再统一使用业务对象版本号）：
+  - `t_form_view_info_temp` → 从表信息临时表获取最新版本号 + 1
+  - `t_form_view_field_info_temp` → 从字段信息临时表获取最新版本号 + 1
+  - `t_business_object_temp` → 从业务对象临时表获取最新版本号 + 1
+- 使用 `FOR UPDATE` 行锁防止并发冲突
 
 **未识别字段说明**：
 - `no_pattern_fields` 保存到 `t_business_object_attributes_temp`，但 `business_object_id=NULL`、`attr_name=NULL`
@@ -1228,3 +1242,4 @@ if !allowed {
 | 1.2 | 2026-02-09 | - | 添加 formal_id 字段到 DDL 和 Go Struct，更新 Summary 说明增量更新策略 |
 | 1.3 | 2026-02-09 | - | 修正 AI 服务集成架构：API 同步调用触发任务，AI 异步处理通过 Kafka 回传结果 |
 | 1.4 | 2026-02-10 | - | 移除 JWT 中间件要求，添加部分字段理解支持（Fields 参数、FieldSelection 类型、partial_understanding 请求类型） |
+| 1.5 | 2026-03-03 | - | Kafka 消费者错误分类：区分可重试/不可重试错误；各临时表使用各自版本号 |
