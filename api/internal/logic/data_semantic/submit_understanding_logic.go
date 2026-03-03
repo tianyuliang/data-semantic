@@ -93,13 +93,13 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		logx.WithContext(ctx).Infof("Attributes: inserted=%d, updated=%d", attrInserted, attrUpdated)
 
 		// ========== 更新库表业务名称和描述 ==========
-		if err := l.updateFormViewInfo(ctx, req.Id, latestVersion, tempFormViewInfoModel, formViewModelSession); err != nil {
+		if err := l.updateFormViewInfo(ctx, req.Id, tempFormViewInfoModel, formViewModelSession); err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "库表信息")
 		}
 		logx.WithContext(ctx).Infof("Updated form view info")
 
 		// ========== 更新字段业务名称、角色和描述 ==========
-		fieldUpdated, err := l.updateFormViewFieldInfo(ctx, req.Id, latestVersion, tempFormViewFieldInfoModel, formViewFieldModel)
+		fieldUpdated, err := l.updateFormViewFieldInfo(ctx, req.Id, tempFormViewFieldInfoModel, formViewFieldModel)
 		if err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "字段信息")
 		}
@@ -266,12 +266,11 @@ func (l *SubmitUnderstandingLogic) processBusinessObjectAttributes(
 func (l *SubmitUnderstandingLogic) updateFormViewInfo(
 	ctx context.Context,
 	formViewId string,
-	version int,
 	tempModel *form_view_info_temp.FormViewInfoTempModelSqlx,
 	formViewModel *form_view.FormViewModelSqlx,
 ) error {
-	// 查询临时表库表信息
-	tempInfo, err := tempModel.FindOneByFormViewAndVersion(ctx, formViewId, version)
+	// 查询临时表库表信息（最新版本）
+	tempInfo, err := tempModel.FindLatestByFormViewId(ctx, formViewId)
 	if err != nil {
 		// 如果没有找到临时数据，跳过（可能用户没有修改库表信息）
 		return nil
@@ -285,12 +284,11 @@ func (l *SubmitUnderstandingLogic) updateFormViewInfo(
 func (l *SubmitUnderstandingLogic) updateFormViewFieldInfo(
 	ctx context.Context,
 	formViewId string,
-	version int,
 	tempModel *form_view_field_info_temp.FormViewFieldInfoTempModelSqlx,
 	formViewFieldModel *form_view_field.FormViewFieldModelSqlx,
 ) (updated int, err error) {
-	// 查询临时表字段信息
-	tempFields, err := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
+	// 查询临时表字段信息（最新版本）
+	tempFields, err := tempModel.FindLatestByFormViewId(ctx, formViewId)
 	if err != nil {
 		// 如果没有找到临时数据，跳过
 		return 0, nil
