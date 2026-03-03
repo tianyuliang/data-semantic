@@ -33,6 +33,7 @@ type FieldSelection struct {
 }
 
 type FieldSemanticInfo struct {
+	Id                *string `json:"id,optional"`
 	FormViewFieldId   string  `json:"form_view_field_id"`
 	FieldBusinessName *string `json:"field_business_name"`
 	FieldTechName     string  `json:"field_tech_name"`
@@ -79,14 +80,16 @@ type PageResp struct {
 }
 
 type SaveSemanticInfoFieldData struct {
-	Id                *string `json:"id" validate:"required"` // t_form_view_field_info_temp.id，用于 upsert 操作
+	Id                *string `json:"id,optional"` // 数据 id (formal表id或temp表id)
+	DataSource        string  `json:"data_source"` // 数据来源: formal=正式表, temp=临时表
 	FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
 	FieldRole         *int8   `json:"field_role" validate:"omitempty,min=1,max=8"`
 	FieldDescription  *string `json:"field_description" validate:"omitempty,max=300"`
 }
 
 type SaveSemanticInfoTableData struct {
-	Id                *string `json:"id" validate:"required"` // t_form_view_info_temp.id，用于 upsert 操作
+	Id                *string `json:"id,optional"` // 数据 id (formal表id或temp表id)
+	DataSource        string  `json:"data_source"` // 数据来源: formal=正式表, temp=临时表
 	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
 	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
 }

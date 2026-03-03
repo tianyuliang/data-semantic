@@ -94,6 +94,7 @@ func (l *GetFieldsLogic) getFieldsFromTemp(req *types.GetFieldsReq, tableTechNam
 	fields = l.applyFilters(fields, req.Keyword, req.OnlyIncomplete)
 
 	return &types.GetFieldsResp{
+		TableInfoId:       &tableInfoTemp.Id,
 		TableBusinessName: tableInfoTemp.TableBusinessName,
 		TableTechName:     tableTechName,
 		TableDescription:  tableInfoTemp.TableDescription,
@@ -121,6 +122,7 @@ func (l *GetFieldsLogic) getFieldsFromFormal(req *types.GetFieldsReq, tableTechN
 	fields := make([]types.FieldSemanticInfo, 0, len(fullFields))
 	for _, f := range fullFields {
 		fields = append(fields, types.FieldSemanticInfo{
+			Id:                &f.Id,
 			FormViewFieldId:   f.Id,
 			FieldBusinessName: f.FieldBusinessName,
 			FieldTechName:     f.FieldTechName,
@@ -189,6 +191,7 @@ func (l *GetFieldsLogic) mergeFieldInfo(formalFields []*form_view_field.FormView
 		if tempData, exists := tempFieldMap[ff.Id]; exists {
 			// 使用临时表数据（更新）
 			result = append(result, types.FieldSemanticInfo{
+				Id:                &tempData.Id,
 				FormViewFieldId:   ff.Id,
 				FieldBusinessName: tempData.FieldBusinessName,
 				FieldTechName:     ff.FieldTechName,
@@ -199,6 +202,7 @@ func (l *GetFieldsLogic) mergeFieldInfo(formalFields []*form_view_field.FormView
 		} else {
 			// 使用正式表数据
 			result = append(result, types.FieldSemanticInfo{
+				Id:                &ff.Id,
 				FormViewFieldId:   ff.Id,
 				FieldBusinessName: ff.FieldBusinessName,
 				FieldTechName:     ff.FieldTechName,

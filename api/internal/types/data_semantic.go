@@ -38,6 +38,7 @@ type GetFieldsReq struct {
 }
 
 type GetFieldsResp struct {
+	TableInfoId       *string             `json:"table_info_id,optional"`
 	TableBusinessName *string             `json:"table_business_name"`
 	TableTechName     string              `json:"table_tech_name"`
 	TableDescription  *string             `json:"table_description"`
