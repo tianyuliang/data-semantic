@@ -97,14 +97,17 @@ func (kc *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim
 		topic := msg.Topic
 		handler, ok := kc.handlers[topic]
 		if !ok {
-			logx.Errorf("未找到topic处理器: %s", topic)
-			// 未找到处理器不确认消息，让 Kafka 重投递
+			// 未找到处理器：记录错误并确认消息（避免无限重试）
+			logx.Errorf("未找到topic处理器，跳过消息: topic=%s partition=%d offset=%d key=%s",
+				topic, msg.Partition, msg.Offset, string(msg.Key))
+			// 确认消息以避免无限重试
+			session.MarkMessage(msg, "")
 			continue
 		}
 
 		// 处理消息：只有成功才标记消息已处理
 		if err := handler.Handle(session.Context(), msg); err != nil {
-			logx.Errorf("处理消息失败: topic=%s partition=%d offset=%d error=%v",
+			logx.Errorf("处理消息失败，等待重试: topic=%s partition=%d offset=%d error=%v",
 				topic, msg.Partition, msg.Offset, err)
 			// 处理失败时不确认消息，让 Kafka 重投递
 			continue
