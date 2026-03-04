@@ -129,17 +129,17 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersionWithLock(ctx context.Cont
 }
 
 // FindByFormViewIdLatest 查询指定form_view_id的最新版本业务对象列表
-// 使用 in_use = 1 查询当前使用的版本，比查询 MAX(version) 更高效
 func (m *BusinessObjectTempModelSqlx) FindByFormViewIdLatest(ctx context.Context, formViewId string) ([]*BusinessObjectTemp, error) {
-	var resp []*BusinessObjectTemp
-	query := `SELECT id, form_view_id, in_use, user_id, version, object_name, created_at, updated_at, deleted_at
-	           FROM t_business_object_temp
-	           WHERE form_view_id = ? AND in_use = 1 AND deleted_at IS NULL ORDER BY id ASC`
-	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
+	// 先获取最新版本号
+	latestVersion, err := m.FindLatestVersionByFormViewId(ctx, formViewId)
 	if err != nil {
-		return nil, fmt.Errorf("find business_object_temp by form_view_id latest (in_use=1) failed: %w", err)
+		return nil, err
 	}
-	return resp, nil
+	// 如果版本号为初始值9，说明没有数据，返回空列表
+	if latestVersion == 9 {
+		return []*BusinessObjectTemp{}, nil
+	}
+	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)
 }
 
 // DeleteByFormViewId 根据form_view_id删除所有业务对象

@@ -169,7 +169,6 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewAndVersionWithFiel
 }
 
 // FindByFormViewIdLatestWithFieldInfo 查询指定form_view_id的最新版本属性列表（包含字段信息）
-// 使用 in_use = 1 查询当前使用的版本，比查询 MAX(version) 更高效
 func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewIdLatestWithFieldInfo(ctx context.Context, formViewId string) ([]*FieldWithAttrInfoTemp, error) {
 	var resp []*FieldWithAttrInfoTemp
 	query := `SELECT boat.id, boat.business_object_id, boat.form_view_field_id, boat.attr_name,
@@ -186,11 +185,14 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewIdLatestWithFieldI
 	                   WHERE form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci AND deleted_at IS NULL
 	               )
 	               AND ffit.deleted_at IS NULL
-	           WHERE boat.form_view_id = ? AND boat.in_use = 1 AND boat.deleted_at IS NULL AND fvf.deleted_at = 0
+	           WHERE boat.form_view_id = ? AND boat.version = (
+	               SELECT MAX(version) FROM t_business_object_attributes_temp
+	               WHERE form_view_id = ? AND deleted_at IS NULL
+	           ) AND boat.deleted_at IS NULL AND fvf.deleted_at = 0
 	           ORDER BY boat.id ASC`
-	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, formViewId)
 	if err != nil {
-		return nil, fmt.Errorf("find business_object_attributes_temp with field info by form_view_id latest (in_use=1) failed: %w", err)
+		return nil, fmt.Errorf("find business_object_attributes_temp with field info by form_view_id latest failed: %w", err)
 	}
 	return resp, nil
 }
@@ -246,7 +248,7 @@ type UnidentifiedFieldInfo struct {
 }
 
 // FindUnidentifiedFieldsLatest 查询未识别字段（attr_name 和 business_object_id 为空的字段）
-// 返回最新版本中未识别的字段列表，使用 in_use = 1 查询当前使用的版本
+// 返回最新版本中未识别的字段列表
 func (m *BusinessObjectAttributesTempModelSqlx) FindUnidentifiedFieldsLatest(ctx context.Context, formViewId string) ([]*UnidentifiedFieldInfo, error) {
 	var resp []*UnidentifiedFieldInfo
 	query := `SELECT boat.id, fvf.technical_name, fvf.data_type,
@@ -262,14 +264,16 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindUnidentifiedFieldsLatest(ctx
 	                   WHERE form_view_field_id = fvf.id COLLATE utf8mb4_unicode_ci AND deleted_at IS NULL
 	               )
 	               AND ffit.deleted_at IS NULL
-	           WHERE boat.form_view_id = ? AND boat.in_use = 1
-	             AND (boat.business_object_id = '' OR boat.business_object_id IS NULL)
+	           WHERE boat.form_view_id = ? AND boat.version = (
+	               SELECT MAX(version) FROM t_business_object_attributes_temp
+	               WHERE form_view_id = ? AND deleted_at IS NULL
+	           ) AND (boat.business_object_id = '' OR boat.business_object_id IS NULL)
 	             AND (boat.attr_name = '' OR boat.attr_name IS NULL)
 	             AND boat.deleted_at IS NULL AND fvf.deleted_at = 0
 	           ORDER BY boat.id ASC`
-	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, formViewId)
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, formViewId, formViewId)
 	if err != nil {
-		return nil, fmt.Errorf("find unidentified fields latest (in_use=1) failed: %w", err)
+		return nil, fmt.Errorf("find unidentified fields latest failed: %w", err)
 	}
 	return resp, nil
 }
@@ -292,17 +296,17 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindLatestVersionWithLock(ctx co
 }
 
 // FindByFormViewIdLatest 查询指定form_view_id的最新版本属性列表
-// 使用 in_use = 1 查询当前使用的版本，比查询 MAX(version) 更高效
 func (m *BusinessObjectAttributesTempModelSqlx) FindByFormViewIdLatest(ctx context.Context, formViewId string) ([]*BusinessObjectAttributesTemp, error) {
-	var resp []*BusinessObjectAttributesTemp
-	query := `SELECT id, form_view_id, in_use, business_object_id, user_id, version, form_view_field_id, attr_name, created_at, updated_at, deleted_at
-	           FROM t_business_object_attributes_temp
-	           WHERE form_view_id = ? AND in_use = 1 AND deleted_at IS NULL ORDER BY id ASC`
-	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
+	// 先获取最新版本号
+	latestVersion, err := m.FindLatestVersionByFormViewId(ctx, formViewId)
 	if err != nil {
-		return nil, fmt.Errorf("find business_object_attributes_temp by form_view_id latest (in_use=1) failed: %w", err)
+		return nil, err
 	}
-	return resp, nil
+	// 如果版本号为初始值9，说明没有数据，返回空列表
+	if latestVersion == 9 {
+		return []*BusinessObjectAttributesTemp{}, nil
+	}
+	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)
 }
 
 // FindLatestVersionByFormViewId 查询指定form_view_id的最新版本号
