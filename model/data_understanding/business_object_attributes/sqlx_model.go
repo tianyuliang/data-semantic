@@ -46,6 +46,31 @@ func (m *BusinessObjectAttributesModelSqlx) Update(ctx context.Context, data *Bu
 	return nil
 }
 
+// FindOneById 根据id查询属性
+func (m *BusinessObjectAttributesModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObjectAttributes, error) {
+	var resp BusinessObjectAttributes
+	query := `SELECT id, form_view_id, business_object_id, form_view_field_id, attr_name, created_at, updated_at, deleted_at
+	           FROM t_business_object_attributes
+	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
+	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("find business_object_attributes by id failed: %w", err)
+	}
+	return &resp, nil
+}
+
+// UpdateBusinessObjectId 更新属性归属的业务对象
+func (m *BusinessObjectAttributesModelSqlx) UpdateBusinessObjectId(ctx context.Context, attributeId, businessObjectId string) error {
+	query := `UPDATE t_business_object_attributes
+	           SET business_object_id = ?
+	           WHERE id = ?`
+	_, err := m.conn.ExecCtx(ctx, query, businessObjectId, attributeId)
+	if err != nil {
+		return fmt.Errorf("update business_object_id for attribute failed: %w", err)
+	}
+	return nil
+}
+
 // BatchInsert 批量插入属性
 func (m *BusinessObjectAttributesModelSqlx) BatchInsert(ctx context.Context, data []*BusinessObjectAttributes) (int, error) {
 	if len(data) == 0 {

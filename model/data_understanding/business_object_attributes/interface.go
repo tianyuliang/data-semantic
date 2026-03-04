@@ -17,6 +17,12 @@ type BusinessObjectAttributesModel interface {
 	// FindByFormViewId 根据form_view_id查询所有属性
 	FindByFormViewId(ctx context.Context, formViewId string) ([]*BusinessObjectAttributes, error)
 
+	// FindOneById 根据id查询属性
+	FindOneById(ctx context.Context, id string) (*BusinessObjectAttributes, error)
+
+	// UpdateBusinessObjectId 更新属性归属的业务对象
+	UpdateBusinessObjectId(ctx context.Context, attributeId, businessObjectId string) error
+
 	// Update 更新属性
 	Update(ctx context.Context, data *BusinessObjectAttributes) error
 
