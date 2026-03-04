@@ -25,9 +25,9 @@ type BusinessObjectTempModelSqlx struct {
 
 // Insert 插入业务对象记录
 func (m *BusinessObjectTempModelSqlx) Insert(ctx context.Context, data *BusinessObjectTemp) (*BusinessObjectTemp, error) {
-	query := `INSERT IGNORE INTO t_business_object_temp (id, form_view_id, user_id, version, object_name)
-	           VALUES (?, ?, ?, ?, ?)`
-	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.UserId, data.Version, data.ObjectName)
+	query := `INSERT IGNORE INTO t_business_object_temp (id, form_view_id, in_use, user_id, version, object_name)
+	           VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.FormViewId, data.InUse, data.UserId, data.Version, data.ObjectName)
 	if err != nil {
 		return nil, fmt.Errorf("insert business_object_temp failed: %w", err)
 	}
@@ -46,7 +46,7 @@ func (m *BusinessObjectTempModelSqlx) WithTx(tx interface{}) BusinessObjectTempM
 // FindByFormViewAndVersion 根据form_view_id和version查询业务对象列表
 func (m *BusinessObjectTempModelSqlx) FindByFormViewAndVersion(ctx context.Context, formViewId string, version int) ([]*BusinessObjectTemp, error) {
 	var resp []*BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, in_use, user_id, version, object_name, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId, version)
@@ -59,7 +59,7 @@ func (m *BusinessObjectTempModelSqlx) FindByFormViewAndVersion(ctx context.Conte
 // FindOneById 根据id查询业务对象
 func (m *BusinessObjectTempModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObjectTemp, error) {
 	var resp BusinessObjectTemp
-	query := `SELECT id, form_view_id, user_id, version, object_name, created_at, updated_at, deleted_at
+	query := `SELECT id, form_view_id, in_use, user_id, version, object_name, created_at, updated_at, deleted_at
 	           FROM t_business_object_temp
 	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
@@ -128,17 +128,17 @@ func (m *BusinessObjectTempModelSqlx) FindLatestVersionWithLock(ctx context.Cont
 }
 
 // FindByFormViewIdLatest 查询指定form_view_id的最新版本业务对象列表
+// 使用 in_use = 1 查询当前使用的版本，比查询 MAX(version) 更高效
 func (m *BusinessObjectTempModelSqlx) FindByFormViewIdLatest(ctx context.Context, formViewId string) ([]*BusinessObjectTemp, error) {
-	// 先获取最新版本号
-	latestVersion, err := m.FindLatestVersionByFormViewId(ctx, formViewId)
+	var resp []*BusinessObjectTemp
+	query := `SELECT id, form_view_id, in_use, user_id, version, object_name, created_at, updated_at, deleted_at
+	           FROM t_business_object_temp
+	           WHERE form_view_id = ? AND in_use = 1 AND deleted_at IS NULL ORDER BY id ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("find business_object_temp by form_view_id latest (in_use=1) failed: %w", err)
 	}
-	// 如果版本号为初始值9，说明没有数据，返回空列表
-	if latestVersion == 9 {
-		return []*BusinessObjectTemp{}, nil
-	}
-	return m.FindByFormViewAndVersion(ctx, formViewId, latestVersion)
+	return resp, nil
 }
 
 // DeleteByFormViewId 根据form_view_id删除所有业务对象
@@ -147,6 +147,16 @@ func (m *BusinessObjectTempModelSqlx) DeleteByFormViewId(ctx context.Context, fo
 	_, err := m.conn.ExecCtx(ctx, query, formViewId)
 	if err != nil {
 		return fmt.Errorf("delete business_object_temp by form_view_id failed: %w", err)
+	}
+	return nil
+}
+
+// DeleteByFormViewIdAndInUse 根据 form_view_id 和 in_use 删除（删除当前使用的识别结果）
+func (m *BusinessObjectTempModelSqlx) DeleteByFormViewIdAndInUse(ctx context.Context, formViewId string, inUse int8) error {
+	query := `UPDATE t_business_object_temp SET deleted_at = NOW(3) WHERE form_view_id = ? AND in_use = ?`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId, inUse)
+	if err != nil {
+		return fmt.Errorf("delete business_object_temp by form_view_id and in_use failed: %w", err)
 	}
 	return nil
 }
@@ -168,5 +178,28 @@ func (m *BusinessObjectTempModelSqlx) DeleteById(ctx context.Context, id string)
 	if err != nil {
 		return fmt.Errorf("delete business_object_temp by id failed: %w", err)
 	}
+	return nil
+}
+
+// UpdateInUse 更新 in_use 状态：将指定 form_view_id 的新版本设置为 1，历史版本设置为 0
+func (m *BusinessObjectTempModelSqlx) UpdateInUse(ctx context.Context, formViewId string, newVersion int) error {
+	// 1. 将该 form_view_id 的所有记录的 in_use 设置为 0（历史版本）
+	query := `UPDATE t_business_object_temp
+	           SET in_use = 0
+	           WHERE form_view_id = ? AND deleted_at IS NULL`
+	_, err := m.conn.ExecCtx(ctx, query, formViewId)
+	if err != nil {
+		return fmt.Errorf("update in_use to 0 failed: %w", err)
+	}
+
+	// 2. 将新版本的 in_use 设置为 1（当前使用）
+	query = `UPDATE t_business_object_temp
+	           SET in_use = 1
+	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL`
+	_, err = m.conn.ExecCtx(ctx, query, formViewId, newVersion)
+	if err != nil {
+		return fmt.Errorf("update in_use to 1 failed: %w", err)
+	}
+
 	return nil
 }

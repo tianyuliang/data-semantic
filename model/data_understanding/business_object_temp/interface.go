@@ -20,8 +20,14 @@ type BusinessObjectTempModel interface {
 	// Update 更新业务对象名称
 	Update(ctx context.Context, data *BusinessObjectTemp) error
 
+	// UpdateInUse 更新 in_use 状态：将新版本设置为 1，历史版本设置为 0
+	UpdateInUse(ctx context.Context, formViewId string, newVersion int) error
+
 	// DeleteByFormViewId 根据form_view_id删除所有业务对象
 	DeleteByFormViewId(ctx context.Context, formViewId string) error
+
+	// DeleteByFormViewIdAndInUse 根据 form_view_id 和 in_use 删除（删除当前使用的识别结果）
+	DeleteByFormViewIdAndInUse(ctx context.Context, formViewId string, inUse int8) error
 
 	// DeleteById 根据id删除业务对象
 	DeleteById(ctx context.Context, id string) error

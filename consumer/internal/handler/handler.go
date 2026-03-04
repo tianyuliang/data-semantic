@@ -204,7 +204,12 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 		}
 	}
 
-	// 1.7 更新 form_view 状态为 2（待确认）- 在事务中执行
+	// 1.7 更新 in_use 状态：新版本设置为 1，历史版本设置为 0
+	if err := h.updateInUseForNewVersion(ctx, session, aiResp.FormViewId, businessObjectVersion, attributesVersion); err != nil {
+		return fmt.Errorf("更新 in_use 状态失败: %w", err)
+	}
+
+	// 1.8 更新 form_view 状态为 2（待确认）- 在事务中执行
 	formViewModel := form_view.NewFormViewModelSession(session)
 	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
 		return fmt.Errorf("更新form_view状态失败: %w", err)
@@ -336,6 +341,7 @@ func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sq
 }
 
 // saveBusinessObjects 保存业务对象到临时表（直接插入，使用 UUID 作为 ID）
+// 规则：只有有属性的业务对象才会被保存
 func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, objectVersion int, attrVersion int, objects []BusinessObjectInfo, noPatternFields []NoPatternFieldInfo) error {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
@@ -356,22 +362,9 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 
 	logx.WithContext(ctx).Infof("业务对象去重: 原始数量=%d, 去重后=%d", len(objects), len(uniqueObjects))
 
+	savedObjectCount := 0
 	for _, obj := range uniqueObjects {
-		// 1. 生成新的业务对象 ID
-		businessObjectId := uuid.New().String()
-
-		// 2. 插入新版本业务对象
-		objectData := &business_object_temp.BusinessObjectTemp{
-			Id:         businessObjectId,
-			FormViewId: formViewId,
-			Version:    objectVersion,
-			ObjectName: obj.ObjectName,
-		}
-		if _, err := businessObjectTempModel.Insert(ctx, objectData); err != nil {
-			return fmt.Errorf("插入业务对象失败: %w", err)
-		}
-
-		// 3. 处理属性（对属性也按 form_view_field_id 去重）
+		// 处理属性（对属性也按 form_view_field_id 去重）
 		uniqueAttrs := make(map[string]*AttributeInfo) // key: form_view_field_id
 		for i := range obj.Attributes {
 			attr := &obj.Attributes[i]
@@ -385,6 +378,28 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			}
 		}
 
+		// 只有当业务对象有属性时才保存
+		if len(uniqueAttrs) == 0 {
+			logx.WithContext(ctx).Infof("跳过没有属性的业务对象: object_name=%s", obj.ObjectName)
+			continue
+		}
+
+		savedObjectCount++
+		// 1. 生成新的业务对象 ID
+		businessObjectId := uuid.New().String()
+
+		// 2. 插入新版本业务对象
+		objectData := &business_object_temp.BusinessObjectTemp{
+			Id:         businessObjectId,
+			FormViewId: formViewId,
+			InUse:      0, // 初始为 0，后续由 UpdateInUse 统一设置
+			Version:    objectVersion,
+			ObjectName: obj.ObjectName,
+		}
+		if _, err := businessObjectTempModel.Insert(ctx, objectData); err != nil {
+			return fmt.Errorf("插入业务对象失败: %w", err)
+		}
+
 		for _, attr := range uniqueAttrs {
 			// 生成新的属性 ID
 			attrId := uuid.New().String()
@@ -393,6 +408,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
 				Id:               attrId,
 				FormViewId:       formViewId,
+				InUse:            0, // 初始为 0，后续由 UpdateInUse 统一设置
 				BusinessObjectId: businessObjectId,
 				Version:          attrVersion,
 				FormViewFieldId:  attr.FormViewFieldId,
@@ -404,7 +420,9 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		}
 	}
 
-	// 4. 处理未识别出属性的字段（business_object_id 为空，attr_name 为空）
+	logx.WithContext(ctx).Infof("业务对象保存完成: 有效对象数=%d (跳过无属性对象=%d)", savedObjectCount, len(uniqueObjects)-savedObjectCount)
+
+	// 3. 处理未识别出属性的字段（business_object_id 为空，attr_name 为空）
 	for _, field := range noPatternFields {
 		// 生成新的属性 ID
 		attrId := uuid.New().String()
@@ -413,6 +431,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		attrData := &business_object_attributes_temp.BusinessObjectAttributesTemp{
 			Id:               attrId,
 			FormViewId:       formViewId,
+			InUse:            0, // 初始为 0，后续由 UpdateInUse 统一设置
 			BusinessObjectId: "", // AI未识别出归属
 			Version:          attrVersion,
 			FormViewFieldId:  field.FormViewFieldId,
@@ -422,6 +441,27 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			return fmt.Errorf("插入未识别字段属性失败: %w", err)
 		}
 	}
+
+	return nil
+}
+
+// updateInUseForNewVersion 更新 in_use 状态：新版本设置为 1，历史版本设置为 0
+func (h *DataUnderstandingHandler) updateInUseForNewVersion(ctx context.Context, session sqlx.Session, formViewId string, objectVersion, attrVersion int) error {
+	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
+
+	// 更新业务对象临时表的 in_use 状态
+	if err := businessObjectTempModel.UpdateInUse(ctx, formViewId, objectVersion); err != nil {
+		return fmt.Errorf("更新业务对象 in_use 状态失败: %w", err)
+	}
+
+	// 更新属性临时表的 in_use 状态
+	if err := businessObjectAttrTempModel.UpdateInUse(ctx, formViewId, attrVersion); err != nil {
+		return fmt.Errorf("更新属性 in_use 状态失败: %w", err)
+	}
+
+	logx.WithContext(ctx).Infof("Updated in_use status: form_view_id=%s, object_version=%d, attr_version=%d",
+		formViewId, objectVersion, attrVersion)
 
 	return nil
 }
