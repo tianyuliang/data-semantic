@@ -20,7 +20,7 @@ COPY . .
 # 编译 API 服务
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w" \
-    -o /app/api ./api/*.go
+    -o /app/api ./api/api.go
 
 # 运行阶段
 FROM alpine:3.20
@@ -52,6 +52,6 @@ USER appuser
 EXPOSE 8888
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8888/health || exit 1
+    CMD curl -f http://localhost:8888/api/v1/health || exit 1
 
 CMD ["./api", "-f", "etc/api.yaml"]

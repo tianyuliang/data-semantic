@@ -1,7 +1,6 @@
 # 编译产物
-api
+bin/
 api.exe
-consumer
 consumer.exe
 rpc
 rpc.exe

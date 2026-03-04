@@ -19,7 +19,7 @@ COPY . .
 # 编译 Consumer 服务
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w" \
-    -o /app/consumer ./consumer/*.go
+    -o /app/consumer ./consumer/main.go
 
 # 运行阶段
 FROM alpine:3.20
