@@ -179,26 +179,32 @@ func (h *DataUnderstandingHandler) processSuccessResponseInTx(ctx context.Contex
 		}
 	}
 
-	// 1.3 获取业务对象临时表版本号并保存业务对象（全量生成和部分生成都有）
+	// 1.3 获取业务对象临时表版本号
 	businessObjectVersion, err := h.getBusinessObjectVersionWithLock(ctx, session, aiResp.FormViewId)
 	if err != nil {
 		return fmt.Errorf("获取业务对象版本号失败: %w", err)
 	}
 
-	if isFullUnderstanding {
-		logx.WithContext(ctx).Infof("全量生成业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, businessObjectVersion)
-	} else {
-		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 新版本=%d", aiResp.FormViewId, businessObjectVersion)
+	// 1.4 获取业务对象属性临时表版本号
+	attributesVersion, err := h.getAttributesVersionWithLock(ctx, session, aiResp.FormViewId)
+	if err != nil {
+		return fmt.Errorf("获取业务对象属性版本号失败: %w", err)
 	}
 
-	// 1.4 保存业务对象到临时表（包括未识别出属性的字段）
+	if isFullUnderstanding {
+		logx.WithContext(ctx).Infof("全量生成业务对象: form_view_id=%s, 对象版本=%d, 属性版本=%d", aiResp.FormViewId, businessObjectVersion, attributesVersion)
+	} else {
+		logx.WithContext(ctx).Infof("重新识别业务对象: form_view_id=%s, 对象版本=%d, 属性版本=%d", aiResp.FormViewId, businessObjectVersion, attributesVersion)
+	}
+
+	// 1.6 保存业务对象到临时表（包括未识别出属性的字段）
 	if len(aiResp.BusinessObjects) > 0 || len(aiResp.NoPatternFields) > 0 {
-		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, businessObjectVersion, aiResp.BusinessObjects, aiResp.NoPatternFields); err != nil {
+		if err := h.saveBusinessObjects(ctx, session, aiResp.FormViewId, businessObjectVersion, attributesVersion, aiResp.BusinessObjects, aiResp.NoPatternFields); err != nil {
 			return fmt.Errorf("保存业务对象失败: %w", err)
 		}
 	}
 
-	// 1.5 更新 form_view 状态为 2（待确认）- 在事务中执行
+	// 1.7 更新 form_view 状态为 2（待确认）- 在事务中执行
 	formViewModel := form_view.NewFormViewModelSession(session)
 	if err := formViewModel.UpdateUnderstandStatus(ctx, aiResp.FormViewId, form_view.StatusPendingConfirm); err != nil {
 		return fmt.Errorf("更新form_view状态失败: %w", err)
@@ -277,6 +283,16 @@ func (h *DataUnderstandingHandler) getBusinessObjectVersionWithLock(ctx context.
 	return latestVersion + 1, nil
 }
 
+// getAttributesVersionWithLock 获取业务对象属性临时表的下一个版本号（使用行锁防止并发冲突）
+func (h *DataUnderstandingHandler) getAttributesVersionWithLock(ctx context.Context, session sqlx.Session, formViewId string) (int, error) {
+	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
+	latestVersion, err := businessObjectAttrTempModel.FindLatestVersionWithLock(ctx, formViewId)
+	if err != nil {
+		return 0, err
+	}
+	return latestVersion + 1, nil
+}
+
 // saveTableInfo 保存表信息到临时表（直接插入）
 func (h *DataUnderstandingHandler) saveTableInfo(ctx context.Context, session sqlx.Session, formViewId string, version int, tableInfo *TableInfo) error {
 	formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
@@ -320,7 +336,7 @@ func (h *DataUnderstandingHandler) saveFieldInfo(ctx context.Context, session sq
 }
 
 // saveBusinessObjects 保存业务对象到临时表（直接插入，使用 UUID 作为 ID）
-func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, version int, objects []BusinessObjectInfo, noPatternFields []NoPatternFieldInfo) error {
+func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, session sqlx.Session, formViewId string, objectVersion int, attrVersion int, objects []BusinessObjectInfo, noPatternFields []NoPatternFieldInfo) error {
 	businessObjectTempModel := business_object_temp.NewBusinessObjectTempModelSession(session)
 	businessObjectAttrTempModel := business_object_attributes_temp.NewBusinessObjectAttributesTempModelSession(session)
 
@@ -348,7 +364,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 		objectData := &business_object_temp.BusinessObjectTemp{
 			Id:         businessObjectId,
 			FormViewId: formViewId,
-			Version:    version,
+			Version:    objectVersion,
 			ObjectName: obj.ObjectName,
 		}
 		if _, err := businessObjectTempModel.Insert(ctx, objectData); err != nil {
@@ -378,7 +394,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 				Id:               attrId,
 				FormViewId:       formViewId,
 				BusinessObjectId: businessObjectId,
-				Version:          version,
+				Version:          attrVersion,
 				FormViewFieldId:  attr.FormViewFieldId,
 				AttrName:         attr.AttrName,
 			}
@@ -398,7 +414,7 @@ func (h *DataUnderstandingHandler) saveBusinessObjects(ctx context.Context, sess
 			Id:               attrId,
 			FormViewId:       formViewId,
 			BusinessObjectId: "", // AI未识别出归属
-			Version:          version,
+			Version:          attrVersion,
 			FormViewFieldId:  field.FormViewFieldId,
 			AttrName:         "", // 未识别出属性，attr_name 为空
 		}
