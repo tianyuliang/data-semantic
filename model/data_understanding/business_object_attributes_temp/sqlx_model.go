@@ -82,12 +82,12 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindOneById(ctx context.Context,
 	return &resp, nil
 }
 
-// Update 更新属性名称
+// Update 更新属性名称和用户ID
 func (m *BusinessObjectAttributesTempModelSqlx) Update(ctx context.Context, data *BusinessObjectAttributesTemp) error {
 	query := `UPDATE t_business_object_attributes_temp
-	           SET attr_name = ?
+	           SET attr_name = ?, user_id = ?
 	           WHERE id = ?`
-	_, err := m.conn.ExecCtx(ctx, query, data.AttrName, data.Id)
+	_, err := m.conn.ExecCtx(ctx, query, data.AttrName, data.UserId, data.Id)
 	if err != nil {
 		return fmt.Errorf("update business_object_attributes_temp failed: %w", err)
 	}

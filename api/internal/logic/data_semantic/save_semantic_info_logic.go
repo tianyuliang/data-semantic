@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/form_view_field_info_temp"
@@ -49,6 +50,9 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 
 	// 2. 使用事务执行更新操作（保证原子性）
 	err = l.svcCtx.DB.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+		// 获取 user_id
+		userID := l.getUserIDFromContext()
+
 		// 2.1 如果提供了 TableData，更新 t_form_view_info_temp
 		if req.TableData != nil {
 			formViewInfoTempModel := form_view_info_temp.NewFormViewInfoTempModelSession(session)
@@ -57,6 +61,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			tableInfoTemp := &form_view_info_temp.FormViewInfoTemp{
 				Id:                req.TableData.Id,
 				FormViewId:        req.Id,
+				UserId:            &userID,
 				TableBusinessName: req.TableData.TableBusinessName,
 				TableDescription:  req.TableData.TableDescription,
 			}
@@ -65,7 +70,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			if err != nil {
 				return errorx.Detail(errorx.UpdateFailed, err, "库表信息")
 			}
-			logx.WithContext(ctx).Infof("Updated table info: id=%s", req.TableData.Id)
+			logx.WithContext(ctx).Infof("Updated table info: id=%s, user_id=%s", req.TableData.Id, userID)
 		}
 
 		// 2.2 如果提供了 FieldData，更新 t_form_view_field_info_temp
@@ -75,6 +80,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			// 构建更新数据
 			fieldInfoTemp := &form_view_field_info_temp.FormViewFieldInfoTemp{
 				Id:                req.FieldData.Id,
+				UserId:            &userID,
 				FieldBusinessName: req.FieldData.FieldBusinessName,
 				FieldRole:         req.FieldData.FieldRole,
 				FieldDescription:  req.FieldData.FieldDescription,
@@ -84,7 +90,7 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 			if err != nil {
 				return errorx.Detail(errorx.UpdateFailed, err, "字段信息")
 			}
-			logx.WithContext(ctx).Infof("Updated field info: id=%s", req.FieldData.Id)
+			logx.WithContext(ctx).Infof("Updated field info: id=%s, user_id=%s", req.FieldData.Id, userID)
 		}
 
 		return nil
@@ -98,4 +104,12 @@ func (l *SaveSemanticInfoLogic) SaveSemanticInfo(req *types.SaveSemanticInfoReq)
 	}
 
 	return resp, nil
+}
+
+// getUserIDFromContext 从 context 中获取 user_id
+func (l *SaveSemanticInfoLogic) getUserIDFromContext() string {
+	if userInfo, ok := l.ctx.Value(middleware.InfoName).(*middleware.UserInfo); ok && userInfo != nil {
+		return userInfo.ID
+	}
+	return ""
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
@@ -88,14 +89,18 @@ func (l *SaveBusinessObjectsLogic) saveBusinessObjectName(id, name string) error
 		return err
 	}
 
-	// 更新名称
+	// 获取 user_id 并设置
+	userID := l.getUserIDFromContext()
 	objData.ObjectName = name
+	objData.UserId = &userID
+
+	// 更新名称和 user_id
 	err = businessObjectTempModel.Update(l.ctx, objData)
 	if err != nil {
 		return errorx.Detail(errorx.UpdateFailed, err, "业务对象名称")
 	}
 
-	logx.WithContext(l.ctx).Infof("Updated business object name: id=%s, name=%s", id, name)
+	logx.WithContext(l.ctx).Infof("Updated business object name: id=%s, name=%s, user_id=%s", id, name, userID)
 	return nil
 }
 
@@ -115,14 +120,18 @@ func (l *SaveBusinessObjectsLogic) saveAttributeName(id, name string) error {
 		return err
 	}
 
-	// 更新名称
+	// 获取 user_id 并设置
+	userID := l.getUserIDFromContext()
 	attrData.AttrName = name
+	attrData.UserId = &userID
+
+	// 更新名称和 user_id
 	err = businessObjectAttrTempModel.Update(l.ctx, attrData)
 	if err != nil {
 		return errorx.Detail(errorx.UpdateFailed, err, "属性名称")
 	}
 
-	logx.WithContext(l.ctx).Infof("Updated attribute name: id=%s, name=%s", id, name)
+	logx.WithContext(l.ctx).Infof("Updated attribute name: id=%s, name=%s, user_id=%s", id, name, userID)
 	return nil
 }
 
@@ -152,4 +161,12 @@ func (l *SaveBusinessObjectsLogic) checkDuplicateAttrName(businessObjectId, form
 		return errorx.Desc(errorx.DuplicateName, "属性", name)
 	}
 	return nil
+}
+
+// getUserIDFromContext 从 context 中获取 user_id
+func (l *SaveBusinessObjectsLogic) getUserIDFromContext() string {
+	if userInfo, ok := l.ctx.Value(middleware.InfoName).(*middleware.UserInfo); ok && userInfo != nil {
+		return userInfo.ID
+	}
+	return ""
 }

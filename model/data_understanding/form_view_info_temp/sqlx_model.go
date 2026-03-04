@@ -60,12 +60,12 @@ func (m *FormViewInfoTempModelSqlx) FindOneByFormViewAndVersion(ctx context.Cont
 	return &resp, nil
 }
 
-// Update 更新库表信息
+// Update 更新库表信息和用户ID
 func (m *FormViewInfoTempModelSqlx) Update(ctx context.Context, data *FormViewInfoTemp) error {
 	query := `UPDATE t_form_view_info_temp
-	           SET table_business_name = ?, table_description = ?
+	           SET table_business_name = ?, table_description = ?, user_id = ?
 	           WHERE id = ?`
-	_, err := m.conn.ExecCtx(ctx, query, data.TableBusinessName, data.TableDescription, data.Id)
+	_, err := m.conn.ExecCtx(ctx, query, data.TableBusinessName, data.TableDescription, data.UserId, data.Id)
 	if err != nil {
 		return fmt.Errorf("update form_view_info_temp failed: %w", err)
 	}
