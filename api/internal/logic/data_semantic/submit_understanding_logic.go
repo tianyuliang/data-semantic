@@ -86,7 +86,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		logx.WithContext(ctx).Infof("Business objects: inserted=%d", objInserted)
 
 		// ========== 处理业务对象属性 ==========
-		attrInserted, attrUpdated, err := l.processBusinessObjectAttributes(ctx, req.Id, latestVersion, tempModel, tempAttrModel, formalModel, formalAttrModel)
+		attrInserted, attrUpdated, err := l.processBusinessObjectAttributes(ctx, req.Id, tempModel, tempAttrModel, formalModel, formalAttrModel)
 		if err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "属性")
 		}
@@ -187,15 +187,14 @@ func (l *SubmitUnderstandingLogic) processBusinessObjects(
 func (l *SubmitUnderstandingLogic) processBusinessObjectAttributes(
 	ctx context.Context,
 	formViewId string,
-	version int,
 	tempModel *business_object_temp.BusinessObjectTempModelSqlx,
 	tempAttrModel *business_object_attributes_temp.BusinessObjectAttributesTempModelSqlx,
 	formalModel *business_object.BusinessObjectModelSqlx,
 	formalAttrModel *business_object_attributes.BusinessObjectAttributesModelSqlx,
 ) (inserted, updated int, err error) {
-	// 1. 查询数据
-	tempAttrs, _ := tempAttrModel.FindByFormViewAndVersion(ctx, formViewId, version)
-	tempObjs, _ := tempModel.FindByFormViewAndVersion(ctx, formViewId, version)
+	// 1. 查询数据：临时表查询最新版本，正式表查询全部
+	tempAttrs, _ := tempAttrModel.FindByFormViewIdLatest(ctx, formViewId)
+	tempObjs, _ := tempModel.FindByFormViewIdLatest(ctx, formViewId)
 	formalAttrs, _ := formalAttrModel.FindByFormViewId(ctx, formViewId)
 	formalObjs, _ := formalModel.FindByFormViewId(ctx, formViewId)
 

@@ -13,7 +13,6 @@ import (
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_attributes_temp"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object_temp"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -37,18 +36,7 @@ func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessOb
 	logx.Infof("SaveBusinessObjects called with pathId: %s, type: %s, objectId: %s, name: %s",
 		req.Id, req.Type, req.ObjectId, req.Name)
 
-	// 1. 状态校验：只有状态 2（待确认）才能编辑
-	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
-	formViewData, err := formViewModel.FindOneById(l.ctx, req.Id)
-	if err != nil {
-		return nil, errorx.Detail(errorx.QueryFailed, err, "库表视图")
-	}
-
-	if formViewData.UnderstandStatus != form_view.StatusPendingConfirm {
-		return nil, errorx.Desc(errorx.InvalidUnderstandStatus)
-	}
-
-	// 2. 根据 type 决定更新业务对象还是属性
+	// 根据 type 决定更新业务对象还是属性
 	if req.Type == "object" {
 		err = l.saveBusinessObjectName(req.ObjectId, req.Name)
 		if err != nil {
