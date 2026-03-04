@@ -275,13 +275,14 @@ func (m *BusinessObjectAttributesTempModelSqlx) FindUnidentifiedFieldsLatest(ctx
 }
 
 // FindLatestVersionWithLock 查询指定form_view_id的最新版本号（带行锁，用于防止并发冲突）
+// 注意：查询包含逻辑删除的数据，以确保版本号递增正确（避免与已删除数据的唯一键冲突）
 func (m *BusinessObjectAttributesTempModelSqlx) FindLatestVersionWithLock(ctx context.Context, formViewId string) (int, error) {
 	var result struct {
 		LatestVersion int `db:"latest_version"`
 	}
 	query := `SELECT COALESCE(MAX(version), 9) AS latest_version
 	           FROM t_business_object_attributes_temp
-	           WHERE form_view_id = ? AND deleted_at IS NULL
+	           WHERE form_view_id = ?
 	           FOR UPDATE`
 	err := m.conn.QueryRowCtx(ctx, &result, query, formViewId)
 	if err != nil {
