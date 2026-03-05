@@ -39,35 +39,29 @@ func main() {
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	// 注册 Swagger 路由 (在中间件之前，避免被 ResponseWrapper 拦截)
-	if c.Swagger.Enabled {
-		swaggerHandler := http.StripPrefix("/swagger/", http.FileServer(http.Dir(c.Swagger.Path)))
-		server.AddRoute(rest.Route{
-			Method:  http.MethodGet,
-			Path:    "/swagger/",
-			Handler: swaggerHandler.ServeHTTP,
-		})
-		server.AddRoute(rest.Route{
-			Method:  http.MethodGet,
-			Path:    "/swagger/:filename",
-			Handler: swaggerHandler.ServeHTTP,
-		})
-		fmt.Printf("Swagger 文档地址: http://%s:%d/swagger/\n", c.Host, c.Port)
-	}
-
 	// 注册全局中间件 (顺序重要!)
-	server.Use(base_middleware.Recovery())       // 1. Panic 恢复
-	server.Use(base_middleware.RequestID())      // 2. 请求 ID 生成
-	server.Use(base_middleware.Trace())          // 3. OpenTelemetry 链路追踪
-	server.Use(base_middleware.CORS())           // 4. CORS 跨域处理
-	server.Use(base_middleware.Logger())         // 5. 请求日志
-	server.Use(middleware.ResponseWrapper())     // 6. 统一响应格式包装
+	server.Use(base_middleware.Recovery())   // 1. Panic 恢复
+	server.Use(base_middleware.RequestID())  // 2. 请求 ID 生成
+	server.Use(base_middleware.Trace())      // 3. OpenTelemetry 链路追踪
+	server.Use(base_middleware.CORS())       // 4. CORS 跨域处理
+	server.Use(base_middleware.Logger())     // 5. 请求日志
+	server.Use(middleware.ResponseWrapper()) // 6. 统一响应格式包装
 
 	// 初始化服务上下文
 	ctx := svc.NewServiceContext(c)
 
 	// 注册路由
 	handler.RegisterHandlers(server, ctx)
+
+	// 注册 Swagger 路由
+	if c.Swagger.Enabled {
+		fmt.Printf("Swagger 文档地址: http://%s:%d/swagger/\n", c.Host, c.Port)
+		server.AddRoute(rest.Route{
+			Method:  http.MethodGet,
+			Path:    "/swagger/*",
+			Handler: http.StripPrefix("/swagger/", http.FileServer(http.Dir(c.Swagger.Path))).ServeHTTP,
+		})
+	}
 
 	fmt.Printf("启动 API 服务: %s:%d\n", c.Host, c.Port)
 	server.Start()
