@@ -40,7 +40,11 @@
       "Bash(taskkill:*)",
       "Bash(tasklist)",
       "Bash(netstat:*)",
-      "Bash(cmd //c \"taskkill //F //PID 79176\")"
+      "Bash(cmd //c \"taskkill //F //PID 79176\")",
+      "Bash(command -v helm3)",
+      "Bash(command -v helm)",
+      "Bash(grep -n \"autoscaling\" helm-chart/templates/deployment-*.yaml)",
+      "Bash(grep -n \"\\\\.Values\\\\.\" helm-chart/templates/deployment-*.yaml)"
     ]
   }
 }

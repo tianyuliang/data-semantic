@@ -376,6 +376,7 @@
                   "items": {
                     "type": "object",
                     "required": [
+                      "id",
                       "form_view_field_id",
                       "field_business_name",
                       "field_tech_name",
@@ -536,16 +537,12 @@
                 "fieldData": {
                   "type": "object",
                   "required": [
-                    "data_source",
+                    "id",
                     "field_business_name",
                     "field_role",
                     "field_description"
                   ],
                   "properties": {
-                    "data_source": {
-                      "description": "数据来源: formal=正式表, temp=临时表",
-                      "type": "string"
-                    },
                     "field_business_name": {
                       "type": "string"
                     },
@@ -556,7 +553,7 @@
                       "type": "integer"
                     },
                     "id": {
-                      "description": "数据 id (formal表id或temp表id)",
+                      "description": "数据 id (temp表id)",
                       "type": "string"
                     }
                   }
@@ -564,17 +561,13 @@
                 "tableData": {
                   "type": "object",
                   "required": [
-                    "data_source",
+                    "id",
                     "table_business_name",
                     "table_description"
                   ],
                   "properties": {
-                    "data_source": {
-                      "description": "数据来源: formal=正式表, temp=临时表",
-                      "type": "string"
-                    },
                     "id": {
-                      "description": "数据 id (formal表id或temp表id)",
+                      "description": "数据 id (temp表id)",
                       "type": "string"
                     },
                     "table_business_name": {
@@ -699,7 +692,7 @@
       }
     }
   },
-  "x-date": "2026-03-03 09:46:25",
+  "x-date": "2026-03-05 13:17:38",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",
