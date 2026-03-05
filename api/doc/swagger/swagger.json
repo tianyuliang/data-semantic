@@ -14,9 +14,22 @@
     "version": "v1"
   },
   "basePath": "/",
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "JWT 认证令牌，格式: Bearer {token}"
+    }
+  },
   "paths": {
     "/api/v1/data-semantic/{id}/business-objects": {
       "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "produces": [
           "application/json"
         ],
@@ -30,19 +43,22 @@
             "type": "string",
             "name": "id",
             "in": "path",
-            "required": true
+            "required": true,
+            "description": "表单视图ID"
           },
           {
             "type": "string",
             "name": "object_id",
             "in": "query",
-            "allowEmptyValue": true
+            "allowEmptyValue": true,
+            "description": "业务对象ID过滤"
           },
           {
             "type": "string",
             "name": "keyword",
             "in": "query",
-            "allowEmptyValue": true
+            "allowEmptyValue": true,
+            "description": "关键字搜索"
           }
         ],
         "responses": {
@@ -63,6 +79,7 @@
                     "properties": {
                       "attributes": {
                         "type": "array",
+                        "description": "属性列表",
                         "items": {
                           "type": "object",
                           "required": [
@@ -76,37 +93,47 @@
                           ],
                           "properties": {
                             "attr_name": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "属性名称"
                             },
                             "description": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "属性描述"
                             },
                             "field_business_name": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "字段业务名称"
                             },
                             "field_role": {
-                              "type": "integer"
+                              "type": "integer",
+                              "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签"
                             },
                             "field_tech_name": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "字段技术名称"
                             },
                             "field_type": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "字段数据类型"
                             },
                             "form_view_field_id": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "表单视图字段ID"
                             },
                             "id": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "属性ID"
                             }
                           }
                         }
                       },
                       "id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "业务对象ID"
                       },
                       "object_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "业务对象名称"
                       }
                     }
                   }
@@ -122,25 +149,35 @@
                     ],
                     "properties": {
                       "business_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段业务名称"
                       },
                       "data_type": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段数据类型"
                       },
                       "description": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段描述"
                       },
                       "field_role": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签"
                       },
                       "id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "临时表数据ID"
                       },
                       "technical_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段技术名称"
                       }
                     }
                   }
+                },
+                "list": {
+                  "type": "array",
+                  "description": "业务对象列表"
                 }
               }
             }
@@ -148,6 +185,11 @@
         }
       },
       "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/json"
         ],
@@ -179,13 +221,16 @@
               ],
               "properties": {
                 "id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "数据ID(临时表)"
                 },
                 "name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "业务对象/属性名称"
                 },
                 "type": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "保存类型: object-业务对象, attribute-业务属性"
                 }
               }
             }
@@ -198,7 +243,8 @@
               "type": "object",
               "properties": {
                 "code": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "响应码: 0-成功"
                 }
               }
             }
@@ -206,6 +252,11 @@
         }
       },
       "delete": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/x-www-form-urlencoded"
         ],
@@ -232,7 +283,8 @@
               "type": "object",
               "properties": {
                 "success": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "是否成功"
                 }
               }
             }
@@ -242,6 +294,11 @@
     },
     "/api/v1/data-semantic/{id}/business-objects/attributes/move": {
       "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/json"
         ],
@@ -272,10 +329,12 @@
               ],
               "properties": {
                 "attribute_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "属性ID"
                 },
                 "target_object_uuid": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "目标业务对象ID"
                 }
               }
             }
@@ -288,10 +347,12 @@
               "type": "object",
               "properties": {
                 "attribute_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "属性ID"
                 },
                 "business_object_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "业务对象ID"
                 }
               }
             }
@@ -301,6 +362,11 @@
     },
     "/api/v1/data-semantic/{id}/business-objects/regenerate": {
       "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/x-www-form-urlencoded"
         ],
@@ -327,7 +393,8 @@
               "type": "object",
               "properties": {
                 "understand_status": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败"
                 }
               }
             }
@@ -337,6 +404,11 @@
     },
     "/api/v1/data-semantic/{id}/fields": {
       "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "produces": [
           "application/json"
         ],
@@ -350,19 +422,22 @@
             "type": "string",
             "name": "id",
             "in": "path",
-            "required": true
+            "required": true,
+            "description": "表单视图ID"
           },
           {
             "type": "string",
             "name": "keyword",
             "in": "query",
-            "allowEmptyValue": true
+            "allowEmptyValue": true,
+            "description": "关键字搜索"
           },
           {
             "type": "boolean",
             "name": "only_incomplete",
             "in": "query",
-            "allowEmptyValue": true
+            "allowEmptyValue": true,
+            "description": "仅显示未补全的字段"
           }
         ],
         "responses": {
@@ -386,40 +461,55 @@
                     ],
                     "properties": {
                       "field_business_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段业务名称"
                       },
                       "field_description": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段描述"
                       },
                       "field_role": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签"
                       },
                       "field_tech_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段技术名称"
                       },
                       "field_type": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段数据类型"
                       },
                       "form_view_field_id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "表单视图字段ID"
                       },
                       "id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "临时表数据ID"
                       }
                     }
                   }
                 },
+                "fields": {
+                  "type": "array",
+                  "description": "字段列表"
+                },
                 "table_business_name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "表业务名称"
                 },
                 "table_description": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "表描述"
                 },
                 "table_info_id": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "表信息ID"
                 },
                 "table_tech_name": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "表技术名称"
                 }
               }
             }
@@ -429,6 +519,11 @@
     },
     "/api/v1/data-semantic/{id}/generate": {
       "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/json"
         ],
@@ -468,25 +563,35 @@
                     ],
                     "properties": {
                       "field_business_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段业务名称"
                       },
                       "field_description": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段描述"
                       },
                       "field_role": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签"
                       },
                       "field_tech_name": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段技术名称"
                       },
                       "field_type": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "字段数据类型"
                       },
                       "form_view_field_id": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "表单视图字段ID"
                       }
                     }
                   }
+                },
+                "fields": {
+                  "type": "array",
+                  "description": "字段选择列表(可选,不传则全部理解)"
                 }
               }
             }
@@ -499,7 +604,8 @@
               "type": "object",
               "properties": {
                 "understand_status": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败"
                 }
               }
             }
@@ -509,6 +615,11 @@
     },
     "/api/v1/data-semantic/{id}/semantic-info": {
       "put": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/json"
         ],
@@ -544,22 +655,30 @@
                   ],
                   "properties": {
                     "field_business_name": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "字段业务名称"
                     },
                     "field_description": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "字段描述"
                     },
                     "field_role": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签"
                     },
                     "id": {
-                      "description": "数据 id (temp表id)",
-                      "type": "string"
+                      "type": "string",
+                      "description": "临时表数据ID"
                     }
                   }
                 },
+                "fieldData": {
+                  "type": "object",
+                  "description": "字段信息补全数据"
+                },
                 "tableData": {
                   "type": "object",
+                  "description": "表信息补全数据",
                   "required": [
                     "id",
                     "table_business_name",
@@ -567,14 +686,16 @@
                   ],
                   "properties": {
                     "id": {
-                      "description": "数据 id (temp表id)",
-                      "type": "string"
+                      "type": "string",
+                      "description": "临时表数据ID"
                     },
                     "table_business_name": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "表业务名称"
                     },
                     "table_description": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "表描述"
                     }
                   }
                 }
@@ -589,7 +710,8 @@
               "type": "object",
               "properties": {
                 "code": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "响应码: 0-成功"
                 }
               }
             }
@@ -599,6 +721,11 @@
     },
     "/api/v1/data-semantic/{id}/status": {
       "get": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "produces": [
           "application/json"
         ],
@@ -622,7 +749,8 @@
               "type": "object",
               "properties": {
                 "understand_status": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败"
                 }
               }
             }
@@ -632,6 +760,11 @@
     },
     "/api/v1/data-semantic/{id}/submit": {
       "post": {
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "consumes": [
           "application/x-www-form-urlencoded"
         ],
@@ -658,7 +791,8 @@
               "type": "object",
               "properties": {
                 "success": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "是否成功"
                 }
               }
             }
@@ -692,7 +826,7 @@
       }
     }
   },
-  "x-date": "2026-03-05 13:17:38",
+  "x-date": "2026-03-05 13:39:21",
   "x-description": "This is a goctl generated swagger file.",
   "x-github": "https://github.com/zeromicro/go-zero",
   "x-go-zero-doc": "https://go-zero.dev/",
