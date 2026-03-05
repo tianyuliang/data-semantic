@@ -61,7 +61,7 @@ Auth:
 # Swagger 配置
 Swagger:
   Enabled: true
-  Path: api/doc/swagger
+  Path: D:/go/data-semantic/api/doc/swagger
 
 # Kafka 配置
 Kafka:
