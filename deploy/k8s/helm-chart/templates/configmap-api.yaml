@@ -81,7 +81,7 @@ data:
 
     # AI 服务配置
     AIService:
-      URL: "http://10.4.134.26:9595"
+      URL: "http://af-sailor-agent:9595"
       TimeoutSeconds: 10
 
     # UserManagement 服务配置
