@@ -4,7 +4,7 @@
 package types
 
 type DeleteBusinessObjectsReq struct {
-	Id string `path:"id" validate:"required"`
+	Id string `path:"id" validate:"required,uuid"`
 }
 
 type DeleteBusinessObjectsResp struct {
@@ -12,7 +12,7 @@ type DeleteBusinessObjectsResp struct {
 }
 
 type GenerateUnderstandingReq struct {
-	Id     string           `path:"id" validate:"required"`
+	Id     string           `path:"id" validate:"required,uuid"`
 	Fields []FieldSelection `json:"fields,optional"`
 }
 
@@ -21,8 +21,8 @@ type GenerateUnderstandingResp struct {
 }
 
 type GetBusinessObjectsReq struct {
-	Id       string  `path:"id" validate:"required"`
-	ObjectId *string `form:"object_id,optional"`
+	Id       string  `path:"id" validate:"required,uuid"`
+	ObjectId *string `form:"object_id,optional" validate:"omitempty,uuid"`
 	Keyword  *string `form:"keyword,optional"`
 }
 
@@ -32,7 +32,7 @@ type GetBusinessObjectsResp struct {
 }
 
 type GetFieldsReq struct {
-	Id             string  `path:"id" validate:"required"`
+	Id             string  `path:"id" validate:"required,uuid"`
 	Keyword        *string `form:"keyword,optional"`
 	OnlyIncomplete *bool   `form:"only_incomplete,optional"`
 }
@@ -46,7 +46,7 @@ type GetFieldsResp struct {
 }
 
 type GetStatusReq struct {
-	Id string `path:"id" validate:"required"`
+	Id string `path:"id" validate:"required,uuid"`
 }
 
 type GetStatusResp struct {
@@ -54,9 +54,9 @@ type GetStatusResp struct {
 }
 
 type MoveAttributeReq struct {
-	Id               string `path:"id" validate:"required"`
-	AttributeId      string `json:"attribute_id" validate:"required"`
-	TargetObjectUuid string `json:"target_object_uuid" validate:"required"`
+	Id               string `path:"id" validate:"required,uuid"`
+	AttributeId      string `json:"attribute_id" validate:"required,uuid"`
+	TargetObjectUuid string `json:"target_object_uuid" validate:"required,uuid"`
 }
 
 type MoveAttributeResp struct {
@@ -65,7 +65,7 @@ type MoveAttributeResp struct {
 }
 
 type RegenerateBusinessObjectsReq struct {
-	Id string `path:"id" validate:"required"`
+	Id string `path:"id" validate:"required,uuid"`
 }
 
 type RegenerateBusinessObjectsResp struct {
@@ -73,9 +73,9 @@ type RegenerateBusinessObjectsResp struct {
 }
 
 type SaveBusinessObjectsReq struct {
-	Id       string `path:"id" validate:"required"`
+	Id       string `path:"id" validate:"required,uuid"`
 	Type     string `json:"type" validate:"required,oneof=object attribute"`
-	ObjectId string `json:"id" validate:"required"`
+	ObjectId string `json:"id" validate:"required,uuid"`
 	Name     string `json:"name" validate:"required,max=100"`
 }
 
@@ -84,7 +84,7 @@ type SaveBusinessObjectsResp struct {
 }
 
 type SaveSemanticInfoReq struct {
-	Id        string                     `path:"id" validate:"required"`
+	Id        string                     `path:"id" validate:"required,uuid"`
 	TableData *SaveSemanticInfoTableData `json:"tableData,optional"`
 	FieldData *SaveSemanticInfoFieldData `json:"fieldData,optional"`
 }
@@ -94,7 +94,7 @@ type SaveSemanticInfoResp struct {
 }
 
 type SubmitUnderstandingReq struct {
-	Id string `path:"id" validate:"required"`
+	Id string `path:"id" validate:"required,uuid"`
 }
 
 type SubmitUnderstandingResp struct {

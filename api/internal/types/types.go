@@ -24,7 +24,7 @@ type EmptyResp struct {
 }
 
 type FieldSelection struct {
-	FormViewFieldId   string  `json:"form_view_field_id" validate:"required"`
+	FormViewFieldId   string  `json:"form_view_field_id" validate:"required,uuid"`
 	FieldTechName     string  `json:"field_tech_name" validate:"required"`
 	FieldType         string  `json:"field_type" validate:"required"`
 	FieldBusinessName *string `json:"field_business_name,omitempty"`
@@ -80,14 +80,14 @@ type PageResp struct {
 }
 
 type SaveSemanticInfoFieldData struct {
-	Id                string  `json:"id" validate:"required"` // 数据 id (temp表id)
+	Id                string  `json:"id" validate:"required,uuid"`
 	FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
 	FieldRole         *int8   `json:"field_role" validate:"omitempty,min=1,max=8"`
 	FieldDescription  *string `json:"field_description" validate:"omitempty,max=300"`
 }
 
 type SaveSemanticInfoTableData struct {
-	Id                string  `json:"id" validate:"required"` // 数据 id (temp表id)
+	Id                string  `json:"id" validate:"required,uuid"`
 	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
 	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
 }

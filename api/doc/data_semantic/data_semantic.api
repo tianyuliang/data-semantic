@@ -9,7 +9,7 @@ type (
 	// ====== 接口1: 查询库表理解状态 ======
 	GetStatusReq {
 		// 表单视图ID
-		Id string `path:"id" validate:"required"`
+		Id string `path:"id" validate:"required,uuid"`
 	}
 	GetStatusResp {
 		// 理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败
@@ -19,7 +19,7 @@ type (
 	// 字段选择参数（用于部分字段理解）
 	FieldSelection {
 		// 表单视图字段ID
-		FormViewFieldId   string  `json:"form_view_field_id" validate:"required"`
+		FormViewFieldId   string  `json:"form_view_field_id" validate:"required,uuid"`
 		// 字段技术名称
 		FieldTechName     string  `json:"field_tech_name" validate:"required"`
 		// 字段数据类型
@@ -33,7 +33,7 @@ type (
 	}
 	GenerateUnderstandingReq {
 		// 表单视图ID
-		Id     string           `path:"id" validate:"required"`
+		Id     string           `path:"id" validate:"required,uuid"`
 		// 字段选择列表(可选,不传则全部理解)
 		Fields []FieldSelection `json:"fields,optional"`
 	}
@@ -60,7 +60,7 @@ type (
 	}
 	GetFieldsReq {
 		// 表单视图ID
-		Id             string  `path:"id" validate:"required"`
+		Id             string  `path:"id" validate:"required,uuid"`
 		// 关键字搜索
 		Keyword        *string `form:"keyword,optional"`
 		// 仅显示未补全的字段
@@ -81,7 +81,7 @@ type (
 	// ====== 接口4: 保存库表信息补全数据 ======
 	SaveSemanticInfoTableData {
 		// 临时表数据ID
-		Id                string  `json:"id" validate:"required"`
+		Id                string  `json:"id" validate:"required,uuid"`
 		// 表业务名称
 		TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
 		// 表描述
@@ -89,7 +89,7 @@ type (
 	}
 	SaveSemanticInfoFieldData {
 		// 临时表数据ID
-		Id                string  `json:"id" validate:"required"`
+		Id                string  `json:"id" validate:"required,uuid"`
 		// 字段业务名称
 		FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
 		// 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
@@ -99,7 +99,7 @@ type (
 	}
 	SaveSemanticInfoReq {
 		// 表单视图ID
-		Id        string                     `path:"id" validate:"required"`
+		Id        string                     `path:"id" validate:"required,uuid"`
 		// 表信息补全数据
 		TableData *SaveSemanticInfoTableData `json:"tableData,optional"`
 		// 字段信息补全数据
@@ -138,9 +138,9 @@ type (
 	}
 	GetBusinessObjectsReq {
 		// 表单视图ID
-		Id       string  `path:"id" validate:"required"`
+		Id       string  `path:"id" validate:"required,uuid"`
 		// 业务对象ID过滤
-		ObjectId *string `form:"object_id,optional"`
+		ObjectId *string `form:"object_id,optional" validate:"omitempty,uuid"`
 		// 关键字搜索
 		Keyword  *string `form:"keyword,optional"`
 	}
@@ -167,11 +167,11 @@ type (
 	// ====== 接口6: 保存业务对象及属性 ======
 	SaveBusinessObjectsReq {
 		// 表单视图ID
-		Id   string `path:"id" validate:"required"`
+		Id   string `path:"id" validate:"required,uuid"`
 		// 保存类型: object-业务对象, attribute-业务属性
 		Type string `json:"type" validate:"required,oneof=object attribute"`
 		// 数据ID(临时表)
-		ObjectId   string `json:"id" validate:"required"`
+		ObjectId   string `json:"id" validate:"required,uuid"`
 		// 业务对象/属性名称
 		Name string `json:"name" validate:"required,max=100"`
 	}
@@ -182,11 +182,11 @@ type (
 	// ====== 接口7: 调整属性归属业务对象 ======
 	MoveAttributeReq {
 		// 表单视图ID
-		Id               string `path:"id" validate:"required"`
+		Id               string `path:"id" validate:"required,uuid"`
 		// 属性ID
-		AttributeId      string `json:"attribute_id" validate:"required"`
+		AttributeId      string `json:"attribute_id" validate:"required,uuid"`
 		// 目标业务对象ID
-		TargetObjectUuid string `json:"target_object_uuid" validate:"required"`
+		TargetObjectUuid string `json:"target_object_uuid" validate:"required,uuid"`
 	}
 	MoveAttributeResp {
 		// 属性ID
@@ -197,7 +197,7 @@ type (
 	// ====== 接口8: 重新识别业务对象 ======
 	RegenerateBusinessObjectsReq {
 		// 表单视图ID
-		Id string `path:"id" validate:"required"`
+		Id string `path:"id" validate:"required,uuid"`
 	}
 	RegenerateBusinessObjectsResp {
 		// 理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败
@@ -206,7 +206,7 @@ type (
 	// ====== 接口9: 提交确认理解数据 ======
 	SubmitUnderstandingReq {
 		// 表单视图ID
-		Id string `path:"id" validate:"required"`
+		Id string `path:"id" validate:"required,uuid"`
 	}
 	SubmitUnderstandingResp {
 		// 是否成功
@@ -215,7 +215,7 @@ type (
 	// ====== 接口10: 删除识别结果 ======
 	DeleteBusinessObjectsReq {
 		// 表单视图ID
-		Id string `path:"id" validate:"required"`
+		Id string `path:"id" validate:"required,uuid"`
 	}
 	DeleteBusinessObjectsResp {
 		// 是否成功
