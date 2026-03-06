@@ -59,7 +59,7 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		return nil, errorx.Detail(errorx.QueryFailed, err, "当前版本号")
 	}
 	if latestVersion == 0 {
-		return nil, errorx.Desc(errorx.PublicInvalidParameter, "没有可提交的数据，版本号为0")
+		return nil, errorx.Desc(errorx.NoDataToCommit)
 	}
 
 	// 3. 开启事务处理

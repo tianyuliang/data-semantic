@@ -5,7 +5,6 @@ package data_semantic
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/errorx"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -77,15 +76,15 @@ func (l *MoveAttributeLogic) moveAttributeInTemp(req *types.MoveAttributeReq) (r
 
 		// 校验 form_view_id：属性和目标业务对象必须属于同一库表
 		if attribute.FormViewId != req.Id {
-			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("属性不属于当前库表: %s", attribute.FormViewId))
+			return errorx.Desc(errorx.DataNotBelongToFormView, "属性")
 		}
 		if targetObject.FormViewId != req.Id {
-			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("目标业务对象不属于当前库表: %s", targetObject.FormViewId))
+			return errorx.Desc(errorx.DataNotBelongToFormView, "目标业务对象")
 		}
 
 		// 检查是否自移动
 		if attribute.BusinessObjectId == req.TargetObjectUuid {
-			return errorx.Desc(errorx.PublicInvalidParameter, "属性已归属到该业务对象，无需移动")
+			return errorx.Desc(errorx.AttributeAlreadyBelongToObject)
 		}
 
 		// 检查目标业务对象下，同一字段是否已存在同名属性
@@ -142,15 +141,15 @@ func (l *MoveAttributeLogic) moveAttributeInFormal(req *types.MoveAttributeReq) 
 
 		// 校验 form_view_id：属性和目标业务对象必须属于同一库表
 		if attribute.FormViewId != req.Id {
-			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("属性不属于当前库表: %s", attribute.FormViewId))
+			return errorx.Desc(errorx.DataNotBelongToFormView, "属性")
 		}
 		if targetObject.FormViewId != req.Id {
-			return errorx.Desc(errorx.PublicInvalidParameter, fmt.Sprintf("目标业务对象不属于当前库表: %s", targetObject.FormViewId))
+			return errorx.Desc(errorx.DataNotBelongToFormView, "目标业务对象")
 		}
 
 		// 检查是否自移动
 		if attribute.BusinessObjectId == req.TargetObjectUuid {
-			return errorx.Desc(errorx.PublicInvalidParameter, "属性已归属到该业务对象，无需移动")
+			return errorx.Desc(errorx.AttributeAlreadyBelongToObject)
 		}
 
 		// 检查目标业务对象下，同一字段是否已存在同名属性

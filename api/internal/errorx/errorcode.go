@@ -75,6 +75,11 @@ const (
 	InvalidUnderstandStatus = dataUnderstandingPreCoder + "InvalidUnderstandStatus"
 	DuplicateName            = dataUnderstandingPreCoder + "DuplicateName"
 
+	// 业务逻辑错误
+	AttributeAlreadyBelongToObject = dataUnderstandingPreCoder + "AttributeAlreadyBelongToObject"
+	NoDataToCommit                 = dataUnderstandingPreCoder + "NoDataToCommit"
+	DataNotBelongToFormView        = dataUnderstandingPreCoder + "DataNotBelongToFormView"
+
 	// 数据操作错误
 	QueryFailed  = dataUnderstandingPreCoder + "QueryFailed"
 	UpdateFailed = dataUnderstandingPreCoder + "UpdateFailed"
@@ -91,6 +96,21 @@ var dataUnderstandingErrorMap = ErrorCode{
 		Description: "[name_type]名称已存在: [name]",
 		Cause:       "名称冲突",
 		Solution:    "请使用不同的名称",
+	},
+	AttributeAlreadyBelongToObject: {
+		Description: "属性已归属到该业务对象，无需移动",
+		Cause:       "属性当前已归属于目标业务对象",
+		Solution:    "无需重复移动操作",
+	},
+	NoDataToCommit: {
+		Description: "没有可提交的数据",
+		Cause:       "版本号为0，未生成任何理解数据",
+		Solution:    "请先执行理解操作生成数据后再提交",
+	},
+	DataNotBelongToFormView: {
+		Description: "[data_type]不属于当前库表视图",
+		Cause:       "数据与当前库表视图不匹配",
+		Solution:    "请检查数据ID是否正确",
 	},
 	QueryFailed: {
 		Description: "查询[operation]失败",
