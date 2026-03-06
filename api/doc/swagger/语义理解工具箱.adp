@@ -150,7 +150,7 @@
                     "FieldInfo": {
                       "properties": {
                         "field_role": {
-                          "description": "字段角色",
+                          "description": "字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段",
                           "type": "integer"
                         },
                         "field_tech_name": {
@@ -1073,7 +1073,7 @@
                         },
                         "field_role": {
                           "type": "integer",
-                          "description": "字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签",
+                          "description": "字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段",
                           "enum": [
                             1,
                             2,
@@ -1572,47 +1572,54 @@
                       "properties": {
                         "tableData": {
                           "description": "表信息补全数据(包含ID、业务名称、描述)",
-                          "properties": {
-                            "table_description": {
-                              "type": "string"
-                            },
-                            "op_id": {
-                              "type": "string"
-                            },
-                            "table_business_name": {
-                              "type": "string"
-                            }
-                          },
                           "type": "object",
                           "required": [
-                            "id",
+                            "op_id",
                             "table_business_name",
                             "table_description"
-                          ]
+                          ],
+                          "properties": {
+                            "op_id": {
+                              "type": "string",
+                              "description": "临时表数据ID"
+                            },
+                            "table_business_name": {
+                              "type": "string",
+                              "description": "表业务名称"
+                            },
+                            "table_description": {
+                              "type": "string",
+                              "description": "表描述"
+                            }
+                          }
                         },
                         "fieldData": {
-                          "properties": {
                           "description": "字段信息补全数据(包含ID、业务名称、角色、描述)",
-                            "field_role": {
-                              "type": "integer"
-                            },
-                            "op_id": {
-                              "type": "string"
-                            },
-                            "field_business_name": {
-                              "type": "string"
-                            },
-                            "field_description": {
-                              "type": "string"
-                            }
-                          },
                           "type": "object",
                           "required": [
-                            "id",
+                            "op_id",
                             "field_business_name",
                             "field_role",
                             "field_description"
-                          ]
+                          ],
+                          "properties": {
+                            "op_id": {
+                              "type": "string",
+                              "description": "临时表数据ID"
+                            },
+                            "field_business_name": {
+                              "type": "string",
+                              "description": "字段业务名称"
+                            },
+                            "field_role": {
+                              "type": "integer",
+                              "description": "字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段"
+                            },
+                            "field_description": {
+                              "type": "string",
+                              "description": "字段描述"
+                            }
+                          }
                         }
                       }
                     },

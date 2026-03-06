@@ -97,7 +97,7 @@ paths:
                                 description: 字段业务名称
                               field_role:
                                 type: integer
-                                description: 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
+                                description: 字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段
                               field_type:
                                 type: string
                                 description: 字段数据类型
@@ -127,7 +127,7 @@ paths:
                           description: 字段描述
                         field_role:
                           type: integer
-                          description: 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
+                          description: 字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段
     put:
       summary: 保存业务对象及属性
       operationId: dataSemanticSaveBusinessObjects
@@ -329,7 +329,7 @@ paths:
                           description: 字段数据类型
                         field_role:
                           type: integer
-                          description: 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
+                          description: 字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段
                         field_description:
                           type: string
                           description: 字段描述
@@ -378,7 +378,7 @@ paths:
                       description: 字段业务名称
                     field_role:
                       type: integer
-                      description: 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
+                      description: 字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段
                     field_description:
                       type: string
                       description: 字段描述
@@ -445,7 +445,7 @@ paths:
                     description: 字段业务名称
                   field_role:
                     type: integer
-                    description: 字段角色: 1-主键, 2-外键, 3-维度, 4-度量, 5-属性, 6-时间, 7-地点, 8-标签
+                    description: 字段角色: 1-业务主键, 2-关联标识, 3-业务状态, 4-时间字段, 5-业务指标, 6-业务特征, 7-审计字段, 8-技术字段
                   field_description:
                     type: string
                     description: 字段描述
