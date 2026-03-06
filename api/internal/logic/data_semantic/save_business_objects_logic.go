@@ -33,18 +33,18 @@ func NewSaveBusinessObjectsLogic(ctx context.Context, svcCtx *svc.ServiceContext
 }
 
 func (l *SaveBusinessObjectsLogic) SaveBusinessObjects(req *types.SaveBusinessObjectsReq) (resp *types.SaveBusinessObjectsResp, err error) {
-	logx.Infof("SaveBusinessObjects called with pathId: %s, type: %s, objectId: %s, name: %s",
-		req.Id, req.Type, req.ObjectId, req.Name)
+	logx.Infof("SaveBusinessObjects called with pathId: %s, type: %s, opId: %s, name: %s",
+		req.Id, req.Type, req.OpId, req.Name)
 
 	// 根据 type 决定更新业务对象还是属性
 	if req.Type == "object" {
-		err = l.saveBusinessObjectName(req.ObjectId, req.Name)
+		err = l.saveBusinessObjectName(req.OpId, req.Name)
 		if err != nil {
 			return nil, err
 		}
 
 	} else if req.Type == "attribute" {
-		err = l.saveAttributeName(req.ObjectId, req.Name)
+		err = l.saveAttributeName(req.OpId, req.Name)
 		if err != nil {
 			return nil, err
 		}

@@ -73,10 +73,10 @@ type RegenerateBusinessObjectsResp struct {
 }
 
 type SaveBusinessObjectsReq struct {
-	Id       string `path:"id" validate:"required,uuid"`
-	Type     string `json:"type" validate:"required,oneof=object attribute"`
-	ObjectId string `json:"id" validate:"required,uuid"`
-	Name     string `json:"name" validate:"required,max=100"`
+	Id   string `path:"id" validate:"required,uuid"`
+	Type string `json:"type" validate:"required,oneof=object attribute"`
+	OpId string `json:"op_id" validate:"required,uuid"`
+	Name string `json:"name" validate:"required,max=100"`
 }
 
 type SaveBusinessObjectsResp struct {

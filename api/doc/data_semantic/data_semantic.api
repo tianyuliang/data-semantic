@@ -171,7 +171,7 @@ type (
 		// 保存类型: object-业务对象, attribute-业务属性
 		Type string `json:"type" validate:"required,oneof=object attribute"`
 		// 数据ID(临时表)
-		ObjectId   string `json:"id" validate:"required,uuid"`
+		OpId   string `json:"op_id" validate:"required,uuid"`
 		// 业务对象/属性名称
 		Name string `json:"name" validate:"required,max=100"`
 	}
