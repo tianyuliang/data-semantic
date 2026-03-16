@@ -20,7 +20,7 @@ Telemetry:
     RemoteTimeout: 5
 
   Trace:
-    Enabled: true
+    Enabled: false
     Endpoint: "localhost:4317"
     Sampler: 1.0
     Batcher: otlp
