@@ -4,6 +4,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/IBM/sarama"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -32,6 +33,14 @@ func NewKafkaConsumerWithAuth(brokers []string, groupID string, topics []string,
 	config.Consumer.Return.Errors = true
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+	// 重试配置
+	config.Consumer.Retry.Backoff = 3 * time.Second // 重试间隔
+
+	// 关键配置：防止会话超时导致消费停止
+	config.Consumer.Group.Session.Timeout = 30 * time.Second     // 会话超时
+	config.Consumer.Group.Heartbeat.Interval = 3 * time.Second   // 心跳间隔
+	config.Consumer.MaxProcessingTime = 30 * time.Second        // 单条消息最大处理时间
 
 	// SASL 认证配置
 	if username != "" && password != "" {
