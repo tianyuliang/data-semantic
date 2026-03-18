@@ -221,6 +221,37 @@ type (
 		// 是否成功
 		Success bool `json:"success"`
 	}
+
+	// ====== 接口11: 批量匹配业务对象 ======
+	BatchObjectMatchReq {
+		Entries []SourceObject `json:"entries" validate:"required,min=1,max=100"`
+	}
+
+	SourceObject {
+		Name       string         `json:"name" validate:"required,min=1,max=100"`    // 业务对象名称（用于模糊匹配）
+		DataSource *RequestDataSource `json:"data_source,optional"`          // 给定的视图数据（直接追加到结果）
+	}
+
+	RequestDataSource {
+		Id   string `json:"id"`   // 视图ID（对应form_view表mdl_id）
+		Name string `json:"name"`  // 视图名称
+	}
+
+	BatchObjectMatchResp {
+		Entries      []MatchResult `json:"entries"`            // 匹配结果列表
+		NeedUnderstand []string    `json:"need_understand"`  // 所有需要理解的视图ID（用于外部监听）
+	}
+
+	MatchResult {
+		Name       string               `json:"name"`                             // 原始输入名称
+		DataSource []ResponseDataSource `json:"data_source,optional"`               // 匹配的业务对象列表
+	}
+
+	ResponseDataSource {
+		Id          string `json:"id"`           // 视图ID（mdl_id）
+		Name        string `json:"name"`         // 视图名称
+		ObjectName  string `json:"object_name"`  // 业务对象名称
+	}
 )
 
 // ============================================
@@ -271,5 +302,9 @@ service api {
 	@doc "删除识别结果"
 	@handler DeleteBusinessObjects
 	delete /:id/business-objects (DeleteBusinessObjectsReq) returns (DeleteBusinessObjectsResp)
+
+	@doc "批量匹配业务对象"
+	@handler BatchObjectMatch
+	post /batch-object-match (BatchObjectMatchReq) returns (BatchObjectMatchResp)
 }
 

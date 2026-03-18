@@ -3,6 +3,15 @@
 
 package types
 
+type BatchObjectMatchReq struct {
+	Entries []SourceObject `json:"entries" validate:"required,min=1,max=100"`
+}
+
+type BatchObjectMatchResp struct {
+	Entries        []MatchResult `json:"entries"`         // 匹配结果列表
+	NeedUnderstand []string      `json:"need_understand"` // 所有需要理解的视图ID（用于外部监听）
+}
+
 type DeleteBusinessObjectsReq struct {
 	Id string `path:"id" validate:"required,uuid"`
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
@@ -137,4 +138,20 @@ func (m *BusinessObjectModelSqlx) CountByFormViewId(ctx context.Context, formVie
 		return 0, fmt.Errorf("count business_object by form_view_id failed: %w", err)
 	}
 	return count, nil
+}
+
+// FuzzyMatchByName 根据名称模糊匹配业务对象
+func (m *BusinessObjectModelSqlx) FuzzyMatchByName(ctx context.Context, name string) ([]*BusinessObject, error) {
+	var resp []*BusinessObject
+	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	           FROM t_business_object
+	           WHERE object_name LIKE ? AND deleted_at IS NULL ORDER BY object_name ASC`
+	pattern := "%" + name + "%"
+	logx.Infof("FuzzyMatchByName: name=%s, pattern=%s", name, pattern)
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("fuzzy match business_object by name failed: %w", err)
+	}
+	logx.Infof("FuzzyMatchByName: found %d records", len(resp))
+	return resp, nil
 }

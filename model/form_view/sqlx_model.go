@@ -35,7 +35,7 @@ func (m *FormViewModelSqlx) WithTx(tx interface{}) FormViewModel {
 // FindOneById 根据id查询库表视图
 func (m *FormViewModelSqlx) FindOneById(ctx context.Context, id string) (*FormView, error) {
 	var resp FormView
-	query := `SELECT id, understand_status, technical_name, business_name, description, created_at, updated_at FROM form_view WHERE id = ? LIMIT 1`
+	query := `SELECT id, understand_status, technical_name, business_name, description, mdl_id, created_at, updated_at FROM form_view WHERE id = ? LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	if err != nil {
 		return nil, fmt.Errorf("find form_view by id failed: %w", err)
@@ -92,4 +92,17 @@ type FormViewTableInfo struct {
 	Id              string `db:"id"`
 	UnderstandStatus int8  `db:"understand_status"`
 	TechnicalName   string `db:"technical_name"`
+}
+
+// FuzzyMatchByName 根据业务名称或描述模糊匹配视图
+func (m *FormViewModelSqlx) FuzzyMatchByName(ctx context.Context, name string) ([]*FormView, error) {
+	var resp []*FormView
+	query := `SELECT id, understand_status, technical_name, business_name, description, mdl_id, created_at, updated_at
+	           FROM form_view
+	           WHERE (business_name LIKE ? OR description LIKE ?) ORDER BY business_name ASC`
+	err := m.conn.QueryRowsCtx(ctx, &resp, query, "%"+name+"%", "%"+name+"%")
+	if err != nil {
+		return nil, fmt.Errorf("fuzzy match form_view by name failed: %w", err)
+	}
+	return resp, nil
 }
