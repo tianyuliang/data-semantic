@@ -17,6 +17,9 @@ type BusinessObjectModel interface {
 	// FindOneById 根据id查询业务对象
 	FindOneById(ctx context.Context, id string) (*BusinessObject, error)
 
+	// FuzzyMatchByName 根据名称模糊匹配业务对象
+	FuzzyMatchByName(ctx context.Context, name string) ([]*BusinessObject, error)
+
 	// Update 更新业务对象
 	Update(ctx context.Context, data *BusinessObject) error
 

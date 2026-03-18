@@ -58,6 +58,11 @@ type KeywordInfo struct {
 	Keyword string `form:"keyword,optional"` // 关键字查询
 }
 
+type MatchResult struct {
+	Name       string               `json:"name"`                 // 原始输入名称
+	DataSource []ResponseDataSource `json:"data_source,optional"` // 匹配的业务对象列表
+}
+
 type PageBaseInfo struct {
 	Offset int `form:"offset,default=1,range=[1:]"`     // 页码，默认1
 	Limit  int `form:"limit,default=10,range=[0:2000]"` // 每页大小，默认10，0表示不分页
@@ -79,6 +84,17 @@ type PageResp struct {
 	TotalCount int64       `json:"total_count"` // 总记录数
 }
 
+type RequestDataSource struct {
+	Id   string `json:"id"`   // 视图ID（对应form_view表mdl_id）
+	Name string `json:"name"` // 视图名称
+}
+
+type ResponseDataSource struct {
+	Id         string `json:"id"`          // 视图ID（mdl_id）
+	Name       string `json:"name"`        // 视图名称
+	ObjectName string `json:"object_name"` // 业务对象名称
+}
+
 type SaveSemanticInfoFieldData struct {
 	Id                string  `json:"id" validate:"required,uuid"`
 	FieldBusinessName *string `json:"field_business_name" validate:"omitempty,max=255"`
@@ -90,6 +106,11 @@ type SaveSemanticInfoTableData struct {
 	Id                string  `json:"id" validate:"required,uuid"`
 	TableBusinessName *string `json:"table_business_name" validate:"omitempty,max=255"`
 	TableDescription  *string `json:"table_description" validate:"omitempty,max=300"`
+}
+
+type SourceObject struct {
+	Name       string             `json:"name" validate:"required,min=1,max=100"` // 业务对象名称（用于模糊匹配）
+	DataSource *RequestDataSource `json:"data_source,optional"`                   // 给定的视图数据（直接追加到结果）
 }
 
 type UnidentifiedField struct {

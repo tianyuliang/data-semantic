@@ -87,6 +87,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/:id/submit",
 				Handler: data_semantic.SubmitUnderstandingHandler(serverCtx),
 			},
+			{
+				// 批量匹配业务对象
+				Method:  http.MethodPost,
+				Path:    "/batch-object-match",
+				Handler: data_semantic.BatchObjectMatchHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/data-semantic"),
 	)

@@ -8,6 +8,9 @@ type FormViewModel interface {
 	// FindOneById 根据id查询库表视图
 	FindOneById(ctx context.Context, id string) (*FormView, error)
 
+	// FuzzyMatchByName 根据业务名称或描述模糊匹配视图
+	FuzzyMatchByName(ctx context.Context, name string) ([]*FormView, error)
+
 	// UpdateUnderstandStatus 更新理解状态
 	UpdateUnderstandStatus(ctx context.Context, id string, status int8) error
 

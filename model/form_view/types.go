@@ -10,6 +10,7 @@ type FormView struct {
 	TechnicalName    string     `db:"technical_name"`
 	BusinessName     *string    `db:"business_name"`
 	Description      *string    `db:"description"`
+	MdlId            string     `db:"mdl_id"` // 统一视图ID
 	CreatedAt        time.Time  `db:"created_at"`
 	UpdatedAt        time.Time  `db:"updated_at"`
 }
