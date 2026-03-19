@@ -4,6 +4,7 @@ package business_object
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -26,9 +27,9 @@ type BusinessObjectModelSqlx struct {
 
 // Insert 插入业务对象记录
 func (m *BusinessObjectModelSqlx) Insert(ctx context.Context, data *BusinessObject) (*BusinessObject, error) {
-	query := `INSERT IGNORE INTO t_business_object (id, object_name, object_type, form_view_id, status)
-	           VALUES (?, ?, ?, ?, ?)`
-	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.ObjectName, data.ObjectType, data.FormViewId, data.Status)
+	query := `INSERT IGNORE INTO t_business_object (id, object_name, object_type, form_view_id, mdl_id, status)
+	           VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := m.conn.ExecCtx(ctx, query, data.Id, data.ObjectName, data.ObjectType, data.FormViewId, data.MdlId, data.Status)
 	if err != nil {
 		return nil, fmt.Errorf("insert business_object failed: %w", err)
 	}
@@ -69,7 +70,7 @@ func (m *BusinessObjectModelSqlx) WithTx(tx interface{}) BusinessObjectModel {
 // FindByFormViewId 根据form_view_id查询业务对象列表
 func (m *BusinessObjectModelSqlx) FindByFormViewId(ctx context.Context, formViewId string) ([]*BusinessObject, error) {
 	var resp []*BusinessObject
-	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	query := `SELECT id, object_name, object_type, form_view_id, mdl_id, status, created_at, updated_at, deleted_at
 	           FROM t_business_object
 	           WHERE form_view_id = ? AND deleted_at IS NULL ORDER BY id ASC`
 	err := m.conn.QueryRowsCtx(ctx, &resp, query, formViewId)
@@ -82,7 +83,7 @@ func (m *BusinessObjectModelSqlx) FindByFormViewId(ctx context.Context, formView
 // FindByFormViewIdAndObjectName 根据form_view_id和object_name查询单个业务对象
 func (m *BusinessObjectModelSqlx) FindByFormViewIdAndObjectName(ctx context.Context, formViewId string, objectName string) (*BusinessObject, error) {
 	var resp BusinessObject
-	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	query := `SELECT id, object_name, object_type, form_view_id, mdl_id, status, created_at, updated_at, deleted_at
 	           FROM t_business_object
 	           WHERE form_view_id = ? AND object_name = ? AND deleted_at IS NULL LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, formViewId, objectName)
@@ -95,7 +96,7 @@ func (m *BusinessObjectModelSqlx) FindByFormViewIdAndObjectName(ctx context.Cont
 // FindOneById 根据id查询业务对象
 func (m *BusinessObjectModelSqlx) FindOneById(ctx context.Context, id string) (*BusinessObject, error) {
 	var resp BusinessObject
-	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	query := `SELECT id, object_name, object_type, form_view_id, mdl_id, status, created_at, updated_at, deleted_at
 	           FROM t_business_object
 	           WHERE id = ? AND deleted_at IS NULL LIMIT 1`
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
@@ -115,10 +116,28 @@ func (m *BusinessObjectModelSqlx) DeleteByFormViewId(ctx context.Context, formVi
 	return nil
 }
 
+// BatchUpdateMdlId 批量更新业务对象的 mdl_id
+func (m *BusinessObjectModelSqlx) BatchUpdateMdlId(ctx context.Context, ids []string, mdlId string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	query := `UPDATE t_business_object SET mdl_id = ? WHERE id IN (?` + strings.Repeat(",?", len(ids)-1) + `)`
+	args := make([]interface{}, 0, len(ids)+1)
+	args = append(args, mdlId)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	_, err := m.conn.ExecCtx(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("batch update mdl_id failed: %w", err)
+	}
+	return nil
+}
+
 // BatchInsertFromTemp 从临时表批量插入业务对象
 func (m *BusinessObjectModelSqlx) BatchInsertFromTemp(ctx context.Context, formViewId string, version int) (int, error) {
-	query := `INSERT INTO t_business_object (id, object_name, object_type, form_view_id, status)
-	           SELECT id, object_name, 0, form_view_id, 1
+	query := `INSERT INTO t_business_object (id, object_name, object_type, form_view_id, mdl_id, status)
+	           SELECT id, object_name, 0, form_view_id, '', 1
 	           FROM t_business_object_temp
 	           WHERE form_view_id = ? AND version = ? AND deleted_at IS NULL`
 	result, err := m.conn.ExecCtx(ctx, query, formViewId, version)
@@ -143,7 +162,7 @@ func (m *BusinessObjectModelSqlx) CountByFormViewId(ctx context.Context, formVie
 // FuzzyMatchByName 根据名称模糊匹配业务对象
 func (m *BusinessObjectModelSqlx) FuzzyMatchByName(ctx context.Context, name string) ([]*BusinessObject, error) {
 	var resp []*BusinessObject
-	query := `SELECT id, object_name, object_type, form_view_id, status, created_at, updated_at, deleted_at
+	query := `SELECT id, object_name, object_type, form_view_id, mdl_id, status, created_at, updated_at, deleted_at
 	           FROM t_business_object
 	           WHERE object_name LIKE ? AND deleted_at IS NULL ORDER BY object_name ASC`
 	pattern := "%" + name + "%"

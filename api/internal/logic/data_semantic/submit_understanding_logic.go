@@ -153,16 +153,21 @@ func (l *SubmitUnderstandingLogic) processBusinessObjects(
 	if err != nil {
 		return 0, err
 	}
+	logx.WithContext(ctx).Infof("formalObjs count: %d, mdlId: %s", len(formalObjs), mdlId)
 
 	formalObjMap := make(map[string]string) // object_name -> id
 	for _, obj := range formalObjs {
 		formalObjMap[obj.ObjectName] = obj.Id
+		logx.WithContext(ctx).Infof("formalObj: %s, mdl_id: %s", obj.ObjectName, obj.MdlId)
 	}
 
-	// 3. 处理临时表对象：不存在则新增，存在则忽略
+	// 3. 处理临时表对象：不存在则新增，存在则更新 mdl_id
+	// 收集需要更新 mdl_id 的正式表对象 ID
+	var formalObjIds []string
 	for _, obj := range tempObjs {
-		if _, exists := formalObjMap[obj.ObjectName]; exists {
-			// 已存在，忽略
+		if existingId, exists := formalObjMap[obj.ObjectName]; exists {
+			// 已存在，收集 ID 用于更新 mdl_id
+			formalObjIds = append(formalObjIds, existingId)
 			continue
 		}
 
@@ -179,6 +184,13 @@ func (l *SubmitUnderstandingLogic) processBusinessObjects(
 			return 0, err
 		}
 		inserted++
+	}
+
+	// 4. 批量更新已存在业务对象的 mdl_id
+	if len(formalObjIds) > 0 {
+		if err := formalModel.BatchUpdateMdlId(ctx, formalObjIds, mdlId); err != nil {
+			return 0, err
+		}
 	}
 
 	return inserted, nil
