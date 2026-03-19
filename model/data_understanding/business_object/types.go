@@ -9,6 +9,7 @@ type BusinessObject struct {
 	ObjectName string     `db:"object_name"`
 	ObjectType int8       `db:"object_type"`
 	FormViewId string     `db:"form_view_id"`
+	MdlId      string     `db:"mdl_id"` // 统一视图ID
 	Status     int8       `db:"status"`
 	CreatedAt  time.Time  `db:"created_at"`
 	UpdatedAt  time.Time  `db:"updated_at"`

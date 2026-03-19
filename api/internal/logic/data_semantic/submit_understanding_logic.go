@@ -79,7 +79,9 @@ func (l *SubmitUnderstandingLogic) SubmitUnderstanding(req *types.SubmitUndersta
 		formViewFieldModel := form_view_field.NewFormViewFieldModelSession(session)
 
 		// ========== 处理业务对象（按 object_name 匹配：存在则忽略，不存在则新增）==========
-		objInserted, err := l.processBusinessObjects(ctx, req.Id, latestVersion, tempModel, formalModel)
+		// 获取 mdlId（统一视图ID）
+		mdlId := formViewData.MdlId
+		objInserted, err := l.processBusinessObjects(ctx, req.Id, latestVersion, mdlId, tempModel, formalModel)
 		if err != nil {
 			return errorx.Detail(errorx.UpdateFailed, err, "业务对象")
 		}
@@ -136,6 +138,7 @@ func (l *SubmitUnderstandingLogic) processBusinessObjects(
 	ctx context.Context,
 	formViewId string,
 	version int,
+	mdlId string,
 	tempModel *business_object_temp.BusinessObjectTempModelSqlx,
 	formalModel *business_object.BusinessObjectModelSqlx,
 ) (inserted int, err error) {
@@ -168,6 +171,7 @@ func (l *SubmitUnderstandingLogic) processBusinessObjects(
 			Id:         obj.Id,
 			ObjectName: obj.ObjectName,
 			FormViewId: obj.FormViewId,
+			MdlId:      mdlId,
 			ObjectType: 0, // 默认对象类型
 			Status:     1, // 默认状态
 		}
