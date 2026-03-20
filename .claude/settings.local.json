@@ -46,7 +46,8 @@
       "Bash(grep -n \"autoscaling\" helm-chart/templates/deployment-*.yaml)",
       "Bash(grep -n \"\\\\.Values\\\\.\" helm-chart/templates/deployment-*.yaml)",
       "Bash(goctl --version)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(go build:*)"
     ]
   }
 }
