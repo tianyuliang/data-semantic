@@ -19,10 +19,16 @@ type Client struct {
 // 确保 Client 实现 ClientInterface
 var _ ClientInterface = (*Client)(nil)
 
+// AccountInfo 账户信息
+type AccountInfo struct {
+	UserID   string
+	UserType string
+}
+
 // ClientInterface 定义客户端接口
 type ClientInterface interface {
 	// QueryObjectInstance 使用自定义条件查询对象实例
-	QueryObjectInstance(ctx context.Context, knId, otId string, condition Condition, limit int) ([]InstanceData, error)
+	QueryObjectInstance(ctx context.Context, knId, otId string, condition Condition, limit int, accountInfo AccountInfo) ([]InstanceData, error)
 }
 
 // NewClient creates a new agent-retrieval service client
@@ -39,7 +45,7 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 }
 
 // QueryObjectInstance 使用自定义条件查询对象实例
-func (c *Client) QueryObjectInstance(ctx context.Context, knId, otId string, condition Condition, limit int) ([]InstanceData, error) {
+func (c *Client) QueryObjectInstance(ctx context.Context, knId, otId string, condition Condition, limit int, accountInfo AccountInfo) ([]InstanceData, error) {
 	// 构建请求体
 	reqBody := QueryObjectInstanceRequest{
 		Limit:     limit,
@@ -60,6 +66,10 @@ func (c *Client) QueryObjectInstance(ctx context.Context, knId, otId string, con
 		return nil, fmt.Errorf("create request error: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+
+	// 设置账户信息 Header
+	httpReq.Header.Set("x-account-id", accountInfo.UserID)
+	httpReq.Header.Set("x-account-type", accountInfo.UserType)
 
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)

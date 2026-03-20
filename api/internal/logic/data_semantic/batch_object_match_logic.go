@@ -6,6 +6,7 @@ package data_semantic
 import (
 	"context"
 
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/agentretrieval"
@@ -70,7 +71,10 @@ func (l *BatchObjectMatchLogic) BatchObjectMatch(req *types.BatchObjectMatchReq)
 			SubConditions: buildSubConditions(keywords),
 		}
 
-		allResults, err = l.svcCtx.AgentRetrieval.QueryObjectInstance(l.ctx, req.KnId, req.OtId, condition, limit*len(keywords))
+		// 从 context 获取账户信息
+		accountInfo := l.getAccountInfo()
+
+		allResults, err = l.svcCtx.AgentRetrieval.QueryObjectInstance(l.ctx, req.KnId, req.OtId, condition, limit*len(keywords), accountInfo)
 		if err != nil {
 			logx.Errorf("callAgentRetrieval error: %v", err)
 		}
@@ -122,4 +126,15 @@ func buildResultMap(datas []agentretrieval.InstanceData) map[string][]types.Resp
 		})
 	}
 	return resultMap
+}
+
+// getAccountInfo 从 context 获取账户信息
+func (l *BatchObjectMatchLogic) getAccountInfo() agentretrieval.AccountInfo {
+	if userInfo, ok := l.ctx.Value(middleware.InfoName).(*middleware.UserInfo); ok && userInfo != nil {
+		return agentretrieval.AccountInfo{
+			UserID:   userInfo.ID,
+			UserType: "user",
+		}
+	}
+	return agentretrieval.AccountInfo{}
 }
