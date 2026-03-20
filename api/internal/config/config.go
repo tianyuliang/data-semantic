@@ -34,6 +34,9 @@ type Config struct {
 	// UserManagement 服务配置
 	UserManagement UserManagementConfig
 
+	// AgentRetrieval 服务配置
+	AgentRetrieval AgentRetrievalConfig
+
 	// Kafka 配置
 	Kafka KafkaConfig
 }
@@ -106,6 +109,12 @@ type AIServiceConfig struct {
 type UserManagementConfig struct {
 	URL            string `json:",optional"` // UserManagement 服务地址
 	TimeoutSeconds int    `json:",default=10"` // HTTP 请求超时时间（秒）
+}
+
+// AgentRetrievalConfig AgentRetrieval 服务配置
+type AgentRetrievalConfig struct {
+	URL            string `json:",optional"` // AgentRetrieval 服务地址，如 http://agent-retrieval:30779
+	TimeoutSeconds int    `json:",default=30"` // HTTP 请求超时时间（秒）
 }
 
 // KafkaConfig Kafka 配置

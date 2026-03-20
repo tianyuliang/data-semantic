@@ -8,8 +8,7 @@ import (
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/types"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/data_understanding/business_object"
-	"github.com/kweaver-ai/dsg/services/apps/data-semantic/model/form_view"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/agentretrieval"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -31,119 +30,96 @@ func NewBatchObjectMatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *BatchObjectMatchLogic) BatchObjectMatch(req *types.BatchObjectMatchReq) (resp *types.BatchObjectMatchResp, err error) {
 	resp = &types.BatchObjectMatchResp{
-		Entries:        make([]types.MatchResult, 0, len(req.Entries)),
-		NeedUnderstand: make([]string, 0),
+		Entries: make([]types.MatchResult, 0, len(req.Entries)),
 	}
 
-	businessObjectModel := business_object.NewBusinessObjectModelSqlx(l.svcCtx.DB)
-	formViewModel := form_view.NewFormViewModel(l.svcCtx.DB)
+	// 固定查询数量
+	limit := 100
 
-	// 用于去重
-	needUnderstandMap := make(map[string]bool)
+	// 分类处理：需要检索的关键词 和 直接返回的 data_source
+	var keywords []string
+	results := make([]types.MatchResult, len(req.Entries))
 
-	for _, item := range req.Entries {
-		// 验证 name 不能为空
-		if item.Name == "" {
+	for i, item := range req.Entries {
+		results[i] = types.MatchResult{
+			Name:       item.Name,
+			DataSource: make([]types.ResponseDataSource, 0),
+		}
+
+		// 有 data_source 直接返回
+		if item.DataSource != nil && item.DataSource.Id != "" {
+			results[i].DataSource = append(results[i].DataSource, types.ResponseDataSource{
+				Id:         item.DataSource.Id,
+				Name:       item.DataSource.Name,
+				ObjectName: item.Name,
+			})
 			continue
 		}
-		result, needUnderstands := l.processObject(item, businessObjectModel, formViewModel)
-		resp.Entries = append(resp.Entries, result)
 
-		// 收集需要理解的视图ID（去重）
-		for _, viewId := range needUnderstands {
-			if !needUnderstandMap[viewId] {
-				needUnderstandMap[viewId] = true
-				resp.NeedUnderstand = append(resp.NeedUnderstand, viewId)
-			}
+		// 收集需要检索的关键词
+		if item.Name != "" {
+			keywords = append(keywords, item.Name)
 		}
 	}
 
+	// 一次性查询所有关键词（使用 OR 条件）
+	var allResults []agentretrieval.InstanceData
+	if len(keywords) > 0 {
+		condition := agentretrieval.Condition{
+			Operation: "or",
+			SubConditions: buildSubConditions(keywords),
+		}
+
+		allResults, err = l.svcCtx.AgentRetrieval.QueryObjectInstance(l.ctx, req.KnId, req.OtId, condition, limit*len(keywords))
+		if err != nil {
+			logx.Errorf("callAgentRetrieval error: %v", err)
+		}
+	}
+
+	// 匹配结果到每个关键词
+	resultMap := buildResultMap(allResults)
+	for i, item := range req.Entries {
+		if item.DataSource != nil && item.DataSource.Id != "" {
+			continue // 已有 data_source，跳过
+		}
+		if item.Name == "" {
+			continue // 空关键词跳过
+		}
+
+		// 匹配该关键词的结果
+		if matched, ok := resultMap[item.Name]; ok {
+			results[i].DataSource = matched
+		}
+	}
+
+	resp.Entries = results
 	return resp, nil
 }
 
-// processObject 处理单个业务对象匹配
-// 返回: MatchResult 和 需要理解的视图ID列表
-func (l *BatchObjectMatchLogic) processObject(
-	item types.SourceObject,
-	businessObjectModel business_object.BusinessObjectModel,
-	formViewModel form_view.FormViewModel,
-) (types.MatchResult, []string) {
-	result := types.MatchResult{
-		Name:       item.Name,
-		DataSource: make([]types.ResponseDataSource, 0),
-	}
-	needUnderstands := make([]string, 0)
-
-	// Step 1: 如果给定了 data_source，直接追加到结果
-	if item.DataSource != nil && item.DataSource.Id != "" {
-		result.DataSource = append(result.DataSource, types.ResponseDataSource{
-			Id:         item.DataSource.Id,
-			Name:       item.DataSource.Name,
-			ObjectName: item.Name,
-		})
-		return result, needUnderstands
-	}
-
-	// Step 2: 业务对象表模糊匹配
-	logx.Infof("Step 2: 业务对象表模糊匹配, name=%s", item.Name)
-	objects, err := businessObjectModel.FuzzyMatchByName(l.ctx, item.Name)
-	if err != nil {
-		logx.Errorf("FuzzyMatchByName error: %v", err)
-		return result, needUnderstands
-	}
-	logx.Infof("Step 2: 找到 %d 条记录", len(objects))
-
-	if len(objects) > 0 {
-		// 找到匹配，组装返回（通过 form_view_id 查询视图信息）
-		for _, obj := range objects {
-			view, err := formViewModel.FindOneById(l.ctx, obj.FormViewId)
-			var viewName string
-			var mdlId string
-			if err == nil && view != nil {
-				viewName = view.TechnicalName
-				mdlId = view.MdlId
-			}
-			result.DataSource = append(result.DataSource, types.ResponseDataSource{
-				Id:         mdlId,
-				Name:       viewName,
-				ObjectName: obj.ObjectName,
-			})
-		}
-		return result, needUnderstands
-	}
-
-	// Step 3: 视图表模糊匹配
-	views, err := formViewModel.FuzzyMatchByName(l.ctx, item.Name)
-	if err != nil {
-		logx.Errorf("FuzzyMatchByName for form_view error: %v", err)
-		return result, needUnderstands
-	}
-
-	if len(views) == 0 {
-		// 完全无匹配
-		return result, needUnderstands
-	}
-
-	// Step 4: 检查每个视图的 understand_status
-	for _, view := range views {
-		// 无论什么状态都追加视图到结果
-		objectName := ""
-		if view.UnderstandStatus == 3 {
-			// 已理解，查询业务对象表获取 object_name
-			objs, _ := businessObjectModel.FindByFormViewId(l.ctx, view.Id)
-			if len(objs) > 0 {
-				objectName = objs[0].ObjectName
-			}
-		} else {
-			// 未理解，记录需要理解的视图ID
-			needUnderstands = append(needUnderstands, view.Id)
-		}
-		result.DataSource = append(result.DataSource, types.ResponseDataSource{
-			Id:         view.MdlId,
-			Name:       view.TechnicalName,
-			ObjectName: objectName,
+// buildSubConditions 为多个关键词构建子条件
+func buildSubConditions(keywords []string) []agentretrieval.SubCondition {
+	subConditions := make([]agentretrieval.SubCondition, 0, len(keywords))
+	for _, keyword := range keywords {
+		subConditions = append(subConditions, agentretrieval.SubCondition{
+			Field:     "object_name",
+			Operation: "like",
+			ValueFrom: "const",
+			Value:     keyword,
 		})
 	}
+	return subConditions
+}
 
-	return result, needUnderstands
+// buildResultMap 将服务返回的结果按关键词分组
+func buildResultMap(datas []agentretrieval.InstanceData) map[string][]types.ResponseDataSource {
+	resultMap := make(map[string][]types.ResponseDataSource)
+	for _, data := range datas {
+		// 使用 object_name 作为 key
+		resultMap[data.ObjectName] = append(resultMap[data.ObjectName], types.ResponseDataSource{
+			Id:         data.MdlId,
+			Name:       data.Display,
+			ObjectName: data.ObjectName,
+		})
+	}
+	return resultMap
 }

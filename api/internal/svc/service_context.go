@@ -9,6 +9,7 @@ import (
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/config"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
+	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/agentretrieval"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/aiservice"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/hydra"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/internal/pkg/usermgm"
@@ -29,8 +30,9 @@ type ServiceContext struct {
 	DB        sqlx.SqlConn              // 数据库连接
 	Redis     *redis.Redis              // Redis 客户端
 	AIClient  aiservice.ClientInterface // AI 服务客户端
-	Hydra     *hydra.Client             // Hydra 客户端
-	UserMgm   *usermgm.Client           // UserManagement 客户端
+	Hydra     *hydra.Client            // Hydra 客户端
+	UserMgm   *usermgm.Client          // UserManagement 客户端
+	AgentRetrieval agentretrieval.ClientInterface // AgentRetrieval 服务客户端
 	rateLimiters sync.Map               // formViewId -> *rateLimitEntry (限流器缓存)
 
 	// 认证中间件
@@ -56,18 +58,23 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	userMgmTimeout := time.Duration(c.UserManagement.TimeoutSeconds) * time.Second
 	userMgmClient := usermgm.NewClient(c.UserManagement.URL, userMgmTimeout)
 
+	// 初始化 AgentRetrieval 客户端
+	agentRetrievalTimeout := time.Duration(c.AgentRetrieval.TimeoutSeconds) * time.Second
+	agentRetrievalClient := agentretrieval.NewClient(c.AgentRetrieval.URL, agentRetrievalTimeout)
+
 	// 创建 JWT 认证中间件 (使用 goctl 生成的中间件结构体)
 	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(hydraClient, userMgmClient)
 	jwtAuth := jwtAuthMiddleware.Handle
 
 	return &ServiceContext{
-		Config:    c,
-		DB:        db,
-		Redis:     redisClient,
-		AIClient:  aiClient,
-		Hydra:     hydraClient,
-		UserMgm:   userMgmClient,
-		JWTAuth:   jwtAuth,
+		Config:          c,
+		DB:              db,
+		Redis:           redisClient,
+		AIClient:        aiClient,
+		Hydra:           hydraClient,
+		UserMgm:         userMgmClient,
+		AgentRetrieval:  agentRetrievalClient,
+		JWTAuth:         jwtAuth,
 	}
 }
 

@@ -1,4 +1,4 @@
-# 批量业务对象匹配接口 Specification
+# 批量业务对象匹配接口 Specification (v1.4)
 
 > **Branch**: `feature/batch-object-match`
 > **Spec Path**: `specs/batch-object-match/`
@@ -10,7 +10,7 @@
 
 ## Overview
 
-批量业务对象匹配接口 - 给定一批业务对象（有对象名字或视图ID），有视图ID时原样返回，有对象名字时优先从业务对象表匹配，未匹配时从视图表模糊查询并触发理解。
+批量业务对象匹配接口 - 给定一批业务对象（有对象名字或视图ID），有视图ID时原样返回，有对象名字时从外部服务(agent-retrieval)检索，检索不到则返回空。
 
 ---
 
@@ -24,33 +24,22 @@
 - Q: AI语义理解的匹配方式？ → A: 简单文本模糊匹配（business_name LIKE %keyword% 或 description LIKE %keyword%）
 - Q: 二次调用时如何传递"正在理解的视图ID"？ → A: 无需传递，每次调用都自动重新检查所有视图状态直到理解完成
 
+### Session 2026-03-20
+
+- Q: 外部服务 agent-retrieval 调用失败时，是否需要添加重试机制？ → A: 不重试，调用失败直接返回空结果，记录错误日志
+- Q: 外部服务调用是否有超时时间要求？ → A: 30秒超时
+
 ---
 
-## User Stories
+## User Stories (v1.4)
 
 ### Story 1: 批量业务对象查询匹配 (P1)
 
 AS a 前端用户
-I WANT 输入一批业务对象名称，获取对应的视图ID和mdl_id
+I WANT 输入一批业务对象名称 + kn_id + ot_id，从外部服务获取对应的视图信息
 SO THAT 快速建立业务对象与视图的关联
 
-**独立测试**: 调用接口，输入业务对象名称列表，返回匹配的业务对象信息
-
-### Story 2: 未匹配视图触发理解 (P1)
-
-AS a 前端用户
-I WANT 对于无法匹配的视图，触发语义理解
-SO THAT 自动识别视图对应的业务对象
-
-**独立测试**: 调用接口，未匹配的视图触发理解，返回正在理解的视图ID列表
-
-### Story 3: 自动等待理解完成 (P2)
-
-AS a 前端用户
-I WANT 重复调用接口直到所有视图理解完成
-SO THAT 获取最终匹配结果
-
-**独立测试**: 重复调用接口，直到 understanding 为空
+**独立测试**: 调用接口，输入业务对象名称列表 + 知识网络ID + 对象ID，返回匹配的业务对象信息
 
 ---
 
@@ -61,25 +50,22 @@ SO THAT 获取最终匹配结果
 | ID | Scenario | Trigger | Expected Behavior |
 |----|----------|---------|-------------------|
 | AC-01 | data_source.id已存在 | WHEN 输入包含 data_source.id | THE SYSTEM SHALL 直接追加到结果，返回id、name、object_name |
-| AC-02 | 业务对象已匹配 | WHEN 业务对象名称能匹配到 business_object 表 | THE SYSTEM SHALL 返回 mdl_id(视图id)、TechnicalName(视图名)、object_name |
-| AC-03 | 视图已理解 | WHEN 业务对象名称匹配 form_view.business_name 且 understand_status=3 | THE SYSTEM SHALL 返回视图对应的业务对象 |
-| AC-04 | 视图未理解-记录视图ID | WHEN form_view.understand_status != 3 | THE SYSTEM SHALL 无论什么状态都追加视图到data_source，仅当status!=3时记录视图ID到need_understand数组 |
-| AC-05 | 重复调用-理解完成 | WHEN 调用时所有视图已理解完成 | THE SYSTEM SHALL 返回匹配结果，need_understand 为空 |
-| AC-06 | 重复调用-理解未完成 | WHEN 调用时仍有视图未理解 | THE SYSTEM SHALL 返回空的data_source，need_understand 包含未理解的视图ID |
+| AC-02 | 外部服务检索成功 | WHEN 业务对象名称能从 agent-retrieval 服务检索 | THE SYSTEM SHALL 返回 mdl_id、name、object_name |
+| AC-03 | 外部服务检索无结果 | WHEN 业务对象名称在 agent-retrieval 服务中无匹配 | THE SYSTEM SHALL 返回空 data_source |
 
 ### 异常处理
 
 | ID | Scenario | Trigger | Expected Behavior |
 |----|----------|---------|-------------------|
 | AC-10 | 列表为空 | WHEN 批量列表为空数组 | THE SYSTEM SHALL 返回 400 错误 |
-| AC-11 | 完全无匹配 | WHEN 所有输入都无法匹配 | THE SYSTEM SHALL 返回空 data_source 和空的 need_understand 列表 |
+| AC-11 | 外部服务调用失败 | WHEN agent-retrieval 服务调用异常 | THE SYSTEM SHALL 返回空 data_source，记录错误日志 |
 
 ---
 
-## Processing Flow
+## Processing Flow (v1.4)
 
 ```
-输入: []Entry (name 或 data_source)
+输入: []Entry (name 或 data_source), kn_id, ot_id
     │
     ▼
 ┌─────────────────────────────┐
@@ -100,37 +86,22 @@ SO THAT 获取最终匹配结果
     │
     ▼ No
 ┌─────────────────────────────┐
-│ 2. 业务对象表模糊匹配       │
-│    business_object.object_name │
-│    LIKE %name%              │
+│ 2. 调用外部服务             │
+│    agent-retrieval          │
+│    POST /kn/query_object_   │
+│    instance                 │
+│    (kn_id, ot_id, name)    │
 └─────────────────────────────┘
     │
-    ▼ 找到
+    ▼ 成功
 ┌─────────────────────────────┐
-│ 返回: form_view_id, name    │
+│ 转换字段映射并返回          │
+│ mdl_id → id                 │
+│ _display → name             │
+│ object_name → object_name   │
 └─────────────────────────────┘
     │
-    ▼ 未找到
-┌─────────────────────────────┐
-│ 3. 视图表模糊匹配           │
-│    form_view.business_name   │
-│    LIKE %name%              │
-└─────────────────────────────┘
-    │
-    ▼ 找到
-┌─────────────────────────────┐
-│ 检查 understand_status       │
-│   = 3 (已理解)               │
-│     → 查询 business_object   │
-│     → 获取 object_name       │
-│   ≠ 3 (未理解)               │
-│     → 记录 form_view_id     │
-│       到 need_understand     │
-│   无论什么状态都追加视图     │
-│     到 data_source           │
-└─────────────────────────────┘
-    │
-    ▼ 未找到
+    ▼ 失败/无结果
 ┌─────────────────────────────┐
 │ 返回空 data_source          │
 └─────────────────────────────┘
@@ -139,24 +110,25 @@ SO THAT 获取最终匹配结果
 输出: []Entry
     - name: 原始输入名称
     - data_source: 匹配的视图列表
-    - need_understand (顶层): 需要理解的视图ID数组（去重）
 ```
+
+**超时与重试**: HTTP 客户端 30 秒超时，不重试
 
 ---
 
-## Edge Cases
+## Edge Cases (v1.4)
 
 | ID | Case | Expected Behavior |
 |----|------|-------------------|
 | EC-01 | 批量100条 | 逐条处理，返回100条结果 |
-| EC-02 | 多次调用同一批 | 每次调用都重新检查状态，直到理解完成 |
-| EC-03 | 部分理解完成 | 返回已完成的hits和未完成的视图ID |
+| EC-02 | 外部服务超时 | 返回空 data_source，记录错误日志 |
+| EC-03 | 外部服务返回空 | 返回空 data_source（正常行为） |
 
 ---
 
 ## Data Considerations
 
-### 输入数据结构
+### 输入数据结构 (v1.4)
 
 | Field | Description | Constraints |
 |-------|-------------|-------------|
@@ -165,6 +137,8 @@ SO THAT 获取最终匹配结果
 | entries[].data_source | 给定的视图数据 | 可选，有值时直接追加到结果 |
 | entries[].data_source.id | 视图ID | UUID格式 |
 | entries[].data_source.name | 视图名称 | 字符串 |
+| kn_id | 知识网络ID | 必填，UUID格式 |
+| ot_id | 网络中指定对象ID | 必填，UUID格式 |
 
 ### 输出数据结构
 
@@ -174,9 +148,8 @@ SO THAT 获取最终匹配结果
 | entries[].name | 原始输入名称 | |
 | entries[].data_source | 匹配的视图列表 | 无匹配时为空数组 |
 | entries[].data_source[].id | 视图ID (mdl_id) | UUID格式 |
-| entries[].data_source[].name | 视图名称 (TechnicalName) | 字符串 |
+| entries[].data_source[].name | 视图名称 (_display) | 字符串 |
 | entries[].data_source[].object_name | 业务对象名称 | 字符串 |
-| need_understand | 需要理解的视图ID列表 | 顶层字段，用于外部监听，已去重 |
 
 ---
 
@@ -186,6 +159,78 @@ SO THAT 获取最终匹配结果
 |----|--------|--------|
 | SC-01 | 接口响应时间 | < 500ms (P99) |
 | SC-02 | 测试覆盖率 | > 80% |
+
+## Non-Functional Requirements (v1.4)
+
+| Category | Requirement |
+|----------|-------------|
+| 超时 | 外部服务 HTTP 客户端 30 秒超时 |
+| 重试 | 不重试，失败时返回空结果并记录日志 |
+| 外部依赖 | agent-retrieval 服务 |
+
+---
+
+## MODIFIED Requirements (v1.4)
+
+### 请求参数变更
+
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| kn_id | string | 知识网络ID | 必填，UUID格式 |
+| ot_id | string | 网络中指定对象ID | 必填，UUID格式 |
+
+### 业务逻辑变更
+
+| 原流程 | 新流程 |
+|--------|--------|
+| Step 2-3: 本地数据库查询 + 触发理解 | 仅调用外部服务 agent-retrieval 检索 |
+
+**简化说明**: 接口完全从外部服务检索，不再查询本地数据库表，也不再返回待理解的视图ID。
+
+### 外部服务调用
+
+**服务**: agent-retrieval
+**接口**: `POST /api/agent-retrieval/in/v1/kn/query_object_instance`
+**参数**:
+- Query: `kn_id`, `ot_id`
+- Body:
+```json
+{
+  "limit": 10,
+  "condition": {
+    "operation": "and",
+    "sub_conditions": [
+      { "field": "object_name", "operation": "like", "value_from": "const", "value": "{检索关键字}" }
+    ]
+  }
+}
+```
+
+**响应数据结构**:
+```json
+{
+  "datas": [
+    {
+      "form_view_id": "uuid",
+      "object_name": "库存",
+      "object_type": 0,
+      "mdl_id": "uuid",
+      "_instance_identity": { "id": "uuid" },
+      "status": 1,
+      "_instance_id": "string",
+      "_display": "库存",
+      "id": "uuid"
+    }
+  ]
+}
+```
+
+**字段映射**:
+| 外部服务字段 | 响应字段 |
+|-------------|----------|
+| mdl_id | id |
+| _display | name |
+| object_name | object_name |
 
 ---
 
@@ -197,3 +242,4 @@ SO THAT 获取最终匹配结果
 | 1.1 | 2026-03-18 | - | 更新协议：list→entries, object_name→name, data_source结构, understanding→need_understand |
 | 1.2 | 2026-03-18 | - | 更新响应结构：增加object_name字段，data_source返回mdl_id |
 | 1.3 | 2026-03-18 | - | Step4无论状态都追加视图到data_source，输入验证name非空 |
+| 1.4 | 2026-03-20 | - | 新增kn_id/ot_id参数，调用外部服务替代本地数据库查询 |

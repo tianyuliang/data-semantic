@@ -5,11 +5,12 @@ package types
 
 type BatchObjectMatchReq struct {
 	Entries []SourceObject `json:"entries" validate:"required,min=1,max=100"`
+	KnId    string         `json:"kn_id" validate:"required,uuid"` // 知识网络ID
+	OtId    string         `json:"ot_id" validate:"required,uuid"` // 网络中指定对象ID
 }
 
 type BatchObjectMatchResp struct {
-	Entries        []MatchResult `json:"entries"`         // 匹配结果列表
-	NeedUnderstand []string      `json:"need_understand"` // 所有需要理解的视图ID（用于外部监听）
+	Entries []MatchResult `json:"entries"` // 匹配结果列表
 }
 
 type DeleteBusinessObjectsReq struct {

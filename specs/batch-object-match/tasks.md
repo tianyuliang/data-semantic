@@ -1,4 +1,4 @@
-# 批量业务对象匹配接口 Tasks
+# 批量业务对象匹配接口 Tasks (v1.4)
 
 > **Branch**: `feature/batch-object-match`
 > **Spec Path**: `specs/batch-object-match/`
@@ -29,6 +29,10 @@
 | T008 | API 测试验证 | US1 | ✅ |
 | T012 | 响应增加 object_name 字段 | US1 | ✅ |
 | T013 | data_source 返回 mdl_id | US1 | ✅ |
+| T014 | 更新 API 协议-新增 kn_id/ot_id | US1 | ✅ |
+| T015 | goctl 重新生成代码 | US1 | ⏳ |
+| T016 | 实现外部服务调用 | US1 | ⏳ |
+| T017 | 单元测试 | US1 | ⏳ |
 
 ---
 
@@ -89,10 +93,22 @@
 
 ---
 
+## Phase 7: 外部服务集成 (v1.4)
+
+- [x] T014 [US1] 更新 API 协议-新增 kn_id/ot_id 参数，移除 need_understand
+- [ ] T015 [US1] goctl 重新生成代码
+- [ ] T016 [US1] 在 `api/internal/logic/data_semantic/batch_object_match_logic.go` 实现外部服务调用
+  - 添加 AgentRetrievalRequest/Response 类型
+  - 实现 HTTP 客户端调用 agent-retrieval
+  - 实现字段映射转换 (mdl_id→id, _display→name, object_name→object_name)
+- [ ] T017 [TEST] 编写单元测试，覆盖外部服务调用
+
+---
+
 ## Dependencies
 
 ```
-T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011 → T012 → T013
+T014 → T015 → T016 → T017
 ```
 
 ---
@@ -121,3 +137,7 @@ T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T009 →
 | T008 | API 测试验证 | ✅ |
 | T012 | 响应增加 object_name 字段 | ✅ |
 | T013 | data_source 返回 mdl_id | ✅ |
+| T014 | 更新 API 协议-新增 kn_id/ot_id | ✅ |
+| T015 | goctl 重新生成代码 | ✅ |
+| T016 | 实现外部服务调用 | ✅ |
+| T017 | 单元测试 | ✅ |
