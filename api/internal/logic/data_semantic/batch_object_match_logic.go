@@ -5,6 +5,7 @@ package data_semantic
 
 import (
 	"context"
+	"sync"
 
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/middleware"
 	"github.com/kweaver-ai/dsg/services/apps/data-semantic/api/internal/svc"
@@ -30,18 +31,23 @@ func NewBatchObjectMatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *BatchObjectMatchLogic) BatchObjectMatch(req *types.BatchObjectMatchReq) (resp *types.BatchObjectMatchResp, err error) {
-	resp = &types.BatchObjectMatchResp{
-		Entries: make([]types.MatchResult, 0, len(req.Entries)),
-	}
-
 	// 固定查询数量
-	limit := 100
+	limit := 10
+	// 最大并发数
+	maxConcurrency := 50
 
-	// 分类处理：需要检索的关键词 和 直接返回的 data_source
-	var keywords []string
+	// 从 context 获取账户信息
+	accountInfo := l.getAccountInfo()
+
+	// 预分配结果数组
 	results := make([]types.MatchResult, len(req.Entries))
+	var wg sync.WaitGroup
+	// 使用 channel 控制最大并发数
+	sem := make(chan struct{}, maxConcurrency)
 
+	// 并发查询
 	for i, item := range req.Entries {
+		// 初始化结果
 		results[i] = types.MatchResult{
 			Name:       item.Name,
 			DataSource: make([]types.ResponseDataSource, 0),
@@ -57,75 +63,71 @@ func (l *BatchObjectMatchLogic) BatchObjectMatch(req *types.BatchObjectMatchReq)
 			continue
 		}
 
-		// 收集需要检索的关键词
-		if item.Name != "" {
-			keywords = append(keywords, item.Name)
-		}
-	}
-
-	// 一次性查询所有关键词（使用 OR 条件）
-	var allResults []agentretrieval.InstanceData
-	if len(keywords) > 0 {
-		condition := agentretrieval.Condition{
-			Operation: "or",
-			SubConditions: buildSubConditions(keywords),
-		}
-
-		// 从 context 获取账户信息
-		accountInfo := l.getAccountInfo()
-
-		allResults, err = l.svcCtx.AgentRetrieval.QueryObjectInstance(l.ctx, req.KnId, req.OtId, condition, limit*len(keywords), accountInfo)
-		if err != nil {
-			logx.Errorf("callAgentRetrieval error: %v", err)
-		}
-	}
-
-	// 匹配结果到每个关键词
-	resultMap := buildResultMap(allResults)
-	for i, item := range req.Entries {
-		if item.DataSource != nil && item.DataSource.Id != "" {
-			continue // 已有 data_source，跳过
-		}
+		// 空关键词跳过
 		if item.Name == "" {
-			continue // 空关键词跳过
+			continue
 		}
 
-		// 匹配该关键词的结果
-		if matched, ok := resultMap[item.Name]; ok {
-			results[i].DataSource = matched
-		}
+		wg.Add(1)
+		go func(index int, entry types.SourceObject) {
+			defer wg.Done()
+
+			// 捕获 panic
+			defer func() {
+				if r := recover(); r != nil {
+					logx.Errorf("goroutine panic: %v", r)
+				}
+			}()
+
+			// 获取信号量，控制最大并发数
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// 创建独立 context，避免主 context 取消影响
+			ctx, cancel := context.WithCancel(l.ctx)
+			defer cancel()
+
+			// 模糊匹配查询：object_name like keyword
+			condition := agentretrieval.Condition{
+				Operation: "and",
+				SubConditions: []agentretrieval.SubCondition{
+					{
+						Field:     "object_name",
+						Operation: "like",
+						ValueFrom: "const",
+						Value:     entry.Name,
+					},
+				},
+			}
+
+			queryResults, err := l.svcCtx.AgentRetrieval.QueryObjectInstance(ctx, req.KnId, req.OtId, condition, limit, accountInfo)
+			if err != nil {
+				logx.Errorf("callAgentRetrieval error: %v", err)
+				return
+			}
+
+			// 转换结果
+			dataSources := make([]types.ResponseDataSource, 0, len(queryResults))
+			for _, data := range queryResults {
+				dataSources = append(dataSources, types.ResponseDataSource{
+					Id:         data.MdlId,
+					Name:       data.Display,
+					ObjectName: data.ObjectName,
+				})
+			}
+
+			// 写入结果
+			results[index].DataSource = dataSources
+		}(i, item)
 	}
 
-	resp.Entries = results
+	wg.Wait()
+
+	resp = &types.BatchObjectMatchResp{
+		Entries: results,
+	}
+
 	return resp, nil
-}
-
-// buildSubConditions 为多个关键词构建子条件
-func buildSubConditions(keywords []string) []agentretrieval.SubCondition {
-	subConditions := make([]agentretrieval.SubCondition, 0, len(keywords))
-	for _, keyword := range keywords {
-		subConditions = append(subConditions, agentretrieval.SubCondition{
-			Field:     "object_name",
-			Operation: "like",
-			ValueFrom: "const",
-			Value:     keyword,
-		})
-	}
-	return subConditions
-}
-
-// buildResultMap 将服务返回的结果按关键词分组
-func buildResultMap(datas []agentretrieval.InstanceData) map[string][]types.ResponseDataSource {
-	resultMap := make(map[string][]types.ResponseDataSource)
-	for _, data := range datas {
-		// 使用 object_name 作为 key
-		resultMap[data.ObjectName] = append(resultMap[data.ObjectName], types.ResponseDataSource{
-			Id:         data.MdlId,
-			Name:       data.Display,
-			ObjectName: data.ObjectName,
-		})
-	}
-	return resultMap
 }
 
 // getAccountInfo 从 context 获取账户信息
