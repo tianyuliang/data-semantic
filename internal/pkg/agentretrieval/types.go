@@ -21,11 +21,7 @@ type SubCondition struct {
 // QueryObjectInstanceResponse 查询对象实例响应
 type QueryObjectInstanceResponse struct {
 	StatusCode int           `json:"status_code"`
-	Body       ResponseBody `json:"body"`
-}
-
-type ResponseBody struct {
-	Datas []InstanceData `json:"datas"`
+	Datas      []InstanceData `json:"datas"`
 }
 
 type InstanceData struct {

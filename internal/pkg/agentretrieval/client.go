@@ -90,5 +90,5 @@ func (c *Client) QueryObjectInstance(ctx context.Context, knId, otId string, con
 		return nil, fmt.Errorf("decode response error: %w", err)
 	}
 
-	return result.Body.Datas, nil
+	return result.Datas, nil
 }
