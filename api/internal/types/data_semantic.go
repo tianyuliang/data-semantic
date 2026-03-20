@@ -5,8 +5,8 @@ package types
 
 type BatchObjectMatchReq struct {
 	Entries []SourceObject `json:"entries" validate:"required,min=1,max=100"`
-	KnId    string         `json:"kn_id" validate:"required,uuid"` // 知识网络ID
-	OtId    string         `json:"ot_id" validate:"required,uuid"` // 网络中指定对象ID
+	KnId    string         `json:"kn_id" validate:"required"` // 知识网络ID
+	OtId    string         `json:"ot_id" validate:"required"` // 网络中指定对象ID
 }
 
 type BatchObjectMatchResp struct {
