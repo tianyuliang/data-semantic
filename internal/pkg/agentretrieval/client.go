@@ -84,6 +84,11 @@ func (c *Client) QueryObjectInstance(ctx context.Context, knId, otId string, con
 		return nil, fmt.Errorf("read response body error: %w", err)
 	}
 
+	// 检查 HTTP 状态码
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http status error: %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
 	// 解析响应
 	var result QueryObjectInstanceResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
