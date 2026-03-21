@@ -88,3 +88,8 @@ data:
     UserManagement:
       URL: http://user-management-private:30980
       TimeoutSeconds: 10
+
+    # AgentRetrieval 服务配置
+    AgentRetrieval:
+      URL: "http://agent-retrieval:30779"
+      TimeoutSeconds: 30
