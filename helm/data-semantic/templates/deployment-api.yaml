@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: "{{ .Values.image.api.registry }}/{{ .Values.image.api.repository }}:{{ .Values.image.api.tag | default .Chart.AppVersion }}"
+        image: "{{ .Values.image.api.registry }}/{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
         imagePullPolicy: {{ .Values.image.api.pullPolicy }}
         ports:
         - name: http
