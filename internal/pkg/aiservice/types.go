@@ -34,6 +34,7 @@ type FormView struct {
 type FormViewField struct {
 	ID            string `json:"form_view_field_id"`
 	TechnicalName string `json:"form_view_field_technical_name"`
+	BusinessName  string `json:"form_view_field_business_name"`
 	Type          string `json:"form_view_field_type"`
 	Role          string `json:"form_view_field_role"`
 	Description   string `json:"form_view_field_desc"`

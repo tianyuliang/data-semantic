@@ -68,10 +68,9 @@ data-semantic/
 │       └── types/            # 类型定义
 ├── consumer/                 # Kafka 消费者
 ├── model/                    # 数据模型 (SQLx)
-├── migrations/               # 数据库迁移
+├── migrations/               # 数据库迁移 (mariadb/dm8)
 ├── deploy/                   # 部署配置 (Docker/K8s)
 ├── specs/                    # SDD 规格文档
-│   └── data-understanding/   # 数据理解功能规格
 ├── .specify/                 # Spec Kit 配置
 ├── Makefile                  # 构建命令
 └── go.mod                    # Go 模块定义
@@ -111,7 +110,7 @@ Port: 8888
 DB:
   Host: localhost
   Port: 3306
-  DBName: idrm
+  DBName: af_main
   Username: root
   Password: your_password
 
@@ -351,9 +350,7 @@ if user == nil {
 ## 文档
 
 - [CLAUDE.md](CLAUDE.md) - 项目开发指南
-- [specs/data-understanding/spec.md](specs/data-understanding/spec.md) - 功能规格
-- [specs/data-understanding/plan.md](specs/data-understanding/plan.md) - 技术设计
-- [specs/data-understanding/tasks.md](specs/data-understanding/tasks.md) - 任务拆分
+- [specs/](specs/) - SDD 规格文档
 - [.specify/memory/constitution.md](.specify/memory/constitution.md) - 项目宪法
 
 ## 许可证
@@ -367,8 +364,3 @@ if user == nil {
 3. 提交更改 (`git commit -m 'Add some amazing feature'`)
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 创建 Pull Request
-
-## 联系方式
-
-- 项目: [data-semantic](https://github.com/tianyuliang/data-semantic)
-- 问题反馈: [GitHub Issues](https://github.com/tianyuliang/data-semantic/issues)

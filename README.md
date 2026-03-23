@@ -68,10 +68,9 @@ data-semantic/
 │       └── types/            # Type definitions
 ├── consumer/                 # Kafka consumers
 ├── model/                    # Data models (SQLx)
-├── migrations/               # Database migrations
+├── migrations/               # Database migrations (mariadb/dm8)
 ├── deploy/                   # Deployment configs (Docker/K8s)
 ├── specs/                    # SDD specification documents
-│   └── data-understanding/   # Data understanding feature specs
 ├── .specify/                 # Spec Kit configuration
 ├── Makefile                  # Build commands
 └── go.mod                    # Go module definition
@@ -111,7 +110,7 @@ Port: 8888
 DB:
   Host: localhost
   Port: 3306
-  DBName: idrm
+  DBName: af_main
   Username: root
   Password: your_password
 
@@ -351,9 +350,7 @@ if user == nil {
 ## Documentation
 
 - [CLAUDE.md](CLAUDE.md) - Project development guide
-- [specs/data-understanding/spec.md](specs/data-understanding/spec.md) - Feature specification
-- [specs/data-understanding/plan.md](specs/data-understanding/plan.md) - Technical design
-- [specs/data-understanding/tasks.md](specs/data-understanding/tasks.md) - Task breakdown
+- [specs/](specs/) - SDD specification documents
 - [.specify/memory/constitution.md](.specify/memory/constitution.md) - Project constitution
 
 ## License
@@ -367,8 +364,3 @@ This project is licensed under the MIT License.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## Contact
-
-- Project: [data-semantic](https://github.com/tianyuliang/data-semantic)
-- Issues: [GitHub Issues](https://github.com/tianyuliang/data-semantic/issues)
