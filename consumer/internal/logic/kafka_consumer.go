@@ -10,6 +10,8 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+const maxRetries = 3
+
 // KafkaConsumer Kafka消费者结构
 type KafkaConsumer struct {
 	consumer sarama.ConsumerGroup
@@ -22,27 +24,23 @@ type MessageHandler interface {
 }
 
 // NewKafkaConsumer 创建Kafka消费者
-func NewKafkaConsumer(brokers []string, groupID string, topics []string) (*KafkaConsumer, error) {
-	return NewKafkaConsumerWithAuth(brokers, groupID, topics, "", "")
+func NewKafkaConsumer(brokers []string, groupID string) (*KafkaConsumer, error) {
+	return NewKafkaConsumerWithAuth(brokers, groupID, "", "")
 }
 
 // NewKafkaConsumerWithAuth 创建带认证的Kafka消费者
-func NewKafkaConsumerWithAuth(brokers []string, groupID string, topics []string, username, password string) (*KafkaConsumer, error) {
-	// Kafka 配置
+func NewKafkaConsumerWithAuth(brokers []string, groupID string, username, password string) (*KafkaConsumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	// 重试配置
-	config.Consumer.Retry.Backoff = 3 * time.Second // 重试间隔
+	config.Consumer.Retry.Backoff = 3 * time.Second
 
-	// 关键配置：防止会话超时导致消费停止
-	config.Consumer.Group.Session.Timeout = 30 * time.Second     // 会话超时
-	config.Consumer.Group.Heartbeat.Interval = 3 * time.Second   // 心跳间隔
-	config.Consumer.MaxProcessingTime = 30 * time.Second        // 单条消息最大处理时间
+	config.Consumer.Group.Session.Timeout = 30 * time.Second
+	config.Consumer.Group.Heartbeat.Interval = 3 * time.Second
+	config.Consumer.MaxProcessingTime = 30 * time.Second
 
-	// SASL 认证配置
 	if username != "" && password != "" {
 		config.Net.SASL.Enable = true
 		config.Net.SASL.Mechanism = sarama.SASLTypePlaintext
@@ -50,7 +48,6 @@ func NewKafkaConsumerWithAuth(brokers []string, groupID string, topics []string,
 		config.Net.SASL.Password = password
 	}
 
-	// 创建消费者组
 	consumer, err := sarama.NewConsumerGroup(brokers, groupID, config)
 	if err != nil {
 		return nil, fmt.Errorf("创建消费者失败: %w", err)
@@ -69,9 +66,8 @@ func (kc *KafkaConsumer) RegisterHandler(topic string, handler MessageHandler) {
 	kc.handlers[topic] = handler
 }
 
-// Start 启动消费者
+// Start 启动消费者（在循环中调用 Consume，rebalance 后自动恢复）
 func (kc *KafkaConsumer) Start(ctx context.Context) error {
-	// 订阅主题
 	topics := make([]string, 0, len(kc.handlers))
 	for topic := range kc.handlers {
 		topics = append(topics, topic)
@@ -79,12 +75,29 @@ func (kc *KafkaConsumer) Start(ctx context.Context) error {
 
 	logx.Infof("启动Kafka消费者，订阅主题: %v", topics)
 
-	// 启动消费
-	if err := kc.consumer.Consume(ctx, topics, kc); err != nil {
-		return fmt.Errorf("消费失败: %w", err)
+	// Consume 在 rebalance 后会返回，需要在循环中重新调用
+	for {
+		if err := kc.consumer.Consume(ctx, topics, kc); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			logx.Errorf("Kafka消费异常，准备重新连接: %v", err)
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		logx.Info("Kafka消费者 rebalance，准备重新加入消费者组...")
 	}
+}
 
-	return nil
+// Close 关闭消费者组，释放资源
+func (kc *KafkaConsumer) Close() error {
+	return kc.consumer.Close()
+}
+
+// Errors 返回消费者错误通道
+func (kc *KafkaConsumer) Errors() <-chan error {
+	return kc.consumer.Errors()
 }
 
 // Setup 会话开始时调用
@@ -101,30 +114,41 @@ func (kc *KafkaConsumer) Cleanup(sarama.ConsumerGroupSession) error {
 
 // ConsumeClaim 消费消息 (必须实现 ConsumerGroupHandler 接口)
 func (kc *KafkaConsumer) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	// claim.Messages() 返回一个消息通道，持续消费直到通道关闭
 	for msg := range claim.Messages() {
 		topic := msg.Topic
 		handler, ok := kc.handlers[topic]
 		if !ok {
-			// 未找到处理器：记录错误并确认消息（避免无限重试）
 			logx.Errorf("未找到topic处理器，跳过消息: topic=%s partition=%d offset=%d key=%s",
 				topic, msg.Partition, msg.Offset, string(msg.Key))
-			// 确认消息以避免无限重试
 			session.MarkMessage(msg, "")
 			continue
 		}
 
-		// 处理消息：只有成功才标记消息已处理
-		if err := handler.Handle(session.Context(), msg); err != nil {
-			logx.Errorf("处理消息失败，等待重试: topic=%s partition=%d offset=%d error=%v",
-				topic, msg.Partition, msg.Offset, err)
-			// 处理失败时不确认消息，让 Kafka 重投递
-			continue
+		// 有限次重试，失败后标记消息避免阻塞后续消费
+		if err := kc.handleWithRetry(session.Context(), handler, msg); err != nil {
+			logx.Errorf("消息处理最终失败（已重试%d次），标记跳过: topic=%s partition=%d offset=%d error=%v",
+				maxRetries, topic, msg.Partition, msg.Offset, err)
 		}
 
-		// 标记消息已处理 (提交偏移量)
 		session.MarkMessage(msg, "")
 	}
 
 	return nil
+}
+
+func (kc *KafkaConsumer) handleWithRetry(ctx context.Context, handler MessageHandler, msg *sarama.ConsumerMessage) error {
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		if err := handler.Handle(ctx, msg); err != nil {
+			lastErr = err
+			logx.Errorf("消息处理失败（第%d/%d次）: topic=%s partition=%d offset=%d error=%v",
+				i+1, maxRetries, msg.Topic, msg.Partition, msg.Offset, err)
+			if i < maxRetries-1 {
+				time.Sleep(time.Duration(i+1) * 2 * time.Second)
+			}
+			continue
+		}
+		return nil
+	}
+	return lastErr
 }

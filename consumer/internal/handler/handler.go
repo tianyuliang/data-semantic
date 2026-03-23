@@ -105,16 +105,31 @@ func (h *DataUnderstandingHandler) Handle(ctx context.Context, message *sarama.C
 	// 验证必填字段
 	if aiResp.MessageId == "" {
 		logx.Errorf("消息缺少 message_id 字段（跳过）")
-		// 不可重试错误：记录失败日志后返回 nil（跳过消息）
 		_ = h.recordFailure(ctx, "", aiResp.FormViewId, "消息缺少 message_id 字段")
-		return nil // 格式错误不会恢复，跳过消息
+		return nil
+	}
+	if aiResp.FormViewId == "" {
+		logx.Errorf("消息缺少 form_view_id 字段（跳过）: message_id=%s", aiResp.MessageId)
+		_ = h.recordFailure(ctx, aiResp.MessageId, "", "消息缺少 form_view_id 字段")
+		return nil
 	}
 
-	// 判断消息类型：失败消息或成功消息
+	// 幂等性检查：如果该消息已成功处理过，直接跳过（防止重复消费产生冗余数据）
+	kafkaLogModel := kafka_message_log.NewKafkaMessageLogModelSqlx(h.svcCtx.DB)
+	alreadyProcessed, err := kafkaLogModel.ExistsSuccessByMessageId(ctx, aiResp.MessageId)
+	if err != nil {
+		logx.WithContext(ctx).Errorf("幂等性检查失败: message_id=%s, error=%v", aiResp.MessageId, err)
+		return err
+	}
+	if alreadyProcessed {
+		logx.WithContext(ctx).Infof("消息已处理过，跳过: message_id=%s, form_view_id=%s", aiResp.MessageId, aiResp.FormViewId)
+		return nil
+	}
+
 	isFailedMessage := aiResp.Status == "failed"
 
 	// 在事务中处理：数据保存 + 状态更新 + 消息日志（使用 INSERT IGNORE 避免并发问题）
-	err := h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
+	err = h.svcCtx.DB.TransactCtx(ctx, func(ctx context.Context, session sqlx.Session) error {
 		// 1. 根据消息状态处理
 		if isFailedMessage {
 			// 处理失败消息：记录失败日志 + 更新状态为 5（理解失败）

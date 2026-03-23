@@ -21,11 +21,9 @@ var configFile = flag.String("f", "etc/consumer.yaml", "配置文件路径")
 func main() {
 	flag.Parse()
 
-	// 加载配置
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 
-	// 初始化日志
 	logx.MustSetup(logx.LogConf{
 		ServiceName: c.Log.ServiceName,
 		Mode:        c.Log.Mode,
@@ -34,40 +32,49 @@ func main() {
 
 	logx.Infof("启动 %s 服务...", c.Name)
 
-	// 初始化服务上下文
 	svcCtx := svc.NewServiceContext(c)
 
-	// 创建Kafka消费者
-	brokers := c.MQ.Kafka.Brokers
-	groupID := c.MQ.Kafka.Group
 	topic := c.MQ.Kafka.Topic
-	username := c.MQ.Kafka.Username
-	password := c.MQ.Kafka.Password
 
-	consumer, err := logic.NewKafkaConsumerWithAuth(brokers, groupID, []string{topic}, username, password)
+	consumer, err := logic.NewKafkaConsumerWithAuth(
+		c.MQ.Kafka.Brokers, c.MQ.Kafka.Group, c.MQ.Kafka.Username, c.MQ.Kafka.Password,
+	)
 	if err != nil {
 		logx.Errorf("创建Kafka消费者失败: %v", err)
 		os.Exit(1)
 	}
+	defer func() {
+		if err := consumer.Close(); err != nil {
+			logx.Errorf("关闭Kafka消费者失败: %v", err)
+		}
+		logx.Info("Kafka消费者已关闭")
+	}()
 
-	// 注册消息处理器
 	dataUnderstandingHandler := handler.NewDataUnderstandingHandler(svcCtx)
 	consumer.RegisterHandler(topic, dataUnderstandingHandler)
 
-	// 创建context用于优雅关闭
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// 启动消费者（在goroutine中）
+	// 消费 Errors 通道，防止内部阻塞
 	go func() {
-		if err := consumer.Start(ctx); err != nil {
-			logx.Errorf("Kafka消费失败: %v", err)
+		for err := range consumer.Errors() {
+			logx.Errorf("Kafka消费者错误: %v", err)
 		}
 	}()
 
-	logx.Infof("Kafka消费者已启动，订阅主题: %s, 消费者组: %s", topic, groupID)
+	go func() {
+		if err := consumer.Start(ctx); err != nil {
+			if ctx.Err() != nil {
+				logx.Infof("Kafka消费者正常退出: %v", err)
+			} else {
+				logx.Errorf("Kafka消费者异常退出: %v", err)
+			}
+		}
+	}()
 
-	// 等待退出信号
+	logx.Infof("Kafka消费者已启动，订阅主题: %s, 消费者组: %s", topic, c.MQ.Kafka.Group)
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
