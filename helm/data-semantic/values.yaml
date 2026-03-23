@@ -1,0 +1,76 @@
+namespace: anyshare
+
+name:
+  api: data-semantic-api
+  consumer: data-semantic-consumer
+
+labels:
+  api:
+    deployment:
+      app: data-semantic-api
+      component: api
+    pod:
+      app: data-semantic-api
+      component: api
+    service:
+      app: data-semantic-api
+  consumer:
+    deployment:
+      app: data-semantic-consumer
+      component: consumer
+    pod:
+      app: data-semantic-consumer
+      component: consumer
+
+image:
+  api:
+    registry: acr.xxx.cn
+    repository: af/data-semantic-api
+    tag: "1.0.0-develop"
+    pullPolicy: IfNotPresent
+  consumer:
+    registry: acr.xxx.cn
+    repository: af/data-semantic-consumer
+    tag: "1.0.0-develop"
+    pullPolicy: IfNotPresent
+
+service:
+  api:
+    name: data-semantic-api
+    type: ClusterIP
+    port: 8888
+
+ingress:
+  enabled: false
+  className: class-443
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+  paths:
+    - path: /api/data-semantic
+      pathType: ImplementationSpecific
+    - path: /swagger/data-semantic
+      pathType: ImplementationSpecific
+
+api:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+consumer:
+  enabled: true
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+nodeSelector: []

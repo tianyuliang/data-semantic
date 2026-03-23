@@ -47,7 +47,8 @@
       "Bash(grep -n \"\\\\.Values\\\\.\" helm-chart/templates/deployment-*.yaml)",
       "Bash(goctl --version)",
       "WebSearch",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(docker build:*)"
     ]
   }
 }

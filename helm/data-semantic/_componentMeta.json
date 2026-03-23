@@ -1,0 +1,43 @@
+{
+    "conponentDefineType": "helm/service",
+    "name": "data-semantic",
+    "version": "1.0.0",
+    "configSchema": {
+        "title": "data-semantic",
+        "description": "组件配置定义",
+        "type": "object",
+        "properties": {
+            "api": {
+                "type": "object",
+                "title": "API 服务配置",
+                "properties": {
+                    "replicaCount": {
+                        "type": "number",
+                        "title": "副本数"
+                    }
+                }
+            },
+            "consumer": {
+                "type": "object",
+                "title": "Consumer 服务配置",
+                "properties": {
+                    "replicaCount": {
+                        "type": "number",
+                        "title": "副本数"
+                    }
+                }
+            }
+        }
+    },
+    "dependence": [
+        {
+            "name": "rds"
+        },
+        {
+            "name": "mq"
+        },
+        {
+            "name": "redis"
+        }
+    ]
+}
