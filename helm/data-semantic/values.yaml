@@ -23,16 +23,10 @@ labels:
       component: consumer
 
 image:
-  api:
-    registry: acr.xxx.cn
-    repository: af/data-semantic-api
-    tag: "1.0.0-develop"
-    pullPolicy: IfNotPresent
-  consumer:
-    registry: acr.xxx.cn
-    repository: af/data-semantic-consumer
-    tag: "1.0.0-develop"
-    pullPolicy: IfNotPresent
+  registry: acr.xxx.cn
+  repository: af/data-semantic
+  tag: "1.0.0-develop"
+  pullPolicy: IfNotPresent
 
 service:
   api:
