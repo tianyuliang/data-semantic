@@ -48,7 +48,8 @@
       "Bash(goctl --version)",
       "WebSearch",
       "Bash(go build:*)",
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "Bash(cmd //c \"taskkill /F /PID 34776\")"
     ]
   }
 }

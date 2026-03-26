@@ -14,7 +14,7 @@ API Service:
     http://{{ include "data-semantic.fullname" . }}-api.{{ include "data-semantic.namespace" . }}.svc.cluster.local:8888
 
   API Health Check:
-    http://{{ include "data-semantic.fullname" . }}-api.{{ include "data-semantic.namespace" . }}.svc.cluster.local:8888/api/v1/health
+    http://{{ include "data-semantic.fullname" . }}-api.{{ include "data-semantic.namespace" . }}.svc.cluster.local:8888/api/data-semantic/v1/health
 
 Consumer Service:
   The consumer service runs as a Deployment and consumes Kafka messages.

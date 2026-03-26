@@ -38,7 +38,7 @@ spec:
               fieldPath: status.podIP
         livenessProbe:
           httpGet:
-            path: /api/v1/health
+            path: /api/data-semantic/v1/health
             port: http
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -47,7 +47,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /api/v1/health
+            path: /api/data-semantic/v1/health
             port: http
           initialDelaySeconds: 10
           periodSeconds: 5

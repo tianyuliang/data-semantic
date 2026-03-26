@@ -92,7 +92,7 @@
 
 **目标**: 用户查询库表理解状态和版本号
 
-**API**: `GET /api/v1/data-semantic/:id/status`
+**API**: `GET /api/data-semantic/v1/:id/status`
 
 **独立测试**: 调用接口返回 `understand_status` 和 `current_version`
 
@@ -120,7 +120,7 @@
 
 **目标**: 用户点击"一键生成"启动 AI 分析，Kafka 消费者处理响应
 
-**API**: `POST /api/v1/data-semantic/:id/generate`
+**API**: `POST /api/data-semantic/v1/:id/generate`
 
 **独立测试**: 点击"一键生成"后状态变为"理解中"，Kafka 消费者处理后变为"待确认"
 
@@ -168,7 +168,7 @@
 
 **目标**: 用户查询字段语义补全数据
 
-**API**: `GET /api/v1/data-semantic/:id/fields`
+**API**: `GET /api/data-semantic/v1/:id/fields`
 
 **独立测试**: 状态 0 返回空，状态 2 返回临时表，状态 3 返回正式表
 
@@ -196,7 +196,7 @@
 
 **目标**: 用户编辑库表业务名称、字段业务名称、角色和描述
 
-**API**: `PUT /api/v1/data-semantic/:id/semantic-info`
+**API**: `PUT /api/data-semantic/v1/:id/semantic-info`
 
 **独立测试**: 修改后查询接口返回最新编辑的内容
 
@@ -218,7 +218,7 @@
 
 **目标**: 用户查看 AI 识别的业务对象和属性分组
 
-**API**: `GET /api/v1/data-semantic/:id/business-objects`
+**API**: `GET /api/data-semantic/v1/:id/business-objects`
 
 **独立测试**: 返回业务对象列表和属性嵌套结构
 
@@ -246,7 +246,7 @@
 
 **目标**: 用户修改业务对象名称、属性名称
 
-**API**: `PUT /api/v1/data-semantic/:id/business-objects`
+**API**: `PUT /api/data-semantic/v1/:id/business-objects`
 
 **独立测试**: 修改后查询接口返回更新后的结构
 
@@ -268,7 +268,7 @@
 
 **目标**: 用户将属性移动到其他业务对象
 
-**API**: `PUT /api/v1/data-semantic/:id/business-objects/attributes/move`
+**API**: `PUT /api/data-semantic/v1/:id/business-objects/attributes/move`
 
 **独立测试**: 属性移动后查询接口显示新的归属关系
 
@@ -290,7 +290,7 @@
 
 **目标**: 基于当前字段语义重新识别业务对象
 
-**API**: `POST /api/v1/data-semantic/:id/business-objects/regenerate`
+**API**: `POST /api/data-semantic/v1/:id/business-objects/regenerate`
 
 **独立测试**: 重新识别后创建新版本记录，旧版本保留
 
@@ -315,7 +315,7 @@
 
 **目标**: 将临时表数据同步到正式表
 
-**API**: `POST /api/v1/data-semantic/:id/submit`
+**API**: `POST /api/data-semantic/v1/:id/submit`
 
 **独立测试**: 提交后正式表有数据，状态变为"已完成"
 
@@ -346,7 +346,7 @@
 
 **目标**: 删除业务对象临时数据
 
-**API**: `DELETE /api/v1/data-semantic/:id/business-objects`
+**API**: `DELETE /api/data-semantic/v1/:id/business-objects`
 
 **独立测试**: 删除后临时表数据被逻辑删除，状态根据正式表数据保持或回退
 

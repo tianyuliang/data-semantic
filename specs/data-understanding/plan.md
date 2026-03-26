@@ -702,7 +702,7 @@ type (
 )
 
 @server(
-    prefix: /api/v1/data-semantic
+    prefix: /api/data-semantic/v1
     group: data_semantic
 )
 service data-semantic-api {

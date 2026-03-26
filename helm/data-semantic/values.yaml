@@ -1,10 +1,13 @@
 namespace: anyshare
-
-name:
-  api: data-semantic-api
-  consumer: data-semantic-consumer
+replicaCount: 1
 
 labels:
+  deployment:
+    name: data-semantic-deployment
+  pod:
+    app: data-semantic-pod
+  service:
+    app: data-semantic-service
   api:
     deployment:
       app: data-semantic-api
@@ -22,42 +25,91 @@ labels:
       app: data-semantic-consumer
       component: consumer
 
+name: data-semantic-deployment
+
 image:
   registry: acr.xxx.cn
   repository: af/data-semantic
   tag: "1.0.0-develop"
   pullPolicy: IfNotPresent
 
+nodeSelector: []
+
 service:
-  api:
-    name: data-semantic-api
-    type: ClusterIP
-    port: 8888
+  name: data-semantic
+  type: ClusterIP
+  port: 8888
+  telemetry:
+    log:
+      enabled: false
+      endpoint: http://feed-ingester-service:13031/api/feed_ingester/v1/jobs/job-log/events
+      level: info
+    trace:
+      enabled: false
+      endpoint: http://feed-ingester-service:13031/api/feed_ingester/v1/jobs/job-trace/events
 
-ingress:
-  enabled: false
-  className: class-443
-  annotations:
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
-  paths:
-    - path: /api/data-semantic
-      pathType: ImplementationSpecific
-    - path: /swagger/data-semantic
-      pathType: ImplementationSpecific
+ports:
+  name: server-port
+  containerPort: 8888
 
-api:
-  replicaCount: 1
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
+depServices:
+  class-443:
+    ingressClass: class-443
+  rds:
+    admin_key: ''
+    host: mariadb-mariadb-master.resource.svc.cluster.local
+    hostRead: 'mariadb-mariadb-master.resource.svc.cluster.local'
+    port: 3330
+    portRead: 3330
+    source_type: internal
+    type: MariaDB
+    user: 'anyshare'
+    password: ''
+    database: 'af_main'
+  hydra:
+    administrativeHost: hydra-admin
+    administrativePort: 4445
+  user-management:
+    privateHost: user-management-private
+    privatePort: 30980
+  af-sailor-service:
+    protocol: http
+    host: af-sailor-agent
+    port: 9595
+  mq:
+    auth:
+      mechanism: 'PLAIN'
+      username: 'kafkaclient'
+      password: ''
+    mqHost: 'kafka-headless.resource'
+    mqLookupdHost: ""
+    mqLookupdPort: 0
+    mqPort: 9097
+    mqType: kafka
+  redis:
+    connectInfo:
+      masterGroupName: mymaster
+      password: ''
+      sentinelHost: proton-redis-proton-redis-sentinel.resource.svc.cluster.local
+      sentinelPassword: ''
+      sentinelPort: 26379
+      sentinelUsername: root
+      username: root
+    connectType: sentinel
+    sourceType: internal
+    database: 0
+
+resources:
+  requests:
+    cpu: 0.1
+    memory: 100Mi
+  limits:
+    cpu: 500m
+    memory: 1024Mi
 
 consumer:
   enabled: true
+  name: data-semantic-consumer
   replicaCount: 1
   resources:
     limits:
@@ -66,5 +118,3 @@ consumer:
     requests:
       cpu: 100m
       memory: 128Mi
-
-nodeSelector: []

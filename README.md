@@ -150,7 +150,7 @@ The API will be available at `http://localhost:8888`
 ### Base URL
 
 ```
-/api/v1/data-semantic
+/api/data-semantic/v1
 ```
 
 ### Authentication
@@ -189,7 +189,7 @@ Authorization: Bearer <your-jwt-token>
 ### Example: Generate Understanding
 
 ```bash
-curl -X POST http://localhost:8888/api/v1/data-semantic/{id}/generate \
+curl -X POST http://localhost:8888/api/data-semantic/v1/{id}/generate \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json"
 ```

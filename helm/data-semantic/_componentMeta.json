@@ -7,29 +7,50 @@
         "description": "组件配置定义",
         "type": "object",
         "properties": {
-            "api": {
+            "resources": {
                 "type": "object",
-                "title": "API 服务配置",
+                "title": "容器资源控制",
                 "properties": {
-                    "replicaCount": {
-                        "type": "number",
-                        "title": "副本数"
+                    "requests": {
+                        "type": "object",
+                        "description": "容器运行需要的最小资源分配",
+                        "properties": {
+                            "memory": {
+                                "type": "string",
+                                "title": "内存"
+                            },
+                            "cpu": {
+                                "type": "string",
+                                "title": "cpu"
+                            }
+                        }
+                    },
+                    "limits": {
+                        "type": "object",
+                        "description": "容器运行最大资源限制",
+                        "properties": {
+                            "memory": {
+                                "type": "string",
+                                "title": "内存"
+                            },
+                            "cpu": {
+                                "type": "string",
+                                "title": "cpu"
+                            }
+                        }
                     }
                 }
             },
-            "consumer": {
-                "type": "object",
-                "title": "Consumer 服务配置",
-                "properties": {
-                    "replicaCount": {
-                        "type": "number",
-                        "title": "副本数"
-                    }
-                }
+            "replicaCount": {
+                "type": "number",
+                "title": "服务副本数"
             }
         }
     },
     "dependence": [
+        {
+            "name": "af-dbo-dm-pre"
+        },
         {
             "name": "rds"
         },
@@ -38,6 +59,9 @@
         },
         {
             "name": "redis"
+        },
+        {
+            "name": "class-443"
         }
     ]
 }

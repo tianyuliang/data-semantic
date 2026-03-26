@@ -150,7 +150,7 @@ make run
 ### 基础 URL
 
 ```
-/api/v1/data-semantic
+/api/data-semantic/v1
 ```
 
 ### 认证
@@ -189,7 +189,7 @@ Authorization: Bearer <your-jwt-token>
 ### 示例：一键生成理解数据
 
 ```bash
-curl -X POST http://localhost:8888/api/v1/data-semantic/{id}/generate \
+curl -X POST http://localhost:8888/api/data-semantic/v1/{id}/generate \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json"
 ```

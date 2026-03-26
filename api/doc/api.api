@@ -20,7 +20,7 @@ import "data_semantic/data_semantic.api"
 // 公开接口 (无需鉴权)
 // ============================================
 @server (
-	prefix: /api/v1
+	prefix: /api/data-semantic/v1
 )
 service api {
 	// 健康检查

@@ -260,7 +260,7 @@ type (
 // data_semantic service 定义
 // ============================================
 @server (
-	prefix: /api/v1/data-semantic
+	prefix: /api/data-semantic/v1
 	group:  data_semantic
 	middleware: JWTAuth
 )

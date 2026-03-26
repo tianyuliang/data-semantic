@@ -16,7 +16,7 @@ components:
       name: Authorization
       description: JWT 认证令牌，格式: Bearer {token}
 paths:
-  /api/v1/data-semantic/{id}/business-objects:
+  /api/data-semantic/v1/{id}/business-objects:
     get:
       summary: 查询业务对象识别结果
       operationId: dataSemanticGetBusinessObjects
@@ -191,7 +191,7 @@ paths:
                   success:
                     type: boolean
                     description: 是否成功
-  /api/v1/data-semantic/{id}/business-objects/attributes/move:
+  /api/data-semantic/v1/{id}/business-objects/attributes/move:
     put:
       summary: 调整属性归属业务对象
       operationId: dataSemanticMoveAttribute
@@ -232,7 +232,7 @@ paths:
                   business_op_id:
                     type: string
                     description: 业务对象ID
-  /api/v1/data-semantic/{id}/business-objects/regenerate:
+  /api/data-semantic/v1/{id}/business-objects/regenerate:
     post:
       summary: 重新识别业务对象
       operationId: dataSemanticRegenerateBusinessObjects
@@ -255,7 +255,7 @@ paths:
                   understand_status:
                     type: integer
                     description: 理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败
-  /api/v1/data-semantic/{id}/fields:
+  /api/data-semantic/v1/{id}/fields:
     get:
       summary: 查询字段语义补全数据
       operationId: dataSemanticGetFields
@@ -333,7 +333,7 @@ paths:
                         field_description:
                           type: string
                           description: 字段描述
-  /api/v1/data-semantic/{id}/generate:
+  /api/data-semantic/v1/{id}/generate:
     post:
       summary: 一键生成理解数据
       operationId: dataSemanticGenerateUnderstanding
@@ -393,7 +393,7 @@ paths:
                   understand_status:
                     type: integer
                     description: 理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败
-  /api/v1/data-semantic/{id}/semantic-info:
+  /api/data-semantic/v1/{id}/semantic-info:
     put:
       summary: 保存库表信息补全数据
       operationId: dataSemanticSaveSemanticInfo
@@ -460,7 +460,7 @@ paths:
                   code:
                     type: integer
                     description: 响应码: 0-成功
-  /api/v1/data-semantic/{id}/status:
+  /api/data-semantic/v1/{id}/status:
     get:
       summary: 查询库表理解状态
       operationId: dataSemanticGetStatus
@@ -483,7 +483,7 @@ paths:
                   understand_status:
                     type: integer
                     description: 理解状态: 1-待理解, 2-待确认, 3-已完成, 5-理解失败
-  /api/v1/data-semantic/{id}/submit:
+  /api/data-semantic/v1/{id}/submit:
     post:
       summary: 提交确认理解数据
       operationId: dataSemanticSubmitUnderstanding
@@ -506,7 +506,7 @@ paths:
                   success:
                     type: boolean
                     description: 是否成功
-  /api/v1/health:
+  /api/data-semantic/v1/health:
     get:
       summary: 健康检查
       operationId: healthCheck

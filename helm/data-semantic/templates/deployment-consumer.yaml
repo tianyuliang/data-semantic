@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.name.consumer }}
+  name: {{ .Values.consumer.name }}
   namespace: {{ .Values.namespace }}
   labels:
     {{- toYaml .Values.labels.consumer.deployment | nindent 4}}
@@ -41,7 +41,7 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: {{ .Values.name.consumer }}-cm
+          name: {{ .Values.consumer.name }}-cm
     {{- with .Values.nodeSelector }}
       nodeSelector:
       {{- range .}}
